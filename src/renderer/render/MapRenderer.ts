@@ -540,9 +540,15 @@ export class MapRenderer {
    * 用于建成/晋阶/资源大变动等"有反馈"的瞬间。缺坐标/越界/destroyed 时静默 no-op。
    * 多条可并存；走视口 mask，避免在 HUD/面板上飘。
    */
+  private static readonly MAX_FLOATS = 6;
   floatTextAtTile(gridX: number, gridY: number, text: string, colorHex: number): void {
     if (this.destroyed || !text) return;
     if (!Number.isFinite(gridX) || !Number.isFinite(gridY)) return;
+    // DeepSeek 复审：并发上限，防一 tick 内多座同时完工堆积过多 tween 卡帧——超限丢最早的。
+    while (this.floatLabels.length >= MapRenderer.MAX_FLOATS) {
+      const oldest = this.floatLabels.shift();
+      if (oldest) { oldest.tween.stop(); oldest.t.destroy(); }
+    }
     const cx = this.originX + gridX * TILE_SIZE + TILE_SIZE / 2;
     const cy = this.originY + gridY * TILE_SIZE;
     const t = this.scene.add.text(cx, cy, text, {
@@ -576,6 +582,8 @@ export class MapRenderer {
    * 4 个 graphics layer 都跟着移动；hover 在调用方下一次 pointermove 自然刷新。
    */
   recenter(): void {
+    // DeepSeek 复审：destroy 后若仍有 resize/折叠事件触达，提前返回（虽然各层已 ?. + 数组清空，显式守卫更稳）
+    if (this.destroyed) return;
     // v0.9：先刷 mask（视口可能因折叠变化），再算 origin
     this.refreshViewportMask();
     const cam = this.scene.cameras.main;

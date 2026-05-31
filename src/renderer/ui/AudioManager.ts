@@ -60,13 +60,22 @@ export class AudioManager {
     // 切歌：停旧
     if (this.currentBgm) { this.currentBgm.stop(); this.currentBgm.destroy(); this.currentBgm = null; }
     if (!this.has(key)) return; // 资产未就位 → 静音降级
-    this.currentBgm = this.scene.sound.add(key, { loop: true, volume: 0.5 });
-    this.currentBgm.play();
+    // DeepSeek 复审：play() 在音频上下文被锁/解码失败时可能抛异常——包 try-catch，宁可静音不崩游戏。
+    try {
+      this.currentBgm = this.scene.sound.add(key, { loop: true, volume: 0.5 });
+      this.currentBgm.play();
+    } catch {
+      if (this.currentBgm) { this.currentBgm.destroy(); this.currentBgm = null; }
+    }
   }
 
   private playSfx(key: string, volume: number): void {
     if (this.destroyed || !this.has(key)) return;
-    this.scene.sound.play(key, { volume });
+    try {
+      this.scene.sound.play(key, { volume });
+    } catch {
+      /* 音频上下文异常时静音降级，不崩 */
+    }
   }
 
   destroy(): void {

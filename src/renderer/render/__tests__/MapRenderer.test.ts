@@ -689,4 +689,20 @@ describe('MapRenderer.floatTextAtTile (Phase4 Juice)', () => {
     renderer.destroy();
     expect(() => renderer.floatTextAtTile(0, 0, 'x', 0xffffff)).not.toThrow();
   });
+
+  it('caps concurrent float labels at 6, dropping the oldest (DeepSeek 复审)', () => {
+    const acc = new WorldMapAccessor(makeMap(8, 8));
+    const scene = makeFakeScene();
+    const renderer = new MapRenderer(scene, acc);
+    const texts = (scene as unknown as { _texts: FakeText[] })._texts;
+    const before = texts.length;
+    for (let i = 0; i < 9; i++) renderer.floatTextAtTile(i % 8, 0, `t${i}`, 0xffffff);
+    // 9 次创建，但活跃上限 6；最早 3 个应被 destroy
+    const created = texts.slice(before);
+    const destroyedCount = created.filter(t => t.destroy.mock.calls.length > 0).length;
+    expect(destroyedCount).toBe(3);
+    // destroy() 把剩余 6 个也清掉，无泄漏
+    renderer.destroy();
+    expect(created.every(t => t.destroy.mock.calls.length > 0)).toBe(true);
+  });
 });

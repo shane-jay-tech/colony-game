@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
 import type { Toast } from './Toast';
-import { pickJitHint, type JitTrigger } from '../data/jitHints';
+import { JIT_HINTS, type JitTrigger } from '../data/jitHints';
 
 /**
  * JitHintManager（Phaser 层）——把 JIT 即时提示接到游戏事件上。
@@ -19,9 +19,11 @@ export class JitHintManager {
 
   private fire(trigger: JitTrigger): void {
     if (this.destroyed) return;
-    const hint = pickJitHint(trigger, this.store.getSeenJitHints());
-    if (!hint) return; // 已弹过或无此提示
-    this.store.markJitHintSeen(trigger);
+    // DeepSeek 复审：用 markJitHintSeen 的返回值做唯一去重闸（首次标记才弹），
+    // 避免"先 pick 后 mark"两段式在理论上重复弹；事件派发是同步的，这里更简明也更稳。
+    if (!this.store.markJitHintSeen(trigger)) return; // 早已弹过
+    const hint = JIT_HINTS[trigger];
+    if (!hint) return;
     const toast = this.scene.registry.get('toast') as Toast | undefined;
     toast?.show(hint.text, 'info', 5200);
   }
