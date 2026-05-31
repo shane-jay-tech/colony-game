@@ -110,6 +110,8 @@ export interface GameState {
   /** pendingEventId 被设上时的 currentDay；用于计算 timeout */
   pendingEventDayStart: number | null;
   tutorialStepId: string | null;
+  /** Phase4 新手引导：已弹过的 JIT 即时提示 trigger（持久化，永不重复） */
+  seenJitHints: string[];
   lastSeenTimestamp: number;
   paused: boolean;
   speed: 0 | 1 | 2 | 3;
@@ -189,6 +191,7 @@ function makeDefaultState(): GameState {
     pendingEventDayStart: null,
     // Slice G 教程：新建游戏默认显示欢迎引导；存档读回的 state 会覆盖此值
     tutorialStepId: 'tut_welcome',
+    seenJitHints: [],
     lastSeenTimestamp: 0,
     paused: false,
     speed: 1,
@@ -301,6 +304,15 @@ export class GameStore {
     if (this.state.tutorialStepId === id) return;
     this.state.tutorialStepId = id;
     this.emitter.emit(STATE_EVENTS.TUTORIAL_STEP_CHANGED, id);
+  }
+
+  // Phase4 新手引导：JIT 即时提示去重（已弹过的 trigger 持久化）
+  getSeenJitHints(): ReadonlySet<string> { return new Set(this.state.seenJitHints); }
+  /** 标记某 JIT trigger 已弹过。返回 true=本次首标记（调用方据此决定是否真的弹），false=早已弹过。 */
+  markJitHintSeen(trigger: string): boolean {
+    if (this.state.seenJitHints.includes(trigger)) return false;
+    this.state.seenJitHints.push(trigger);
+    return true;
   }
 
   // v0.9 panel collapse — MapRenderer 算视口、BuildPanel/CourtPanel 自渲染

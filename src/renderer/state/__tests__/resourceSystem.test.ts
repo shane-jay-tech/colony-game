@@ -16,6 +16,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     pendingEventId: null,
     pendingEventDayStart: null,
     tutorialStepId: null,
+    seenJitHints: [],
     lastSeenTimestamp: 0,
     paused: false,
     speed: 1,

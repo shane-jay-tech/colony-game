@@ -14,6 +14,7 @@ import { Legend } from '../ui/Legend';
 import { ZoomControl } from '../ui/ZoomControl';
 import { StoryBar } from '../ui/StoryBar';
 import { AudioManager } from '../ui/AudioManager';
+import { JitHintManager } from '../ui/JitHintManager';
 import type { MapRenderer } from '../render/MapRenderer';
 
 /**
@@ -42,6 +43,7 @@ export class UIScene extends Phaser.Scene {
   private zoomControl: ZoomControl | null = null;
   private storyBar: StoryBar | null = null;
   private audioManager: AudioManager | null = null;
+  private jitHintManager: JitHintManager | null = null;
   private store: GameStore | null = null;
 
   // Phase1：国格软认可 / 登顶祝贺（晋阶走 Toast；降格由 CrisisModal 通告，不重复 Toast）
@@ -107,6 +109,8 @@ export class UIScene extends Phaser.Scene {
     this.storyBar = new StoryBar(this, store);
     // Phase4：音频引擎（动态 BGM + 音效；音频资产未就位时静音降级）
     this.audioManager = new AudioManager(this, store);
+    // Phase4：JIT 即时提示（首次遇到情境弹一句教学；toast 已在上方注册）
+    this.jitHintManager = new JitHintManager(this, store);
 
     // Phase1：国格晋阶 / 登顶 → Toast 软认可
     this.store = store;
@@ -194,6 +198,7 @@ export class UIScene extends Phaser.Scene {
     this.tutorialModal?.destroy();
     this.storyBar?.destroy();
     this.audioManager?.destroy();
+    this.jitHintManager?.destroy();
     this.toast?.destroy();
     this.registry.set('toast', undefined);
     this.registry.set('diplomacyPanel', undefined);
@@ -208,6 +213,7 @@ export class UIScene extends Phaser.Scene {
     this.tutorialModal = null;
     this.storyBar = null;
     this.audioManager = null;
+    this.jitHintManager = null;
     this.toast = null;
   }
 }

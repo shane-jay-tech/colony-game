@@ -16,6 +16,7 @@ function makeGameState(): GameState {
     pendingEventId: null,
     pendingEventDayStart: null,
     tutorialStepId: null,
+    seenJitHints: [],
     lastSeenTimestamp: 12345678,
     paused: false,
     speed: 1,

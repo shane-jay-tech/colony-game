@@ -30,6 +30,7 @@ export interface SerializedSave {
     pendingEventDayStart?: number | null;
     productionCarry?: Partial<Record<ResourceId, number>>;
     tutorialStepId: string | null;
+    seenJitHints?: string[];
     lastSeenTimestamp: number;
     currentDay: number;
     rngSeed: number;
@@ -197,6 +198,7 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       pendingEventDayStart: state.pendingEventDayStart,
       productionCarry: state.productionCarry,
       tutorialStepId: state.tutorialStepId,
+      seenJitHints: state.seenJitHints,
       lastSeenTimestamp: state.lastSeenTimestamp,
       currentDay: state.currentDay,
       rngSeed: state.rngSeed,
@@ -289,6 +291,7 @@ export function deserialize(blob: unknown): GameState {
     pendingEventDayStart: s.pendingEventDayStart ?? null,
     productionCarry: s.productionCarry ?? {},
     tutorialStepId: s.tutorialStepId ?? null,
+    seenJitHints: Array.isArray(s.seenJitHints) ? s.seenJitHints.filter((x): x is string => typeof x === 'string') : [],
     lastSeenTimestamp: s.lastSeenTimestamp ?? 0,
     currentDay: s.currentDay ?? 0,
     rngSeed,

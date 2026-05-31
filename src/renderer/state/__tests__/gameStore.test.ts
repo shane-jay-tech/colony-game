@@ -455,6 +455,7 @@ describe('GameStore.replaceState / setLastSeenNow', () => {
       pendingEventId: null,
       pendingEventDayStart: null,
       tutorialStepId: null,
+      seenJitHints: [],
       lastSeenTimestamp: 0,
       paused: false,
       speed: 2 as const,
