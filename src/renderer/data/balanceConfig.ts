@@ -15,30 +15,57 @@
 
 import type { ResourceId } from './resourceRegistry';
 
-export const BALANCE = {
+/** 平衡数值表结构（沙盒 BALANCE 与故事 STORY_BALANCE 共用，便于双表分离）。 */
+export interface BalanceConfig {
+  startingResources: Partial<Record<ResourceId, number>>;
+  time: { msPerDay: Record<1 | 2 | 3, number> };
+  population: {
+    baseHousingCap: number;
+    growthRatePerDay: number;
+    minDailyGrowth: number;
+    starveRatePerDay: number;
+  };
+}
+
+export const BALANCE: BalanceConfig = {
   /** 新局起始资源（main.ts 据此发放；cloth/bronze/rite 起始为 0，靠建筑/国策积累） */
   startingResources: {
     wood: 80,
     stone: 30,
     people: 20,
     grain: 50,
-  } as Partial<Record<ResourceId, number>>,
-
+  },
   /** 时间尺度：每"游戏日"对应多少真实毫秒。仅影响 wall-clock 播放快慢，不改任何按"天"计的平衡。
    *  1x=250ms（4 天/秒；1 年=120 天=30 秒；8h≈960 年）——配人口增长，前 10-20 分钟逐级晋阶、8h 可登顶。 */
   time: {
-    msPerDay: { 1: 250, 2: 125, 3: 83 } as Record<1 | 2 | 3, number>,
+    msPerDay: { 1: 250, 2: 125, 3: 83 },
   },
-
   /** 人口增长（state/population.ts 消费）。people 是核心资源，有余粮且未满住房上限时自然增长。 */
   population: {
-    /** 住房上限基数（无任何民居时的兜底容纳量） */
     baseHousingCap: 15,
-    /** 日增速率（按当前人口复利）。people×rate */
     growthRatePerDay: 0.004,
-    /** 日增下限（人口很少时也给固定增量，避免开局复利过慢） */
     minDailyGrowth: 0.05,
-    /** 饥荒（存粮≤0）日减速率。people×rate */
     starveRatePerDay: 0.01,
   },
-} as const;
+};
+
+/**
+ * Phase2 §8.1 双表分离骨架：故事模式戏剧化数值表（drama）。
+ * 故事模式用本表**覆盖**沙盒 BALANCE，通关后恢复——绝不在共享代码里改数值。
+ * ⚠️ 本轮先与沙盒同值占位（仅起始资源略宽以支撑剧情展开），真正的"戏剧化数值"（刻意粮荒等）留后续填。
+ */
+export const STORY_BALANCE: BalanceConfig = {
+  startingResources: { wood: 100, stone: 40, people: 30, grain: 80 },
+  time: { msPerDay: { 1: 250, 2: 125, 3: 83 } },
+  population: {
+    baseHousingCap: 18,
+    growthRatePerDay: 0.004,
+    minDailyGrowth: 0.05,
+    starveRatePerDay: 0.01,
+  },
+};
+
+/** 按模式取数值表（故事用 drama 覆盖；沙盒用裸 BALANCE）。 */
+export function getBalanceConfig(mode: 'sandbox' | 'story'): BalanceConfig {
+  return mode === 'story' ? STORY_BALANCE : BALANCE;
+}

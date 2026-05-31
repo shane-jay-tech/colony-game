@@ -444,3 +444,39 @@ describe('Phase1 新字段存档（国格/低谷/模式）', () => {
     expect(restored.gradeReached).toBe(4);
   });
 });
+
+describe('Phase2 故事 storyFlags 存档', () => {
+  it('story 存档 round-trip 保真', () => {
+    const s = makeGameState();
+    s.mode = 'story';
+    s.crisisCount = 2;
+    s.vassalOf = 'npc_jin';
+    s.storyFlags = {
+      chapter: 1, unifyPath: 'cultural', unified: true,
+      powerAxis: 40, resourceAxis: -30, storyEventsTriggered: ['evt_a'],
+    };
+    const r = deserialize(serialize(s));
+    expect(r.mode).toBe('story');
+    expect(r.crisisCount).toBe(2);
+    expect(r.vassalOf).toBe('npc_jin');
+    expect(r.storyFlags).not.toBeNull();
+    expect(r.storyFlags?.chapter).toBe(1);
+    expect(r.storyFlags?.unifyPath).toBe('cultural');
+    expect(r.storyFlags?.powerAxis).toBe(40);
+    expect(r.storyFlags?.resourceAxis).toBe(-30);
+    expect(r.storyFlags?.storyEventsTriggered).toEqual(['evt_a']);
+  });
+
+  it('sandbox 存档 storyFlags=null（即使误带 storyFlags 也按 mode 归 null）', () => {
+    const blob = {
+      schemaVersion: SAVE_SCHEMA_VERSION, savedAt: 0,
+      state: {
+        resources: {}, buildings: [], policies: [], activeModifiers: [], activeDecrees: [],
+        eventHistory: [], tutorialStepId: null, lastSeenTimestamp: 0, currentDay: 0, rngSeed: 1,
+        speed: 1 as const, mode: 'sandbox' as const,
+        storyFlags: { chapter: 3, powerAxis: 50 }, // 误带：sandbox 应忽略
+      },
+    };
+    expect(deserialize(blob).storyFlags).toBeNull();
+  });
+});

@@ -553,9 +553,13 @@ export class IntroScene extends Phaser.Scene {
     const store = this.registry.get('store') as GameStore | undefined;
     if (store) {
       store.addModifier(structuredClone(identity.startingModifier));
-      // Phase1：把 ModeSelectScene 选定的模式落进 state（缺省沙盒）
+      // Phase1/2：按 ModeSelectScene 选定的模式落进 state
       const mode = this.registry.get('gameMode');
-      store.setMode(mode === 'story' ? 'story' : 'sandbox');
+      if (mode === 'story') {
+        store.startStoryMode(); // 设 mode='story' + 初始化 storyFlags（序章态）
+      } else {
+        store.setMode('sandbox');
+      }
       // Phase1：每局随机刷 NPC 阵容（池中选 4，含 ≥1 蛮夷）——不同局不同邻邦
       store.startNewGameNpcs(Math.floor(Math.random() * 0x7fffffff));
     }

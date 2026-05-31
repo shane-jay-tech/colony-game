@@ -57,6 +57,19 @@ export class UIScene extends Phaser.Scene {
     const hostile = p.kind === 'harass_player' || p.kind === 'assault_player';
     this.toast?.show(p.text, hostile ? 'error' : 'info', hostile ? 3600 : 2600);
   };
+  // Phase2：史官氛围评语（双轴跨档）→ 轻 Toast
+  private onStoryNarration = (payload: unknown): void => {
+    const p = (payload && typeof payload === 'object') ? payload as { text?: string } : {};
+    if (p.text) this.toast?.show(p.text, 'info', 3200);
+  };
+  // Phase2：章节切换 → 长 Toast 当章节引子 banner
+  private onStoryChapter = (payload: unknown): void => {
+    const p = (payload && typeof payload === 'object') ? payload as { def?: { title?: string; subtitle?: string; intro?: string } } : {};
+    const def = p.def;
+    if (!def) return;
+    const head = def.subtitle ? `${def.title}　${def.subtitle}` : (def.title ?? '');
+    this.toast?.show(`${head}\n${def.intro ?? ''}`, 'info', 6000);
+  };
 
   constructor() {
     super({ key: 'UIScene', active: false });
@@ -91,6 +104,8 @@ export class UIScene extends Phaser.Scene {
     store.on(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
     store.on(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
     store.on(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
+    store.on(STATE_EVENTS.STORY_NARRATION, this.onStoryNarration);
+    store.on(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onStoryChapter);
     // v1.0 #5：缩放工具条。MapRenderer 由 GameScene 在 create 时注册到 registry，
     // ZoomControl 通过 lazy getter 拿引用——避免 UIScene 比 GameScene 先 create 时拿到 null。
     this.zoomControl = new ZoomControl(this, store, () => {
@@ -154,6 +169,8 @@ export class UIScene extends Phaser.Scene {
       this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
       this.store.off(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
       this.store.off(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
+      this.store.off(STATE_EVENTS.STORY_NARRATION, this.onStoryNarration);
+      this.store.off(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onStoryChapter);
       this.store = null;
     }
     this.hud?.destroy();

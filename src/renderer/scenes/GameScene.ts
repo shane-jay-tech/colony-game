@@ -8,6 +8,8 @@ import type { Toast } from '../ui/Toast';
 import { BuildingPopover } from '../ui/BuildingPopover';
 import { TimeSystem } from '../state/timeSystem';
 import { FONTS, UI } from '../ui/palette';
+import { DYNASTY_TRANSITION_NARRATION } from '../data/storyChapters';
+import type { TransitionData } from './TransitionScene';
 
 /**
  * GameScene：主舞台。
@@ -74,6 +76,25 @@ export class GameScene extends Phaser.Scene {
     const b = args[0] as BuildingInstance | undefined;
     if (b && b.position) this.mapRenderer?.pulseBuildingCompleted(b);
   };
+
+  // Phase2：序章统一 → 暂停游戏 + UI → 播建朝跳变旁白 → 推进第一章 → 恢复
+  private storyUnifiedListener = (): void => {
+    const store = this.store;
+    if (!store) return;
+    this.scene.pause();
+    // 只在确实暂停了 UIScene 时才在结束后 resume（避免 resume 一个未暂停的场景）
+    const uiWasActive = this.scene.isActive('UIScene');
+    if (uiWasActive) this.scene.pause('UIScene');
+    const data: TransitionData = {
+      lines: DYNASTY_TRANSITION_NARRATION,
+      onDone: () => {
+        store.advanceStoryChapter(1);
+        this.scene.resume();
+        if (uiWasActive) this.scene.resume('UIScene');
+      },
+    };
+    this.scene.launch('TransitionScene', data);
+  };
   private escHandler = (): void => { this.buildMode?.cancel(); };
 
   constructor() {
@@ -117,6 +138,8 @@ export class GameScene extends Phaser.Scene {
     store.on(STATE_EVENTS.PANEL_COLLAPSED_CHANGED, this.panelCollapsedListener);
     // v0.9：建筑升级完成 → 走完成脉冲（与 BUILDING_COMPLETED 同款金边）
     store.on(STATE_EVENTS.BUILDING_UPGRADED, this.upgradedListener);
+    // Phase2：序章统一 → 建朝跳变过场 → 推进第一章
+    store.on(STATE_EVENTS.STORY_UNIFIED, this.storyUnifiedListener);
 
     // BuildMode 取消时清掉 hover 预览
     this.offBuildModeChange = buildMode.onChange((def) => {
@@ -384,6 +407,7 @@ export class GameScene extends Phaser.Scene {
       this.store.off(STATE_EVENTS.STATE_REPLACED, this.replacedListener);
       this.store.off(STATE_EVENTS.PANEL_COLLAPSED_CHANGED, this.panelCollapsedListener);
       this.store.off(STATE_EVENTS.BUILDING_UPGRADED, this.upgradedListener);
+      this.store.off(STATE_EVENTS.STORY_UNIFIED, this.storyUnifiedListener);
     }
     if (this.offBuildModeChange) {
       this.offBuildModeChange();

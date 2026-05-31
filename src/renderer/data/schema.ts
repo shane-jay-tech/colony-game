@@ -155,10 +155,21 @@ export interface BadgeRule {
 
 export type PolicyBranch = '农桑' | '工坊' | '礼制' | '保甲' | '外交' | '学问';
 
+/**
+ * Phase2 隐性双轴增量：抉择（国策/朝令/事件选项）落地时悄悄推故事双轴（仅 story 模式生效）。
+ * power: 权力轴（负=集权，正=还权）；production: 生产资料轴（负=私有，正=公有）。未填=不推。
+ */
+export interface StoryAxisDelta {
+  power?: number;
+  production?: number;
+}
+
 export interface PolicyNode {
   id: string;
   name: string;
   branch: PolicyBranch;
+  /** Phase2：采纳时推隐性双轴（故事模式专用，沙盒忽略） */
+  storyAxisDelta?: StoryAxisDelta;
   /** 树画布坐标 */
   x: number;
   y: number;
@@ -197,6 +208,8 @@ export interface CourtEventChoice {
   effects: ModifierEffect[];
   /** 移除已激活的某些 modifier id */
   removeEffects: string[];
+  /** Phase2：选此项时推隐性双轴（故事模式专用，沙盒忽略） */
+  storyAxisDelta?: StoryAxisDelta;
 }
 
 export interface CourtEventContext {
@@ -242,6 +255,8 @@ export interface RoyalDecree {
   unlockCondition: { type: string; value: number }[];
   /** v1.0 #2：链路前置——必须先完成此 decree id 才能采纳本条（HOI4-style 国策树灵感的轻量版） */
   chainPrev?: string;
+  /** Phase2：采纳时推隐性双轴（故事模式专用，沙盒忽略） */
+  storyAxisDelta?: StoryAxisDelta;
   stages: DecreeStage[];
 }
 

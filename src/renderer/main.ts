@@ -4,6 +4,7 @@ import { BootScene } from './scenes/BootScene';
 import { ModeSelectScene } from './scenes/ModeSelectScene';
 import { IntroScene } from './scenes/IntroScene';
 import { GameScene } from './scenes/GameScene';
+import { TransitionScene } from './scenes/TransitionScene';
 import { UIScene } from './scenes/UIScene';
 import { COLORS } from './ui/palette';
 import { GameStore } from './state/gameStore';
@@ -47,7 +48,7 @@ const config: Phaser.Types.Core.GameConfig = {
     target: 60,
     forceSetTimeOut: false,
   },
-  scene: [BootScene, ModeSelectScene, IntroScene, GameScene, UIScene],
+  scene: [BootScene, ModeSelectScene, IntroScene, GameScene, TransitionScene, UIScene],
 };
 
 // 实例化 Phaser.Game。BootScene autostart，其余 scene 由 BootScene.create 在 part 2 启动。

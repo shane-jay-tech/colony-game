@@ -32,11 +32,13 @@ import {
   CRISIS_GRACE_DAYS, CRISIS_RECOVER_DAYS, VASSAL_REDEEM_GOLD, type CrisisKind,
 } from './crisis';
 import { computePopulationGrowth, sumHousingCapacity } from './population';
-import { BALANCE } from '../data/balanceConfig';
+import { BALANCE, getBalanceConfig } from '../data/balanceConfig';
 import {
   npcMilitaryGrowthStep, evaluatePlayerStrength, computeNpcAlliances, computeNpcActions,
   NPC_MP_GROWTH_INTERVAL, NPC_MP_CAP,
 } from './npcDynamics';
+import { checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand } from './storyDriver';
+import { chapterAt } from '../data/storyChapters';
 
 export interface IEventEmitter {
   on(event: string, fn: (...args: unknown[]) => void): void;
@@ -84,6 +86,12 @@ export const STATE_EVENTS = {
   NPC_ACTION: 'state:npcAction',
   // Phase1：NPC 结盟/军力等动态更新 → DiplomacyPanel 刷新
   NPC_DYNAMICS_TICK: 'state:npcDynamicsTick',
+  // Phase2：序章统一达成（payload { path }）→ 触发建朝跳变过场
+  STORY_UNIFIED: 'state:storyUnified',
+  // Phase2：章节切换（payload { chapter, def }）→ HUD 章节 banner + 引子 Toast
+  STORY_CHAPTER_CHANGED: 'state:storyChapterChanged',
+  // Phase2：隐性双轴跨档 → 史官氛围评语 Toast（payload { text }）
+  STORY_NARRATION: 'state:storyNarration',
 } as const;
 
 export type PanelSide = 'left' | 'right';
@@ -552,6 +560,8 @@ export class GameStore {
     // crisis 可能掉人口/降级，grade 判定要用 crisis 后的终值，避免同 tick 既升又降的矛盾。
     this.runCrisisTick();
     this.runGradeTick();
+    // Phase2：故事导演（仅 story 模式；沙盒 early-return 零污染）
+    this.runStoryTick();
   }
 
   /** 当日产出 / 维护开销 → 资源 deltas（grain 等） */
@@ -700,6 +710,7 @@ export class GameStore {
       this.addModifier(result.modifierToAdd);
     }
     this.state.eventHistory.push(id);
+    this.pushStoryAxis(def.choices?.[choiceIdx]?.storyAxisDelta); // Phase2：抉择悄悄推双轴
     this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, { eventId: id, choiceIdx, applied: true });
   }
 
@@ -717,6 +728,7 @@ export class GameStore {
     if (existing) existing.adopted = true;
     else this.state.policies.push({ id: policyId, adopted: true });
     this.addModifier(result.modifier);
+    this.pushStoryAxis(def.storyAxisDelta); // Phase2：国策推双轴
     this.emitter.emit(STATE_EVENTS.POLICY_ADOPTED, { policyId });
     return result;
   }
@@ -737,6 +749,7 @@ export class GameStore {
 
     this.applyDayDeltas(result.deltas);
     this.state.activeDecrees.push({ ...result.activeRecord });
+    this.pushStoryAxis(def.storyAxisDelta); // Phase2：朝令推双轴
     this.emitter.emit(STATE_EVENTS.DECREE_ADOPTED, { decreeId });
     return result;
   }
@@ -908,6 +921,85 @@ export class GameStore {
     }
   }
 
+  // ============== Phase2：故事导演层（仅 story 模式） ==============
+
+  getStoryFlags(): Readonly<StoryFlags> | null {
+    return this.state.storyFlags ? { ...this.state.storyFlags } : null;
+  }
+
+  /** 进故事模式：初始化 storyFlags = 序章态 + 应用故事双表起始资源（覆盖沙盒基线）。IntroScene 立国时调。 */
+  startStoryMode(): void {
+    this.state.mode = 'story';
+    this.state.storyFlags = {
+      chapter: 0,
+      unifyPath: null,
+      unified: false,
+      powerAxis: 0,
+      resourceAxis: 0,
+      storyEventsTriggered: [],
+    };
+    // §8.1 双表：故事起始资源覆盖（main.ts 已发沙盒基线，这里改写为故事 drama 基线）
+    const start = getBalanceConfig('story').startingResources;
+    for (const id of RESOURCE_IDS) {
+      const v = start[id];
+      if (v !== undefined) this.setResourceClamped(id, v);
+    }
+  }
+
+  /** 每日故事 tick：序章未统一时判定多途径统一，达成则播种双轴 + emit STORY_UNIFIED（场景接管跳变）。 */
+  private runStoryTick(): void {
+    if (this.state.mode !== 'story' || !this.state.storyFlags) return;
+    const sf = this.state.storyFlags;
+    if (sf.chapter === 0 && !sf.unified) {
+      const result = checkUnification({
+        npcs: this.state.npcCountries.map(n => ({ militaryPower: n.militaryPower, stance: n.stance })),
+        playerRenown: this.getPlayerRenown(),
+      });
+      if (result.unified && result.path) {
+        sf.unified = true;
+        sf.unifyPath = result.path;
+        const seed = axisSeedForPath(result.path);
+        sf.powerAxis = clampAxis(sf.powerAxis + seed.power);
+        sf.resourceAxis = clampAxis(sf.resourceAxis + seed.resource);
+        this.emitter.emit(STATE_EVENTS.STORY_UNIFIED, { path: result.path });
+      }
+    }
+  }
+
+  /** 场景在建朝跳变过场结束后调：推进到指定章节并发 banner 事件。 */
+  advanceStoryChapter(chapter: number): void {
+    if (!this.state.storyFlags) return;
+    this.state.storyFlags.chapter = chapter;
+    this.emitter.emit(STATE_EVENTS.STORY_CHAPTER_CHANGED, { chapter, def: chapterAt(chapter) });
+  }
+
+  /**
+   * 隐性双轴累积（仅 story 模式）：抉择（国策/朝令/事件）携带的 storyAxisDelta 累加，
+   * 跨档位时发一条史官氛围评语（半可视化反馈）。
+   */
+  private pushStoryAxis(delta: { power?: number; production?: number } | undefined): void {
+    if (this.state.mode !== 'story' || !this.state.storyFlags || !delta) return;
+    const sf = this.state.storyFlags;
+    const pBefore = powerBand(sf.powerAxis);
+    const rBefore = resourceBand(sf.resourceAxis);
+    if (delta.power) sf.powerAxis = clampAxis(sf.powerAxis + delta.power);
+    if (delta.production) sf.resourceAxis = clampAxis(sf.resourceAxis + delta.production);
+    const pAfter = powerBand(sf.powerAxis);
+    const rAfter = resourceBand(sf.resourceAxis);
+    if (pAfter !== pBefore) {
+      const text = pAfter === 'devolve' ? '史官私记：朝堂之上，渐有"还政于民"之议。'
+        : pAfter === 'centralize' ? '史官私记：大权愈归于上，群臣噤声。'
+        : '史官私记：权柄之争，一时未分高下。';
+      this.emitter.emit(STATE_EVENTS.STORY_NARRATION, { text });
+    }
+    if (rAfter !== rBefore) {
+      const text = rAfter === 'public' ? '民间流言：田土工技，渐为众人所共。'
+        : rAfter === 'private' ? '民间流言：田宅作坊，多入豪右之家。'
+        : '民间流言：贫富之间，一时各执一词。';
+      this.emitter.emit(STATE_EVENTS.STORY_NARRATION, { text });
+    }
+  }
+
   // ============== Phase1：NPC 动态成长 ==============
 
   /** 新局重置 NPC 阵容（用随机种子从池中选 4，含 ≥1 蛮夷）。IntroScene 立国时调，使每局不同。 */
@@ -1000,12 +1092,14 @@ export class GameStore {
   private runPopulationTick(): void {
     const people = this.state.resources['people'] ?? 0;
     const grainStock = this.state.resources['grain'] ?? 0;
+    // §8.1 双表：按模式取人口参数（故事用 STORY_BALANCE 覆盖）
+    const popCfg = getBalanceConfig(this.state.mode).population;
     // 住房上限 = 基数 + working 建筑 housingCapacity，再经 country_population_cap modifier 聚合
-    const housingBase = BALANCE.population.baseHousingCap + sumHousingCapacity(this.state.buildings, getBuildingDef);
+    const housingBase = popCfg.baseHousingCap + sumHousingCapacity(this.state.buildings, getBuildingDef);
     const housingCap = applyModifiers(housingBase, 'country_population_cap', this.state.activeModifiers);
     const result = computePopulationGrowth(
       { people, housingCap, grainStock, carry: this.state.populationCarry },
-      BALANCE.population,
+      popCfg,
     );
     this.state.populationCarry = result.carry;
     if (result.peopleDelta !== 0) {

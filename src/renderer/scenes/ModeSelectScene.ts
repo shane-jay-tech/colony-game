@@ -77,8 +77,8 @@ export class ModeSelectScene extends Phaser.Scene {
     this.storyCard = this.makeCard(
       '故事 · 拆龙椅',
       '循《天下人书记》七卷，从春秋一路走到撤去龙椅的长线叙事。',
-      false,
-      '敬请期待',
+      true,
+      '序章可玩',
     );
 
     this.footerText = this.add.text(0, 0, '——选沙盒可即刻立国；故事一途，来日开放。', {
@@ -92,6 +92,13 @@ export class ModeSelectScene extends Phaser.Scene {
         .on('pointerover', () => { this.sandboxCard.hovered = true; this.paintCard(this.sandboxCard); })
         .on('pointerout', () => { this.sandboxCard.hovered = false; this.paintCard(this.sandboxCard); })
         .on('pointerup', () => this.chooseSandbox());
+    }
+    // 故事卡片可点 → 写 mode='story' → 进立国流程（序章）
+    if (this.storyCard.zone) {
+      this.storyCard.zone
+        .on('pointerover', () => { this.storyCard.hovered = true; this.paintCard(this.storyCard); })
+        .on('pointerout', () => { this.storyCard.hovered = false; this.paintCard(this.storyCard); })
+        .on('pointerup', () => this.chooseStory());
     }
 
     this.layout();
@@ -165,6 +172,11 @@ export class ModeSelectScene extends Phaser.Scene {
 
   private chooseSandbox(): void {
     this.registry.set(MODE_REGISTRY_KEY, 'sandbox');
+    this.scene.start('IntroScene');
+  }
+
+  private chooseStory(): void {
+    this.registry.set(MODE_REGISTRY_KEY, 'story');
     this.scene.start('IntroScene');
   }
 

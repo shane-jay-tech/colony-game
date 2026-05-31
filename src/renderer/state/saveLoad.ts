@@ -346,8 +346,10 @@ function deserializeStoryFlags(
     unified: (raw as { unified?: unknown }).unified === true,
     powerAxis: Math.max(-100, Math.min(100, finiteNum((raw as { powerAxis?: unknown }).powerAxis, 0))),
     resourceAxis: Math.max(-100, Math.min(100, finiteNum((raw as { resourceAxis?: unknown }).resourceAxis, 0))),
+    // 截断上限防损坏/恶意存档塞超长数组导致加载 OOM
     storyEventsTriggered: Array.isArray((raw as { storyEventsTriggered?: unknown }).storyEventsTriggered)
-      ? ((raw as { storyEventsTriggered: unknown[] }).storyEventsTriggered).filter((x): x is string => typeof x === 'string')
+      ? ((raw as { storyEventsTriggered: unknown[] }).storyEventsTriggered)
+          .slice(0, 500).filter((x): x is string => typeof x === 'string')
       : [],
   };
 }

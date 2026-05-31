@@ -1087,3 +1087,105 @@ describe('Phase1 人口增长（集成）', () => {
     expect((store.getResources().people ?? 0)).toBeLessThanOrEqual(15);
   });
 });
+
+describe('Phase2 故事框架（集成）', () => {
+  function npc(id: string, mp: number, stance: number) {
+    return {
+      id, stance, militaryPower: mp, renown: 40, tradeRoute: false, tradeCooldown: 0,
+      warStatus: 'peace' as const, lastEnvoyDay: -1, lastWarDay: -1,
+      allyIds: [] as string[], aggression: 40, lastActionDay: -1,
+    };
+  }
+  const renownMod = {
+    id: 'm_renown', name: 'r', category: 'diplomacy' as const, stackable: true,
+    effects: [{ target: 'country_renown' as const, op: 'add' as const, value: 100 }],
+    visualBadge: null, remainingDays: -1, description: '', descPlain: '',
+  };
+
+  it('startStoryMode：mode=story + storyFlags 序章态', () => {
+    const store = new GameStore(makeEmitter(), { worldMap: allPlainMap() });
+    store.startStoryMode();
+    expect(store.getMode()).toBe('story');
+    const sf = store.getStoryFlags();
+    expect(sf?.chapter).toBe(0);
+    expect(sf?.unified).toBe(false);
+  });
+
+  it('沙盒模式：runStoryTick 不触发统一（storyFlags=null）', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(), resources: { grain: 500, gold: 100 },
+      npcCountries: [npc('npc_qi', 5, -50)], // 军力被打服，但沙盒模式不该统一
+    });
+    const spy = vi.fn();
+    ee.on(STATE_EVENTS.STORY_UNIFIED, spy);
+    store.tickDay();
+    expect(spy).not.toHaveBeenCalled();
+    expect(store.getStoryFlags()).toBeNull();
+  });
+
+  it('武途统一：所有 NPC 被打服 → STORY_UNIFIED martial + 权力轴偏集权(负)', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(), resources: { grain: 500, gold: 100 },
+      npcCountries: [npc('npc_qi', 10, -30), npc('npc_jin', 15, -40)],
+    });
+    store.startStoryMode();
+    const spy = vi.fn();
+    ee.on(STATE_EVENTS.STORY_UNIFIED, spy);
+    store.tickDay();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toMatchObject({ path: 'martial' });
+    expect(store.getStoryFlags()?.unified).toBe(true);
+    expect(store.getStoryFlags()!.powerAxis).toBeLessThan(0);
+    // 再 tick 不重复触发
+    store.tickDay();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('文途统一：信誉高 + 多数归附 → STORY_UNIFIED cultural + 权力轴偏还权(正)', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(), resources: { grain: 500, gold: 100 },
+      activeModifiers: [renownMod], // renown=50+100=150 ≥120
+      npcCountries: [npc('npc_qi', 80, 70), npc('npc_lu', 60, 80)], // 都 ≥60 归附
+    });
+    store.startStoryMode();
+    const spy = vi.fn();
+    ee.on(STATE_EVENTS.STORY_UNIFIED, spy);
+    store.tickDay();
+    expect(spy.mock.calls[0]?.[0]).toMatchObject({ path: 'cultural' });
+    expect(store.getStoryFlags()!.powerAxis).toBeGreaterThan(0);
+  });
+
+  it('advanceStoryChapter：推进章节 + 发 STORY_CHAPTER_CHANGED', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, { worldMap: allPlainMap() });
+    store.startStoryMode();
+    const spy = vi.fn();
+    ee.on(STATE_EVENTS.STORY_CHAPTER_CHANGED, spy);
+    store.advanceStoryChapter(1);
+    expect(store.getStoryFlags()?.chapter).toBe(1);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toMatchObject({ chapter: 1 });
+  });
+
+  it('抉择推双轴：故事模式采纳带 storyAxisDelta 的国策 → 轴变；沙盒模式不变', () => {
+    const policy = {
+      id: 'pol_test', name: '试', branch: '农桑' as const, x: 0, y: 0, cost: {},
+      effects: [], prerequisites: [], tier: 1, description: '', descPlain: '',
+      storyAxisDelta: { power: 40, production: -40 },
+    };
+    // 故事模式
+    const ee1 = makeEmitter();
+    const s1 = new GameStore(ee1, { worldMap: allPlainMap() }, { policies: [policy] });
+    s1.startStoryMode();
+    s1.adoptPolicy('pol_test');
+    expect(s1.getStoryFlags()!.powerAxis).toBe(40);
+    expect(s1.getStoryFlags()!.resourceAxis).toBe(-40);
+    // 沙盒模式：同国策不推轴（storyFlags=null）
+    const s2 = new GameStore(makeEmitter(), { worldMap: allPlainMap() }, { policies: [policy] });
+    s2.adoptPolicy('pol_test');
+    expect(s2.getStoryFlags()).toBeNull();
+  });
+});
