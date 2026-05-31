@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { COLORS, FONTS } from './palette';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
-import { NPC_COUNTRIES } from '../data/npcCountries';
+import { getNpcDef } from '../data/npcCountries';
 import type { NpcCountryDef, NpcCountryState } from '../data/schema';
 import { stanceLabel } from '../state/diplomacySystem';
 import { drawDecorativePanelFrame } from './panelDecoration';
@@ -21,7 +21,7 @@ import { drawDecorativePanelFrame } from './panelDecoration';
  */
 
 const PANEL_WIDTH = 720;
-const PANEL_HEIGHT = 520;
+const PANEL_HEIGHT = 660; // Phase1：容下每局 4 张 NPC 卡
 const CARD_HEIGHT = 130;
 const CARD_GAP = 12;
 
@@ -46,6 +46,7 @@ const ARCHETYPE_TAG: Record<string, string> = {
   commercial: '【商】',
   martial: '【武】',
   cultural: '【礼】',
+  tribal: '【夷】',
 };
 
 export class DiplomacyPanel {
@@ -60,7 +61,8 @@ export class DiplomacyPanel {
   private readonly closeBg: Phaser.GameObjects.Graphics;
   private readonly closeLabel: Phaser.GameObjects.Text;
   private readonly closeZone: Phaser.GameObjects.Zone;
-  private readonly cards: NpcCard[] = [];
+  // Phase1：每局 NPC 阵容动态（池中选 4），卡片按 id 懒建/复用。
+  private readonly cards = new Map<string, NpcCard>();
   private isOpen = false;
   private destroyed = false;
 
@@ -91,6 +93,7 @@ export class DiplomacyPanel {
     }
   };
   private onDayTick = (): void => { if (this.isOpen) this.refresh(); };
+  private onNpcDynamics = (): void => { if (this.isOpen) this.refresh(); };
 
   constructor(scene: Phaser.Scene, store: GameStore) {
     this.scene = scene;
@@ -126,17 +129,36 @@ export class DiplomacyPanel {
     });
     this.container.add([this.closeBg, this.closeLabel, this.closeZone]);
 
-    // 3 张卡片
-    for (const def of NPC_COUNTRIES) {
-      this.cards.push(this.makeCard(def));
-    }
-
+    // 卡片在 open() 时按当前选中的 NPC 阵容懒建（不再固定 3 张）
     this.layout();
 
     store.on(STATE_EVENTS.RESOURCES_CHANGED, this.onResources);
     store.on(STATE_EVENTS.DIPLOMACY_ACTION, this.onDiplomacy);
     store.on(STATE_EVENTS.TRADE_TICK, this.onTradeTick);
     store.on(STATE_EVENTS.DAY_TICK, this.onDayTick);
+    store.on(STATE_EVENTS.NPC_DYNAMICS_TICK, this.onNpcDynamics);
+  }
+
+  /** 按当前选中的 NPC 阵容同步卡片集合（缺则建、多余则销毁）。 */
+  private syncCards(): void {
+    const roster = this.store.getNpcCountries();
+    const rosterIds = new Set(roster.map(s => s.id));
+    // 删除已不在阵容的卡（读档换阵容时）
+    for (const [id, card] of this.cards) {
+      if (!rosterIds.has(id)) {
+        card.bg.destroy(); card.nameLabel.destroy(); card.metaLabel.destroy(); card.statsLabel.destroy();
+        card.tradeBg.destroy(); card.tradeLabel.destroy(); card.tradeZone.destroy();
+        card.envoyBg.destroy(); card.envoyLabel.destroy(); card.envoyZone.destroy();
+        card.warBg.destroy(); card.warLabel.destroy(); card.warZone.destroy();
+        this.cards.delete(id);
+      }
+    }
+    // 新建缺失的卡
+    for (const s of roster) {
+      if (this.cards.has(s.id)) continue;
+      const def = getNpcDef(s.id);
+      if (def) this.cards.set(s.id, this.makeCard(def));
+    }
   }
 
   private makeCard(def: NpcCountryDef): NpcCard {
@@ -199,6 +221,7 @@ export class DiplomacyPanel {
   open(): void {
     if (this.destroyed || this.isOpen) return;
     this.isOpen = true;
+    this.syncCards(); // 按当前阵容建卡
     this.container.setVisible(true);
     this.layout();
     this.refresh();
@@ -253,7 +276,10 @@ export class DiplomacyPanel {
     const cardX = x + 20;
     const cardW = w - 40;
     let cardY = y + 84;
-    for (const card of this.cards) {
+    // 按阵容顺序排布
+    for (const s of this.store.getNpcCountries()) {
+      const card = this.cards.get(s.id);
+      if (!card) continue;
       this.layoutCard(card, cardX, cardY, cardW);
       cardY += CARD_HEIGHT + CARD_GAP;
     }
@@ -287,9 +313,9 @@ export class DiplomacyPanel {
     const states = this.store.getNpcCountries();
     const playerMP = this.store.getPlayerMilitaryPower();
     const playerRenown = this.store.getPlayerRenown();
-    for (const card of this.cards) {
-      const state = states.find(s => s.id === card.def.id);
-      if (!state) continue;
+    for (const state of states) {
+      const card = this.cards.get(state.id);
+      if (!card) continue;
       this.refreshCard(card, state, playerMP, playerRenown);
     }
     // subtitle：玩家自身 metric
@@ -304,7 +330,11 @@ export class DiplomacyPanel {
     card.nameLabel.setText(`${tag}${card.def.name}　·　${stance} (${state.stance >= 0 ? '+' : ''}${state.stance})${warTag}`);
     card.metaLabel.setText(card.def.descPlain);
     const tradeTag = state.tradeRoute ? `通商中（下次入账 ${state.tradeCooldown} 日）` : '未通商';
-    card.statsLabel.setText(`军力 ${state.militaryPower} · 信誉 ${state.renown} · ${tradeTag}`);
+    // Phase1：合纵盟友 + 军力碾压威胁
+    const allyNames = state.allyIds.map(id => getNpcDef(id)?.name ?? id).filter(Boolean);
+    const allyTag = allyNames.length > 0 ? ` · 合纵：${allyNames.join('、')}` : '';
+    const threatTag = state.militaryPower >= playerMP * 1.5 && state.stance < 0 ? ' · ⚠ 虎视眈眈' : '';
+    card.statsLabel.setText(`军力 ${state.militaryPower} · 信誉 ${state.renown} · ${tradeTag}${allyTag}${threatTag}`);
 
     // 卡片底色 — stance 档色相
     card.bg.clear();
@@ -350,7 +380,8 @@ export class DiplomacyPanel {
     this.store.off(STATE_EVENTS.DIPLOMACY_ACTION, this.onDiplomacy);
     this.store.off(STATE_EVENTS.TRADE_TICK, this.onTradeTick);
     this.store.off(STATE_EVENTS.DAY_TICK, this.onDayTick);
-    this.container.destroy();
+    this.store.off(STATE_EVENTS.NPC_DYNAMICS_TICK, this.onNpcDynamics);
+    this.container.destroy(true); // 连带销毁所有子对象（卡片/按钮）
   }
 }
 

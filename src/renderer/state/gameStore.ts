@@ -1,7 +1,7 @@
 import { RESOURCE_IDS } from '../data/resourceRegistry';
 import type { ResourceId } from '../data/resourceRegistry';
 import type { ModifierInstance, BuildingDef, BuildingInstance, PolicyNode, RoyalDecree, CourtEvent, NpcCountryState } from '../data/schema';
-import { makeInitialNpcStates, getNpcDef } from '../data/npcCountries';
+import { makeInitialNpcStates, getNpcDef, selectNpcsForGame } from '../data/npcCountries';
 import {
   tryTrade,
   trySendEnvoy,
@@ -30,6 +30,10 @@ import { gradeDefAt, MAX_GRADE, DIPLO_FLAG_ALL_FRIENDLY } from '../data/countryG
 import { isDualZero, planCrisisEffects, CRISIS_GRACE_DAYS, CRISIS_RECOVER_DAYS } from './crisis';
 import { computePopulationGrowth, sumHousingCapacity } from './population';
 import { BALANCE } from '../data/balanceConfig';
+import {
+  npcMilitaryGrowthStep, evaluatePlayerStrength, computeNpcAlliances, computeNpcActions,
+  NPC_MP_GROWTH_INTERVAL, NPC_MP_CAP,
+} from './npcDynamics';
 
 export interface IEventEmitter {
   on(event: string, fn: (...args: unknown[]) => void): void;
@@ -73,6 +77,10 @@ export const STATE_EVENTS = {
   TIANXIA_ACKNOWLEDGED: 'state:tianxiaAcknowledged',
   // Phase1：低谷危机触发（payload { summary, peopleDelta, moraleDelta, gradeFrom, gradeTo }）→ 居中通告模态
   CRISIS_TRIGGERED: 'state:crisisTriggered',
+  // Phase1：NPC 动态行动（payload { kind, actorName, targetName?, text }）→ Toast 提示
+  NPC_ACTION: 'state:npcAction',
+  // Phase1：NPC 结盟/军力等动态更新 → DiplomacyPanel 刷新
+  NPC_DYNAMICS_TICK: 'state:npcDynamicsTick',
 } as const;
 
 export type PanelSide = 'left' | 'right';
@@ -507,6 +515,9 @@ export class GameStore {
     this.runEventTick();
     // v1.0 #6：邦交节拍（通商收入 + stance 漂移）
     this.runDiplomacyTick();
+    // Phase1：NPC 动态成长（军力增长 / 合纵结盟 / 骚扰围攻）。在 population 前，
+    // 让骚扰劫掠的资源损失计入当日存粮判生养与双零危机判定。
+    this.runNpcDynamicsTick();
     // Phase1：人口增长（用 production 后的存粮判生养；在 crisis 之前，让损失计入双零判定）
     this.runPopulationTick();
     // Phase1：低谷危机 → 国格晋阶。顺序固定 crisis→grade：
@@ -867,6 +878,92 @@ export class GameStore {
       this.state.tianxiaAcknowledged = true;
       this.emitter.emit(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, { def: gradeDefAt(next) });
     }
+  }
+
+  // ============== Phase1：NPC 动态成长 ==============
+
+  /** 新局重置 NPC 阵容（用随机种子从池中选 4，含 ≥1 蛮夷）。IntroScene 立国时调，使每局不同。 */
+  startNewGameNpcs(seed: number): void {
+    this.state.npcCountries = selectNpcsForGame(seed);
+  }
+
+  /**
+   * 每日：NPC 军力随季成长 + 玩家强弱驱动合纵/骚扰/内斗。
+   * 行动结算（扣玩家资源/军力/民心、NPC 互削）在此，纯函数只给意图。
+   */
+  private runNpcDynamicsTick(): void {
+    const npcs = this.state.npcCountries;
+    if (npcs.length === 0) return;
+
+    let changed = false;
+
+    // 1) 军力成长：每 NPC_MP_GROWTH_INTERVAL 日按 archetype 加一档
+    if (this.state.currentDay > 0 && this.state.currentDay % NPC_MP_GROWTH_INTERVAL === 0) {
+      for (const s of npcs) {
+        const def = getNpcDef(s.id);
+        if (!def) continue;
+        const next = Math.min(NPC_MP_CAP, s.militaryPower + npcMilitaryGrowthStep(def.archetype));
+        if (next !== s.militaryPower) { s.militaryPower = next; changed = true; }
+      }
+    }
+
+    // 2) 玩家强弱档
+    const tier = evaluatePlayerStrength({
+      grade: this.state.grade,
+      militaryPower: this.state.playerMilitaryPower,
+      renown: this.getPlayerRenown(),
+      population: this.state.resources['people'] ?? 0,
+    });
+
+    const rngHandle = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0x5eed) >>> 0);
+    const rng = (): number => rngHandle.next();
+
+    // 3) 合纵结盟（玩家 strong 时形成、否则解散）
+    const alliancePatch = computeNpcAlliances(npcs, getNpcDef, tier, rng);
+    for (const s of npcs) {
+      const next = alliancePatch[s.id];
+      if (next && (next.length !== s.allyIds.length || next.some((id, i) => id !== s.allyIds[i]))) {
+        s.allyIds = next;
+        changed = true;
+      }
+    }
+
+    // 4) NPC 行动（骚扰 / 联军压境 / 内斗）
+    const actions = computeNpcActions(npcs, getNpcDef, tier, this.state.currentDay, rng);
+    for (const act of actions) {
+      const actor = npcs.find(n => n.id === act.actorId);
+      if (!actor) continue;
+      actor.lastActionDay = this.state.currentDay;
+      changed = true;
+
+      // 对玩家资源劫掠
+      if (act.resourceRaid) {
+        for (const [rid, v] of Object.entries(act.resourceRaid) as [ResourceId, number][]) {
+          if (v) this.addResource(rid, v, 'npc_action');
+        }
+      }
+      // 对玩家军力 / 民心
+      if (act.playerMilitaryDelta) {
+        this.state.playerMilitaryPower = Math.max(0, Math.min(500, this.state.playerMilitaryPower + act.playerMilitaryDelta));
+      }
+      if (act.playerMoraleDelta) {
+        this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + act.playerMoraleDelta));
+      }
+      // NPC 互削
+      if (act.kind === 'npc_vs_npc' && act.targetId && act.targetMilitaryDelta) {
+        const target = npcs.find(n => n.id === act.targetId);
+        if (target) target.militaryPower = Math.max(10, target.militaryPower + act.targetMilitaryDelta);
+      }
+
+      const actorName = getNpcDef(act.actorId)?.name ?? act.actorId;
+      const targetName = act.targetId ? (getNpcDef(act.targetId)?.name ?? act.targetId) : '';
+      const text = act.kind === 'npc_vs_npc'
+        ? `「${actorName}」兴兵伐「${targetName}」`
+        : `「${actorName}」${act.summary}`;
+      this.emitter.emit(STATE_EVENTS.NPC_ACTION, { kind: act.kind, actorName, targetName, text });
+    }
+
+    if (changed) this.emitter.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined);
   }
 
   // ============== Phase1：人口增长 ==============

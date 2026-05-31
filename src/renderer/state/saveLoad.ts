@@ -339,6 +339,10 @@ function validateNpcCountriesArray(arr: unknown): NpcCountryState[] {
       // 不会产生"凭空解锁"漏洞）。NaN/Infinity 一律按 -1 处理。
       lastEnvoyDay: finiteNum(o['lastEnvoyDay'], finiteNum(o['lastActionDay'], -1)),
       lastWarDay: finiteNum(o['lastWarDay'], finiteNum(o['lastActionDay'], -1)),
+      // Phase1 动态成长字段（旧存档无 → 兜底）
+      allyIds: Array.isArray(o['allyIds']) ? (o['allyIds'] as unknown[]).filter((x): x is string => typeof x === 'string') : [],
+      aggression: Math.max(0, Math.min(100, finiteNum(o['aggression'], 40))),
+      lastActionDay: finiteNum(o['lastActionDay'], -1),
     });
   }
   return out.length > 0 ? out : makeInitialNpcStates();

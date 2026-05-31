@@ -258,7 +258,8 @@ export interface RoyalDecree {
  * 动态字段（保存到存档）：stance / militaryPower / renown / tradeRoute / tradeCooldown / warStatus / lastEnvoyDay / lastWarDay
  * 静态字段（来自 NPC_COUNTRIES 定义）：id / name / archetype / homeColor / description
  */
-export type NpcArchetype = 'commercial' | 'martial' | 'cultural';
+// Phase1：'tribal' = 蛮夷/戎狄——不结盟、不走友好通商出使、任何阶段都可能骚扰（走 archetype 默认分支）。
+export type NpcArchetype = 'commercial' | 'martial' | 'cultural' | 'tribal';
 
 export type WarStatus = 'peace' | 'tension' | 'war';
 
@@ -292,6 +293,12 @@ export interface NpcCountryState {
   /** 最近一次「兴师」那一日的 currentDay 值（防 spam，30 日冷却）。
    *  与出使分开计时——否则出使后会误锁宣战、反之亦然。 */
   lastWarDay: number;
+  /** Phase1 动态成长：当前盟友 NPC id（玩家强时合纵围攻；tribal 恒空） */
+  allyIds: string[];
+  /** Phase1：攻击/骚扰倾向 0..100（archetype 初值 + 动态漂移） */
+  aggression: number;
+  /** Phase1：NPC 上次主动行动（成长/骚扰/结盟）那一日，节流用（独立于 lastEnvoy/lastWarDay） */
+  lastActionDay: number;
 }
 
 export interface DiplomacyAction {

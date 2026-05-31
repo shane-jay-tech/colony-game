@@ -62,6 +62,9 @@ function freshState(def: NpcCountryDef): NpcCountryState {
     warStatus: 'peace',
     lastEnvoyDay: -1,
     lastWarDay: -1,
+    allyIds: [],
+    aggression: 40,
+    lastActionDay: -1,
   };
 }
 

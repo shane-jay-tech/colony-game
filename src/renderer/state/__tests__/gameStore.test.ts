@@ -962,6 +962,47 @@ describe('Phase1 低谷危机（集成）', () => {
   });
 });
 
+describe('Phase1 NPC 动态成长（集成）', () => {
+  function npc(id: string, mp: number, over: Record<string, unknown> = {}) {
+    return {
+      id, stance: -30, militaryPower: mp, renown: 40, tradeRoute: false, tradeCooldown: 0,
+      warStatus: 'peace' as const, lastEnvoyDay: -1, lastWarDay: -1,
+      allyIds: [] as string[], aggression: 50, lastActionDay: -1, ...over,
+    };
+  }
+
+  it('startNewGameNpcs：换成池中 4 个、含 ≥1 蛮夷', () => {
+    const store = new GameStore(makeEmitter(), { worldMap: allPlainMap() });
+    store.startNewGameNpcs(42);
+    const roster = store.getNpcCountries();
+    expect(roster).toHaveLength(4);
+  });
+
+  it('NPC 军力随季成长（晋 martial 每 30 日 +4）', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { grain: 500, gold: 100 },
+      npcCountries: [npc('npc_jin', 50)],
+    });
+    for (let i = 0; i < 30; i++) store.tickDay(); // 到第 30 日触发一次成长
+    expect(store.getNpcCountries()[0]!.militaryPower).toBeGreaterThan(50);
+  });
+
+  it('蛮夷在场 → 长期推进会触发 NPC_ACTION 骚扰', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { grain: 9999, gold: 9999 },
+      npcCountries: [npc('npc_rong', 70, { aggression: 90 })], // 戎狄 tribal
+    });
+    const spy = vi.fn();
+    ee.on(STATE_EVENTS.NPC_ACTION, spy);
+    for (let i = 0; i < 240; i++) store.tickDay();
+    expect(spy).toHaveBeenCalled(); // 240 日内高侵略蛮夷几乎必有骚扰
+  });
+});
+
 describe('Phase1 人口增长（集成）', () => {
   it('有余粮 + 未满住房上限 → 人口随天数增长', () => {
     const ee = makeEmitter();

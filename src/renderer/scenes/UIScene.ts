@@ -50,6 +50,13 @@ export class UIScene extends Phaser.Scene {
   private onTianxia = (): void => {
     this.toast?.show('天下共主 · 圆满。山河任君纵横，亦可继续经营，无有尽头。', 'info', 5000);
   };
+  // Phase1：NPC 动态行动 → Toast。骚扰/围攻用 error 色（红），内斗用 info（棕）。
+  private onNpcAction = (payload: unknown): void => {
+    const p = (payload && typeof payload === 'object') ? payload as { kind?: string; text?: string } : {};
+    if (!p.text) return;
+    const hostile = p.kind === 'harass_player' || p.kind === 'assault_player';
+    this.toast?.show(p.text, hostile ? 'error' : 'info', hostile ? 3600 : 2600);
+  };
 
   constructor() {
     super({ key: 'UIScene', active: false });
@@ -83,6 +90,7 @@ export class UIScene extends Phaser.Scene {
     this.store = store;
     store.on(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
     store.on(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
+    store.on(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
     // v1.0 #5：缩放工具条。MapRenderer 由 GameScene 在 create 时注册到 registry，
     // ZoomControl 通过 lazy getter 拿引用——避免 UIScene 比 GameScene 先 create 时拿到 null。
     this.zoomControl = new ZoomControl(this, store, () => {
@@ -145,6 +153,7 @@ export class UIScene extends Phaser.Scene {
     if (this.store) {
       this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
       this.store.off(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
+      this.store.off(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
       this.store = null;
     }
     this.hud?.destroy();

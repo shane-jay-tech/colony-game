@@ -556,6 +556,8 @@ export class IntroScene extends Phaser.Scene {
       // Phase1：把 ModeSelectScene 选定的模式落进 state（缺省沙盒）
       const mode = this.registry.get('gameMode');
       store.setMode(mode === 'story' ? 'story' : 'sandbox');
+      // Phase1：每局随机刷 NPC 阵容（池中选 4，含 ≥1 蛮夷）——不同局不同邻邦
+      store.startNewGameNpcs(Math.floor(Math.random() * 0x7fffffff));
     }
 
     this.registry.set(REGISTRY_KEYS.INTRO_DONE, true);
