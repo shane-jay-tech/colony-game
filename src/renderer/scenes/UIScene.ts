@@ -13,6 +13,7 @@ import { STATE_EVENTS } from '../state/gameStore';
 import { Legend } from '../ui/Legend';
 import { ZoomControl } from '../ui/ZoomControl';
 import { StoryBar } from '../ui/StoryBar';
+import { AudioManager } from '../ui/AudioManager';
 import type { MapRenderer } from '../render/MapRenderer';
 
 /**
@@ -40,6 +41,7 @@ export class UIScene extends Phaser.Scene {
   private legend: Legend | null = null;
   private zoomControl: ZoomControl | null = null;
   private storyBar: StoryBar | null = null;
+  private audioManager: AudioManager | null = null;
   private store: GameStore | null = null;
 
   // Phase1：国格软认可 / 登顶祝贺（晋阶走 Toast；降格由 CrisisModal 通告，不重复 Toast）
@@ -103,6 +105,8 @@ export class UIScene extends Phaser.Scene {
 
     // Phase2：故事顶栏（章节 + 双轴半可视 + 距下章）；沙盒模式自隐藏
     this.storyBar = new StoryBar(this, store);
+    // Phase4：音频引擎（动态 BGM + 音效；音频资产未就位时静音降级）
+    this.audioManager = new AudioManager(this, store);
 
     // Phase1：国格晋阶 / 登顶 → Toast 软认可
     this.store = store;
@@ -189,6 +193,7 @@ export class UIScene extends Phaser.Scene {
     this.crisisModal?.destroy();
     this.tutorialModal?.destroy();
     this.storyBar?.destroy();
+    this.audioManager?.destroy();
     this.toast?.destroy();
     this.registry.set('toast', undefined);
     this.registry.set('diplomacyPanel', undefined);
@@ -202,6 +207,7 @@ export class UIScene extends Phaser.Scene {
     this.crisisModal = null;
     this.tutorialModal = null;
     this.storyBar = null;
+    this.audioManager = null;
     this.toast = null;
   }
 }

@@ -1272,6 +1272,7 @@ export class GameStore {
 
   isVassal(): boolean { return this.state.vassalOf !== null; }
   getVassalOf(): string | null { return this.state.vassalOf; }
+  isCrisisActive(): boolean { return this.state.crisisActive; }
 
   setLastSeenNow(): void {
     this.state.lastSeenTimestamp = Date.now();
