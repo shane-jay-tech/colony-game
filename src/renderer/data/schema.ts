@@ -253,7 +253,7 @@ export interface RoyalDecree {
  *   - martial（武）：晋风，军力强，开战胜率最高
  *   - cultural（礼）：鲁风，礼制深，外交事件更易发生
  *
- * 动态字段（保存到存档）：stance / militaryPower / renown / tradeRoute / tradeCooldown / warStatus / lastActionDay
+ * 动态字段（保存到存档）：stance / militaryPower / renown / tradeRoute / tradeCooldown / warStatus / lastEnvoyDay / lastWarDay
  * 静态字段（来自 NPC_COUNTRIES 定义）：id / name / archetype / homeColor / description
  */
 export type NpcArchetype = 'commercial' | 'martial' | 'cultural';
@@ -285,8 +285,11 @@ export interface NpcCountryState {
   /** 距下一次通商收入还有多少天（30 日一轮） */
   tradeCooldown: number;
   warStatus: WarStatus;
-  /** 最近一次玩家动作那一日的 currentDay 值（防 spam） */
-  lastActionDay: number;
+  /** 最近一次「出使」那一日的 currentDay 值（防 spam，14 日冷却） */
+  lastEnvoyDay: number;
+  /** 最近一次「兴师」那一日的 currentDay 值（防 spam，30 日冷却）。
+   *  与出使分开计时——否则出使后会误锁宣战、反之亦然。 */
+  lastWarDay: number;
 }
 
 export interface DiplomacyAction {

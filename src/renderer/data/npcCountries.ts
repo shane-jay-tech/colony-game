@@ -53,7 +53,8 @@ export function makeInitialNpcStates(): NpcCountryState[] {
     tradeRoute: false,
     tradeCooldown: 0,
     warStatus: 'peace' as const,
-    lastActionDay: -1,
+    lastEnvoyDay: -1,
+    lastWarDay: -1,
   }));
 }
 

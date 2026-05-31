@@ -281,6 +281,11 @@ export function deserialize(blob: unknown): GameState {
 
 const VALID_WAR_STATUS = new Set<WarStatus>(['peace', 'tension', 'war']);
 
+/** 读一个有限数值字段，拒绝 NaN/Infinity（typeof 不过滤这两者，会绕过冷却或永久锁死）。 */
+function finiteNum(v: unknown, fallback: number): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
 function validateNpcCountriesArray(arr: unknown): NpcCountryState[] {
   if (!Array.isArray(arr)) return makeInitialNpcStates();
   const out: NpcCountryState[] = [];
@@ -298,7 +303,11 @@ function validateNpcCountriesArray(arr: unknown): NpcCountryState[] {
       tradeRoute: o['tradeRoute'] === true,
       tradeCooldown: typeof o['tradeCooldown'] === 'number' ? Math.max(0, o['tradeCooldown'] as number) : 0,
       warStatus,
-      lastActionDay: typeof o['lastActionDay'] === 'number' ? o['lastActionDay'] as number : -1,
+      // 向后兼容：旧存档只有共用的 lastActionDay。迁移时两路冷却都继承它——
+      // 旧字段无法区分上次是出使还是兴师，故保守地两边都锁（至多一次性多等几日，
+      // 不会产生"凭空解锁"漏洞）。NaN/Infinity 一律按 -1 处理。
+      lastEnvoyDay: finiteNum(o['lastEnvoyDay'], finiteNum(o['lastActionDay'], -1)),
+      lastWarDay: finiteNum(o['lastWarDay'], finiteNum(o['lastActionDay'], -1)),
     });
   }
   return out.length > 0 ? out : makeInitialNpcStates();

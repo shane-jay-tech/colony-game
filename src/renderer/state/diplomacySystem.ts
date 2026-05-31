@@ -110,12 +110,12 @@ export function trySendEnvoy(
   if (npcState.warStatus === 'war') {
     return { ok: false, reason: 'already_at_war' };
   }
-  // 14 日冷却
-  if (npcState.lastActionDay >= 0 && currentDay - npcState.lastActionDay < ENVOY_COOLDOWN_DAYS) {
+  // 14 日冷却（出使独立计时，不受兴师影响）
+  if (npcState.lastEnvoyDay >= 0 && currentDay - npcState.lastEnvoyDay < ENVOY_COOLDOWN_DAYS) {
     return {
       ok: false,
       reason: 'on_cooldown',
-      details: `下次出使需等 ${ENVOY_COOLDOWN_DAYS - (currentDay - npcState.lastActionDay)} 日`,
+      details: `下次出使需等 ${ENVOY_COOLDOWN_DAYS - (currentDay - npcState.lastEnvoyDay)} 日`,
     };
   }
   const goldCost = 30;
@@ -131,7 +131,7 @@ export function trySendEnvoy(
     ok: true,
     stateDelta: {
       stance: clamp(npcState.stance + stanceGain),
-      lastActionDay: currentDay,
+      lastEnvoyDay: currentDay,
     },
     resourceDeltas: { gold: -goldCost, cloth: -clothCost },
     playerDeltas: { renown: 5 },
@@ -155,15 +155,17 @@ export function tryDeclareWar(
   if (npcState.warStatus === 'war') {
     return { ok: false, reason: 'already_at_war' };
   }
-  // 30 日冷却（war 比 envoy 长）
-  if (npcState.lastActionDay >= 0 && currentDay - npcState.lastActionDay < WAR_COOLDOWN_DAYS) {
+  // 30 日冷却（兴师独立计时，不受出使影响）
+  if (npcState.lastWarDay >= 0 && currentDay - npcState.lastWarDay < WAR_COOLDOWN_DAYS) {
     return { ok: false, reason: 'on_cooldown' };
   }
   // 至少要 NPC 军力一半才能开战（否则就是送菜）
   if (playerMilitaryPower < npcState.militaryPower * 0.5) {
     return { ok: false, reason: 'insufficient_military' };
   }
-  let winChance = playerMilitaryPower / (playerMilitaryPower + npcState.militaryPower);
+  const totalMP = playerMilitaryPower + npcState.militaryPower;
+  // 双方军力均为 0 → 0/0=NaN，退化为五五开（否则 NaN 透传 → 必败）
+  let winChance = totalMP > 0 ? playerMilitaryPower / totalMP : 0.5;
   if (npcDef.archetype === 'martial') winChance -= 0.10;
   winChance = Math.max(0.05, Math.min(0.95, winChance));
   const roll = rng();
@@ -178,7 +180,7 @@ export function tryDeclareWar(
         militaryPower: Math.max(10, Math.round(npcState.militaryPower * 0.5)),
         renown: Math.max(5, npcState.renown - 15),
         warStatus: 'peace',
-        lastActionDay: currentDay,
+        lastWarDay: currentDay,
       },
       resourceDeltas: { gold: loot, bronze: 5 },
       playerDeltas: { renown: 10 },
@@ -191,7 +193,7 @@ export function tryDeclareWar(
       stateDelta: {
         stance: -90,
         warStatus: 'tension',
-        lastActionDay: currentDay,
+        lastWarDay: currentDay,
       },
       resourceDeltas: {},
       playerDeltas: { morale: -20, militaryPower: -15, renown: -5 },

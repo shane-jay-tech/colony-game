@@ -40,6 +40,8 @@ export class ZoomControl {
   private btnZoomIn: Btn;
   private btnZoomOut: Btn;
   private btnReset: Btn;
+  /** 250ms 同步 zoom 数字的循环定时器；destroy 时必须移除，否则回调会打到已销毁的 zoomText */
+  private zoomTimer?: Phaser.Time.TimerEvent;
 
   private onPanelCollapsed = (): void => this.layout();
 
@@ -79,7 +81,7 @@ export class ZoomControl {
     store.on(STATE_EVENTS.PANEL_COLLAPSED_CHANGED, this.onPanelCollapsed);
     this.layout();
     // 每 250ms 同步一次 zoom 数字（滚轮也会触发，省了在 GameScene 显式回调）
-    scene.time.addEvent({
+    this.zoomTimer = scene.time.addEvent({
       delay: 250,
       loop: true,
       callback: () => this.refreshZoomText(),
@@ -155,6 +157,8 @@ export class ZoomControl {
   }
 
   destroy(): void {
+    this.zoomTimer?.remove();
+    this.zoomTimer = undefined;
     this.store.off(STATE_EVENTS.PANEL_COLLAPSED_CHANGED, this.onPanelCollapsed);
     this.btnZoomIn.zone.destroy();
     this.btnZoomIn.label.destroy();

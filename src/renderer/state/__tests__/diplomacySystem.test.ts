@@ -60,7 +60,8 @@ function freshState(def: NpcCountryDef): NpcCountryState {
     tradeRoute: false,
     tradeCooldown: 0,
     warStatus: 'peace',
-    lastActionDay: -1,
+    lastEnvoyDay: -1,
+    lastWarDay: -1,
   };
 }
 
@@ -138,7 +139,7 @@ describe('trySendEnvoy — 出使', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.stateDelta.stance).toBe(20 + 25);
-    expect(r.stateDelta.lastActionDay).toBe(0);
+    expect(r.stateDelta.lastEnvoyDay).toBe(0);
     expect(r.playerDeltas.renown).toBe(5);
   });
   it('出使晋（martial）：好感 +12', () => {
@@ -149,7 +150,7 @@ describe('trySendEnvoy — 出使', () => {
   });
   it('14 日内 → on_cooldown', () => {
     const s = freshState(QI_DEF);
-    s.lastActionDay = 0;
+    s.lastEnvoyDay = 0;
     const r = trySendEnvoy(QI_DEF, s, { gold: 100, cloth: 10 }, 5);
     expect(r.ok).toBe(false);
     if (r.ok) return;
@@ -157,9 +158,15 @@ describe('trySendEnvoy — 出使', () => {
   });
   it('14 日满 → 可再出使', () => {
     const s = freshState(QI_DEF);
-    s.lastActionDay = 0;
+    s.lastEnvoyDay = 0;
     const r = trySendEnvoy(QI_DEF, s, { gold: 100, cloth: 10 }, 14);
     expect(r.ok).toBe(true);
+  });
+  it('兴师冷却不应锁住出使（独立计时回归）', () => {
+    const s = freshState(QI_DEF);
+    s.lastWarDay = 0; // 刚打过仗
+    const r = trySendEnvoy(QI_DEF, s, { gold: 100, cloth: 10 }, 5);
+    expect(r.ok).toBe(true); // 出使不受兴师冷却影响
   });
 });
 
@@ -191,11 +198,42 @@ describe('tryDeclareWar — 兴师', () => {
   });
   it('30 日冷却内 → on_cooldown', () => {
     const s = freshState(QI_DEF);
-    s.lastActionDay = 0;
+    s.lastWarDay = 0;
     const r = tryDeclareWar(QI_DEF, s, 100, 10, () => 0.5);
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.reason).toBe('on_cooldown');
+  });
+  it('出使冷却不应锁住兴师（独立计时回归）', () => {
+    const s = freshState(QI_DEF);
+    s.lastEnvoyDay = 0; // 刚出使过
+    const r = tryDeclareWar(QI_DEF, s, 100, 5, () => 0.5);
+    expect(r.ok).toBe(true); // 兴师不受出使冷却影响
+  });
+  it('双方军力均为 0 → winChance 退化五五开，不出 NaN', () => {
+    const s = freshState(QI_DEF);
+    s.militaryPower = 0;
+    // playerMP=0、npcMP=0：rng<0.5 判胜，rng>0.5 判败，都不应是 NaN 必败
+    const win = tryDeclareWar(QI_DEF, s, 0, 0, () => 0.4);
+    expect(win.ok).toBe(true);
+    if (win.ok) expect(win.stateDelta.warStatus).toBe('peace'); // 胜
+    const s2 = freshState(QI_DEF);
+    s2.militaryPower = 0;
+    const lose = tryDeclareWar(QI_DEF, s2, 0, 0, () => 0.6);
+    expect(lose.ok).toBe(true);
+    if (lose.ok) expect(lose.stateDelta.warStatus).toBe('tension'); // 败
+  });
+  it('martial NPC + 双方军力 0：winChance 0.5-0.10=0.40，边界正确', () => {
+    const s = freshState(JIN_DEF); // 晋 martial
+    s.militaryPower = 0;
+    const win = tryDeclareWar(JIN_DEF, s, 0, 0, () => 0.39); // 0.39 < 0.40 → 胜
+    expect(win.ok).toBe(true);
+    if (win.ok) expect(win.stateDelta.warStatus).toBe('peace');
+    const s2 = freshState(JIN_DEF);
+    s2.militaryPower = 0;
+    const lose = tryDeclareWar(JIN_DEF, s2, 0, 0, () => 0.41); // 0.41 > 0.40 → 败
+    expect(lose.ok).toBe(true);
+    if (lose.ok) expect(lose.stateDelta.warStatus).toBe('tension');
   });
   it('已交战 → already_at_war', () => {
     const s = freshState(QI_DEF);
