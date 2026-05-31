@@ -56,7 +56,12 @@ export class GameScene extends Phaser.Scene {
   private completedListener = (...args: unknown[]): void => {
     this.rerenderBuildings();
     const b = args[0] as BuildingInstance | undefined;
-    if (b && b.position) this.mapRenderer?.pulseBuildingCompleted(b);
+    if (b && b.position) {
+      this.mapRenderer?.pulseBuildingCompleted(b);
+      // Phase4 Juice：建成飘字（建筑名）——金色，与金边脉冲呼应
+      const def = getBuildingDef(b.defId);
+      this.mapRenderer?.floatTextAtTile(b.position.x, b.position.y, `${def?.name ?? '营建'}　成`, 0xe0b94a);
+    }
   };
   // STATE_REPLACED：除了重画 buildings 还要把 BuildMode 重置（DeepSeek Medium #5）
   private replacedListener = (): void => {
@@ -75,7 +80,10 @@ export class GameScene extends Phaser.Scene {
   private upgradedListener = (...args: unknown[]): void => {
     this.rerenderBuildings();
     const b = args[0] as BuildingInstance | undefined;
-    if (b && b.position) this.mapRenderer?.pulseBuildingCompleted(b);
+    if (b && b.position) {
+      this.mapRenderer?.pulseBuildingCompleted(b);
+      this.mapRenderer?.floatTextAtTile(b.position.x, b.position.y, '营建　升', 0xe0b94a);
+    }
   };
 
   // Phase2：序章统一 → 暂停游戏 + UI → 播建朝跳变旁白 → 推进第一章 → 恢复

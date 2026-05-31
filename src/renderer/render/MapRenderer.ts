@@ -50,8 +50,12 @@ export class MapRenderer {
    * 同时存 tween 引用，destroy 时能 stop()，避免 onComplete 在 destroy 之后还触发 NPE
    */
   private activePulses: Array<{ g: Phaser.GameObjects.Graphics; tween: Phaser.Tweens.Tween }> = [];
+  /** Phase4 Juice：上浮淡出的飘字（建成/晋阶/资源大变动）。同 activePulses 做 tween 跟踪 + destroy 清理。 */
+  private floatLabels: Array<{ t: Phaser.GameObjects.Text; tween: Phaser.Tweens.Tween }> = [];
   /** 脉冲淡出毫秒 */
   private static readonly PULSE_MS = 800;
+  /** 飘字上浮淡出毫秒 */
+  private static readonly FLOAT_MS = 1100;
   // origin 不再 readonly：resize 时需要 recenter
   private originX: number;
   private originY: number;
@@ -532,6 +536,42 @@ export class MapRenderer {
   }
 
   /**
+   * Phase4 Juice：在某格中心上方冒一行飘字，1.1s 内上浮 ~34px 并淡出后自销。
+   * 用于建成/晋阶/资源大变动等"有反馈"的瞬间。缺坐标/越界/destroyed 时静默 no-op。
+   * 多条可并存；走视口 mask，避免在 HUD/面板上飘。
+   */
+  floatTextAtTile(gridX: number, gridY: number, text: string, colorHex: number): void {
+    if (this.destroyed || !text) return;
+    if (!Number.isFinite(gridX) || !Number.isFinite(gridY)) return;
+    const cx = this.originX + gridX * TILE_SIZE + TILE_SIZE / 2;
+    const cy = this.originY + gridY * TILE_SIZE;
+    const t = this.scene.add.text(cx, cy, text, {
+      fontFamily: 'serif',
+      fontSize: '15px',
+      color: `#${colorHex.toString(16).padStart(6, '0')}`,
+      stroke: '#1a1208',
+      strokeThickness: 3,
+    });
+    t.setOrigin(0.5, 1);
+    t.setDepth(60); // 在建筑/脉冲之上
+    if (this.viewportMask) t.setMask(this.viewportMask);
+    const tween = this.scene.tweens.add({
+      targets: t,
+      y: cy - 34,
+      alpha: 0,
+      duration: MapRenderer.FLOAT_MS,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        if (this.destroyed) return;
+        const idx = this.floatLabels.findIndex(f => f.t === t);
+        if (idx >= 0) this.floatLabels.splice(idx, 1);
+        t.destroy();
+      },
+    });
+    this.floatLabels.push({ t, tween });
+  }
+
+  /**
    * Slice G hardening：窗口缩放后重新计算 origin，让地图保持在新视口中央。
    * 4 个 graphics layer 都跟着移动；hover 在调用方下一次 pointermove 自然刷新。
    */
@@ -557,6 +597,8 @@ export class MapRenderer {
     for (const im of this.buildingImages) im.setPosition(im.x + dx, im.y + dy);
     // 进行中的脉冲也跟着移动（不然 resize 时正在闪的金边会卡在旧坐标）
     for (const p of this.activePulses) p.g.setPosition(this.originX, this.originY);
+    // 飘字也跟着平移（它们用绝对坐标，不在 origin 容器里）
+    for (const f of this.floatLabels) f.t.setPosition(f.t.x + dx, f.t.y + dy);
   }
 
   /**
@@ -618,5 +660,11 @@ export class MapRenderer {
       p.g.destroy();
     }
     this.activePulses = [];
+    // 飘字同理：先停 tween 再销毁 Text
+    for (const f of this.floatLabels) {
+      f.tween.stop();
+      f.t.destroy();
+    }
+    this.floatLabels = [];
   }
 }

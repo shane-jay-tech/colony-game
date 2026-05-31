@@ -70,6 +70,7 @@ interface FakeText {
   setStyle: ReturnType<typeof vi.fn>;
   setFontSize: ReturnType<typeof vi.fn>;
   setColor: ReturnType<typeof vi.fn>;
+  setDepth: ReturnType<typeof vi.fn>;
   setMask: ReturnType<typeof vi.fn>;
   clearMask: ReturnType<typeof vi.fn>;
   destroy: ReturnType<typeof vi.fn>;
@@ -90,6 +91,7 @@ function makeFakeText(): FakeText {
     }),
     setFontSize: vi.fn().mockImplementation(function (this: FakeText, n: number) { this.fontSize = n; return this; }),
     setColor: vi.fn().mockImplementation(function (this: FakeText, c: string) { this.color = c; return this; }),
+    setDepth: vi.fn().mockImplementation(function (this: FakeText) { return this; }),
     setMask: vi.fn().mockImplementation(function (this: FakeText) { return this; }),
     clearMask: vi.fn().mockImplementation(function (this: FakeText) { return this; }),
     destroy: vi.fn(),
@@ -136,8 +138,9 @@ function makeFakeScene(camWidth = 1366, camHeight = 800, textureExists: (key: st
         graphicsCalls.push(g);
         return g;
       }),
-      text: vi.fn(() => {
+      text: vi.fn((_x?: number, _y?: number, content?: string) => {
         const t = makeFakeText();
+        if (typeof content === 'string') t.text = content;
         textCalls.push(t);
         return t;
       }),
@@ -630,5 +633,60 @@ describe('MapRenderer.pulseBuildingCompleted (Slice H)', () => {
     })).not.toThrow();
     const tweens = (scene as unknown as { _tweens: TweenConfig[] })._tweens;
     expect(tweens).toHaveLength(0);
+  });
+});
+
+describe('MapRenderer.floatTextAtTile (Phase4 Juice)', () => {
+  it('creates a rising+fading text and queues an 1100ms tween', () => {
+    const acc = new WorldMapAccessor(makeMap(8, 8));
+    const scene = makeFakeScene();
+    const renderer = new MapRenderer(scene, acc);
+    const before = (scene as unknown as { _texts: FakeText[] })._texts.length;
+    renderer.floatTextAtTile(2, 3, '粮仓　成', 0xe0b94a);
+    const texts = (scene as unknown as { _texts: FakeText[] })._texts;
+    expect(texts.length).toBe(before + 1);
+    expect(texts[texts.length - 1]!.text).toBe('粮仓　成');
+    const tweens = (scene as unknown as { _tweens: TweenConfig[] })._tweens;
+    expect(tweens).toHaveLength(1);
+    expect(tweens[0]!.duration).toBe(1100);
+    expect(tweens[0]!.alpha).toBe(0);
+  });
+
+  it('empty text / non-finite coords are silent no-ops', () => {
+    const acc = new WorldMapAccessor(makeMap(8, 8));
+    const scene = makeFakeScene();
+    const renderer = new MapRenderer(scene, acc);
+    const before = (scene as unknown as { _texts: FakeText[] })._texts.length;
+    renderer.floatTextAtTile(1, 1, '', 0xffffff);
+    renderer.floatTextAtTile(Number.NaN, 1, 'x', 0xffffff);
+    expect((scene as unknown as { _texts: FakeText[] })._texts.length).toBe(before);
+    expect((scene as unknown as { _tweens: TweenConfig[] })._tweens).toHaveLength(0);
+  });
+
+  it('onComplete destroys the text; destroy() stops the tween and destroys leftover labels', () => {
+    const acc = new WorldMapAccessor(makeMap(8, 8));
+    const scene = makeFakeScene();
+    const renderer = new MapRenderer(scene, acc);
+    renderer.floatTextAtTile(0, 0, 'a', 0xffffff);
+    renderer.floatTextAtTile(1, 1, 'b', 0xffffff);
+    const tweens = (scene as unknown as { _tweens: Array<TweenConfig & { _tween?: { stop: ReturnType<typeof vi.fn> } }> })._tweens;
+    const texts = (scene as unknown as { _texts: FakeText[] })._texts;
+    const labelA = texts[texts.length - 2]!;
+    // 模拟第一条飘字 tween 结束 → 自销
+    tweens[0]!.onComplete!();
+    expect(labelA.destroy).toHaveBeenCalledTimes(1);
+    // destroy() 停掉剩余 tween 并销毁剩余 label
+    const stopFn = tweens[1]!._tween!.stop;
+    renderer.destroy();
+    expect(stopFn).toHaveBeenCalledTimes(1);
+    expect(texts[texts.length - 1]!.destroy).toHaveBeenCalled();
+  });
+
+  it('floatTextAtTile after destroy() is a silent no-op', () => {
+    const acc = new WorldMapAccessor(makeMap(8, 8));
+    const scene = makeFakeScene();
+    const renderer = new MapRenderer(scene, acc);
+    renderer.destroy();
+    expect(() => renderer.floatTextAtTile(0, 0, 'x', 0xffffff)).not.toThrow();
   });
 });
