@@ -56,8 +56,9 @@ export const BUILDINGS: BuildingDef[] = [
     assetKey: 'bld_house',
     upgradeRequires: [],
     badgeRules: [],
+    housingCapacity: 10,
     description: '筑庐聚民，邦本益固。',
-    descPlain: '增加人口上限。建造耗木 15、石 5。',
+    descPlain: '增加人口上限 10。有余粮时人口会渐增。建造耗木 15、石 5。',
     upgradesTo: 'bld_palace',
   },
   {
@@ -253,6 +254,7 @@ export const BUILDINGS: BuildingDef[] = [
     upgradesFrom: 'bld_house',
     upgradeCost: { wood: 48, stone: 48, bronze: 12, rite: 6 },
     upgradeTime: 6,
+    housingCapacity: 30,
   },
 
   // ===== J-3 v0.8：8 个新建筑（lore 对齐，意象转换：灯塔→烽燧、蒸汽机→水碓、油菜花→桑麻）=====

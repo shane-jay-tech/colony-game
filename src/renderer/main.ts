@@ -10,6 +10,8 @@ import { GameStore } from './state/gameStore';
 import type { IEventEmitter } from './state/gameStore';
 import { BuildMode } from './state/buildMode';
 import { POLICIES, EVENTS, DECREES, validateStaticData } from './data';
+import { BALANCE } from './data/balanceConfig';
+import type { ResourceId } from './data/resourceRegistry';
 
 /**
  * Renderer 入口。
@@ -122,10 +124,9 @@ const buildMode = new BuildMode();
 game.registry.set('store', store);
 game.registry.set('buildMode', buildMode);
 
-// Slice E：一次性初始资源（Slice F 引入正经经济循环之前的临时启动包）。
+// Slice E：一次性初始资源（数值集中在 balanceConfig.BALANCE.startingResources）。
 // 放在这里而不是 GameScene.create 里：scene 重启或 STATE_REPLACED 加载存档不会再次触发，
 // 避免污染玩家的合法存档（包括资源恰好为 0 的临时存档）。
-store.addResource('wood', 80);
-store.addResource('stone', 30);
-store.addResource('people', 20);
-store.addResource('grain', 50);
+for (const [id, amount] of Object.entries(BALANCE.startingResources)) {
+  if (amount && amount > 0) store.addResource(id as ResourceId, amount);
+}

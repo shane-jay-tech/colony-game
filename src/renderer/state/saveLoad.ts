@@ -54,6 +54,8 @@ export interface SerializedSave {
     crisisRecoverDays?: number;
     /** Phase1 模式（旧存档缺则兜底 'sandbox'） */
     mode?: 'sandbox' | 'story';
+    /** Phase1 人口增长小数残差（旧存档缺则兜底 0） */
+    populationCarry?: number;
   };
 }
 
@@ -197,6 +199,7 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       crisisActive: state.crisisActive,
       crisisRecoverDays: state.crisisRecoverDays,
       mode: state.mode,
+      populationCarry: state.populationCarry,
     },
   };
 }
@@ -296,6 +299,8 @@ export function deserialize(blob: unknown): GameState {
     crisisRecoverDays: Math.max(0, Math.floor(finiteNum(s.crisisRecoverDays, 0))),
     // Phase1 模式（旧存档无 → sandbox）
     mode: s.mode === 'story' ? 'story' : 'sandbox',
+    // Phase1 人口增长残差（旧存档无 → 0）
+    populationCarry: finiteNum(s.populationCarry, 0),
   };
   return gameState;
 }

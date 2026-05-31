@@ -97,6 +97,8 @@ export interface BuildingDef {
   upgradeTime?: number;
   /** v1.0 #3：相邻加成（参纪元 1800）。多条命中取 mul 最大那条，不叠乘。 */
   adjacencyBonus?: AdjacencyBonus[];
+  /** Phase1：提供的住房容量（人口增长上限）。仅居住类建筑（民居/王宫等）设置。 */
+  housingCapacity?: number;
 }
 
 /** v1.0 #3：相邻加成规则 —— 受益方为本 def，命中范围内有 partnerDefId 时启用。 */

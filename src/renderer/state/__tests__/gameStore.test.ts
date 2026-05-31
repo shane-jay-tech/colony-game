@@ -475,6 +475,7 @@ describe('GameStore.replaceState / setLastSeenNow', () => {
       crisisActive: false,
       crisisRecoverDays: 0,
       mode: 'sandbox' as const,
+      populationCarry: 0,
     };
     store.replaceState(newState);
     expect(cb).toHaveBeenCalledTimes(1);
@@ -913,11 +914,14 @@ describe('Phase1 低谷危机（集成）', () => {
     });
     const spy = vi.fn();
     ee.on(STATE_EVENTS.CRISIS_TRIGGERED, spy);
+    // 注：双零期间存粮=0 → 人口同时在饥荒流失（population tick 先于 crisis），
+    // 故 60 日时 people 已 <100；危机再 ×0.7。这里只验"危机触发 + 人口确实降 + 民心挫"。
+    const peopleBefore = store.getResources().people ?? 0;
     for (let i = 0; i < 59; i++) store.tickDay();
     expect(spy).not.toHaveBeenCalled();
     store.tickDay(); // 第 60 日触发
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(store.getResources().people).toBe(70);
+    expect(store.getResources().people ?? 0).toBeLessThan(peopleBefore);
     expect(store.getPlayerMorale()).toBe(30); // 50 - 20
   });
 
@@ -955,5 +959,43 @@ describe('Phase1 低谷危机（集成）', () => {
     store.tickDay();
     expect(store.getGrade()).toBe(0); // crisisActive 守卫挡住晋阶
     expect(gradeSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Phase1 人口增长（集成）', () => {
+  it('有余粮 + 未满住房上限 → 人口随天数增长', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { grain: 500, people: 5, gold: 100 }, // gold>0 防误触危机
+      buildings: [],
+      npcCountries: [],
+    });
+    for (let i = 0; i < 80; i++) store.tickDay();
+    expect((store.getResources().people ?? 0)).toBeGreaterThan(5);
+  });
+
+  it('缺粮 → 人口流失', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { grain: 0, people: 100, gold: 100 }, // 仅缺粮、不双零，故饥荒非危机
+      buildings: [],
+      npcCountries: [],
+    });
+    for (let i = 0; i < 20; i++) store.tickDay();
+    expect((store.getResources().people ?? 0)).toBeLessThan(100);
+  });
+
+  it('达住房上限后不再增长（people 不超过 cap）', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { grain: 500, people: 14, gold: 100 }, // baseCap=15，无居住建筑
+      buildings: [],
+      npcCountries: [],
+    });
+    for (let i = 0; i < 200; i++) store.tickDay();
+    expect((store.getResources().people ?? 0)).toBeLessThanOrEqual(15);
   });
 });

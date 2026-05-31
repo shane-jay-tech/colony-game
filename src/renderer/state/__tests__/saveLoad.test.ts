@@ -36,6 +36,7 @@ function makeGameState(): GameState {
     crisisActive: false,
     crisisRecoverDays: 0,
     mode: 'sandbox',
+    populationCarry: 0,
   };
 }
 

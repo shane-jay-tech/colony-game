@@ -14,3 +14,8 @@ Thumbs.db
 electron.vite.config.*.mjs
 user-data/
 .logs/
+
+# 密钥（绝不提交）
+.env
+.env.local
+.env.*.local

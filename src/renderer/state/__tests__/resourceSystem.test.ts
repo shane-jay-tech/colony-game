@@ -36,6 +36,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     crisisActive: false,
     crisisRecoverDays: 0,
     mode: 'sandbox',
+    populationCarry: 0,
     ...overrides,
   };
 }

@@ -28,6 +28,8 @@ import { createRng } from './rng';
 import { evaluateGrade, type GradeInput } from './countryGrade';
 import { gradeDefAt, MAX_GRADE, DIPLO_FLAG_ALL_FRIENDLY } from '../data/countryGrades';
 import { isDualZero, planCrisisEffects, CRISIS_GRACE_DAYS, CRISIS_RECOVER_DAYS } from './crisis';
+import { computePopulationGrowth, sumHousingCapacity } from './population';
+import { BALANCE } from '../data/balanceConfig';
 
 export interface IEventEmitter {
   on(event: string, fn: (...args: unknown[]) => void): void;
@@ -119,6 +121,8 @@ export interface GameState {
   crisisRecoverDays: number;
   /** Phase1 模式外壳：sandbox（无限经营）/ story（Phase2 叙事，当前灰掉） */
   mode: 'sandbox' | 'story';
+  /** Phase1 人口增长的小数残差累加器（独立于 productionCarry） */
+  populationCarry: number;
 }
 
 // J-3a v0.8 缺陷 #8：地图扩 32×32(1024 tile) → 80×80(6400 tile)，承载 ~3 小时单次游玩
@@ -158,6 +162,7 @@ function makeDefaultState(): GameState {
     crisisActive: false,
     crisisRecoverDays: 0,
     mode: 'sandbox',
+    populationCarry: 0,
   };
 }
 
@@ -502,6 +507,8 @@ export class GameStore {
     this.runEventTick();
     // v1.0 #6：邦交节拍（通商收入 + stance 漂移）
     this.runDiplomacyTick();
+    // Phase1：人口增长（用 production 后的存粮判生养；在 crisis 之前，让损失计入双零判定）
+    this.runPopulationTick();
     // Phase1：低谷危机 → 国格晋阶。顺序固定 crisis→grade：
     // crisis 可能掉人口/降级，grade 判定要用 crisis 后的终值，避免同 tick 既升又降的矛盾。
     this.runCrisisTick();
@@ -614,11 +621,11 @@ export class GameStore {
   /** 用当前 state + activeModifiers 算 DSL/事件采样所需的国家级指标快照 */
   private computeMetrics(): CountryMetrics {
     const cal = dayToCalendar(this.state.currentDay);
-    // base 值（Slice F 简化）：people 资源即 population；morale 默认 50；militaryPower 默认 0
-    const populationBase = this.state.resources['people'] ?? 0;
+    // Phase1：people 现在会真实增长 → population 直接取裸 people 资源（不再经 country_population_cap
+    // 聚合，后者改作"住房上限"用于人口增长门槛，见 population.ts / runPopulationTick）。
+    const population = this.state.resources['people'] ?? 0;
     const morale = applyModifiers(50, 'country_morale', this.state.activeModifiers);
     const militaryPower = applyModifiers(0, 'country_military_power', this.state.activeModifiers);
-    const population = applyModifiers(populationBase, 'country_population_cap', this.state.activeModifiers);
     // RNG：每次 metrics 推进一步 rngSeed，保证 day-to-day 不同。
     // 用箭头包裹以防 createRng 实现被换成需要 this 的形式（DeepSeek 防御）。
     const rngHandle = createRng(this.state.rngSeed ^ this.state.currentDay);
@@ -820,10 +827,8 @@ export class GameStore {
 
   /** 收集国格判定所需快照（人口口径与 computeMetrics 一致）。 */
   private buildGradeInput(): GradeInput {
-    // 有意复用 computeMetrics 的"有效人口"口径（people 经 country_population_cap 聚合），
-    // 与事件/DSL 全游戏一致——国格门槛对齐玩家在别处看到的同一人口数，不另立一套裸 people。
-    const populationBase = this.state.resources['people'] ?? 0;
-    const population = applyModifiers(populationBase, 'country_population_cap', this.state.activeModifiers);
+    // Phase1：国格人口门槛用裸 people（与 computeMetrics 一致）；country_population_cap 改作住房上限。
+    const population = this.state.resources['people'] ?? 0;
     const builtDefIds = new Set<string>();
     for (const b of this.state.buildings) {
       if (b.status === 'working') builtDefIds.add(b.defId);
@@ -861,6 +866,25 @@ export class GameStore {
     if (next >= MAX_GRADE && !this.state.tianxiaAcknowledged) {
       this.state.tianxiaAcknowledged = true;
       this.emitter.emit(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, { def: gradeDefAt(next) });
+    }
+  }
+
+  // ============== Phase1：人口增长 ==============
+
+  /** 每日：有余粮 + 未满住房上限 → 人口渐增；缺粮 → 流失。走 addResource 自带 clamp。 */
+  private runPopulationTick(): void {
+    const people = this.state.resources['people'] ?? 0;
+    const grainStock = this.state.resources['grain'] ?? 0;
+    // 住房上限 = 基数 + working 建筑 housingCapacity，再经 country_population_cap modifier 聚合
+    const housingBase = BALANCE.population.baseHousingCap + sumHousingCapacity(this.state.buildings, getBuildingDef);
+    const housingCap = applyModifiers(housingBase, 'country_population_cap', this.state.activeModifiers);
+    const result = computePopulationGrowth(
+      { people, housingCap, grainStock, carry: this.state.populationCarry },
+      BALANCE.population,
+    );
+    this.state.populationCarry = result.carry;
+    if (result.peopleDelta !== 0) {
+      this.addResource('people', result.peopleDelta, 'population');
     }
   }
 
@@ -957,6 +981,7 @@ export class GameStore {
     if (typeof newState.crisisActive !== 'boolean') newState.crisisActive = false;
     if (typeof newState.crisisRecoverDays !== 'number') newState.crisisRecoverDays = 0;
     if (newState.mode !== 'story' && newState.mode !== 'sandbox') newState.mode = 'sandbox';
+    if (typeof newState.populationCarry !== 'number' || !Number.isFinite(newState.populationCarry)) newState.populationCarry = 0;
     this.state = newState;
     this.worldMapAccessor = new WorldMapAccessor(newState.worldMap);
     this.emitter.emit(STATE_EVENTS.STATE_REPLACED, undefined);
