@@ -16,8 +16,6 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     pendingEventId: null,
     pendingEventDayStart: null,
     tutorialStepId: null,
-    defeatCount: 0,
-    permanentBuffs: [],
     lastSeenTimestamp: 0,
     paused: false,
     speed: 1,
@@ -31,6 +29,13 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     npcCountries: [],
     playerMorale: 50,
     playerMilitaryPower: 30,
+    grade: 0,
+    gradeReached: 0,
+    tianxiaAcknowledged: false,
+    dualZeroDays: 0,
+    crisisActive: false,
+    crisisRecoverDays: 0,
+    mode: 'sandbox',
     ...overrides,
   };
 }

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { EventEmitter } from 'eventemitter3';
 import { BootScene } from './scenes/BootScene';
+import { ModeSelectScene } from './scenes/ModeSelectScene';
 import { IntroScene } from './scenes/IntroScene';
 import { GameScene } from './scenes/GameScene';
 import { UIScene } from './scenes/UIScene';
@@ -44,7 +45,7 @@ const config: Phaser.Types.Core.GameConfig = {
     target: 60,
     forceSetTimeOut: false,
   },
-  scene: [BootScene, IntroScene, GameScene, UIScene],
+  scene: [BootScene, ModeSelectScene, IntroScene, GameScene, UIScene],
 };
 
 // 实例化 Phaser.Game。BootScene autostart，其余 scene 由 BootScene.create 在 part 2 启动。

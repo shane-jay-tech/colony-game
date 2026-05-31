@@ -553,6 +553,9 @@ export class IntroScene extends Phaser.Scene {
     const store = this.registry.get('store') as GameStore | undefined;
     if (store) {
       store.addModifier(structuredClone(identity.startingModifier));
+      // Phase1：把 ModeSelectScene 选定的模式落进 state（缺省沙盒）
+      const mode = this.registry.get('gameMode');
+      store.setMode(mode === 'story' ? 'story' : 'sandbox');
     }
 
     this.registry.set(REGISTRY_KEYS.INTRO_DONE, true);

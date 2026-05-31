@@ -45,12 +45,12 @@ export class BootScene extends Phaser.Scene {
       }
     }
 
-    // J-3e v0.8：先进 IntroScene 选国号 + 身份 + 楔子，再到 GameScene
+    // Phase1：先进 ModeSelectScene 选模式（沙盒/故事）→ IntroScene 选国号身份楔子 → GameScene
     // 若注册表已有 introDone 标志（hot reload / dev 重启），直接进 GameScene 避免重复展示
     if (this.registry.get('introDone')) {
       this.scene.start('GameScene');
     } else {
-      this.scene.start('IntroScene');
+      this.scene.start('ModeSelectScene');
     }
   }
 }

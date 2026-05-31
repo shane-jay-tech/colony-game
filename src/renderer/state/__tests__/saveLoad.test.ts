@@ -16,8 +16,6 @@ function makeGameState(): GameState {
     pendingEventId: null,
     pendingEventDayStart: null,
     tutorialStepId: null,
-    defeatCount: 0,
-    permanentBuffs: [],
     lastSeenTimestamp: 12345678,
     paused: false,
     speed: 1,
@@ -31,6 +29,13 @@ function makeGameState(): GameState {
     npcCountries: [],
     playerMorale: 50,
     playerMilitaryPower: 30,
+    grade: 0,
+    gradeReached: 0,
+    tianxiaAcknowledged: false,
+    dualZeroDays: 0,
+    crisisActive: false,
+    crisisRecoverDays: 0,
+    mode: 'sandbox',
   };
 }
 
@@ -364,5 +369,74 @@ describe('saveToSlot', () => {
     const parsed = JSON.parse(json) as { state: { lastSeenTimestamp: number } };
     expect(parsed.state.lastSeenTimestamp).toBeGreaterThanOrEqual(beforeMs);
     expect(parsed.state.lastSeenTimestamp).not.toBe(12345678);
+  });
+});
+
+describe('Phase1 新字段存档（国格/低谷/模式）', () => {
+  it('round-trip 保真：grade / gradeReached / tianxiaAcknowledged / 危机计数 / mode', () => {
+    const s = makeGameState();
+    s.grade = 3;
+    s.gradeReached = 4;
+    s.tianxiaAcknowledged = true;
+    s.dualZeroDays = 12;
+    s.crisisActive = true;
+    s.crisisRecoverDays = 7;
+    s.mode = 'story';
+    const restored = deserialize(serialize(s));
+    expect(restored.grade).toBe(3);
+    expect(restored.gradeReached).toBe(4);
+    expect(restored.tianxiaAcknowledged).toBe(true);
+    expect(restored.dualZeroDays).toBe(12);
+    expect(restored.crisisActive).toBe(true);
+    expect(restored.crisisRecoverDays).toBe(7);
+    expect(restored.mode).toBe('story');
+  });
+
+  it('旧存档（缺新字段 + 残留废弃 defeatCount/permanentBuffs）→ 走兜底默认，不抛错', () => {
+    const legacyBlob = {
+      schemaVersion: SAVE_SCHEMA_VERSION,
+      savedAt: 0,
+      state: {
+        resources: { grain: 10 },
+        buildings: [],
+        policies: [],
+        activeModifiers: [],
+        activeDecrees: [],
+        eventHistory: [],
+        tutorialStepId: null,
+        // 残留的废弃字段——deserialize 应忽略，不报错
+        defeatCount: 3,
+        permanentBuffs: ['mandate_x'],
+        lastSeenTimestamp: 0,
+        currentDay: 0,
+        rngSeed: 1,
+        speed: 1 as const,
+        // 完全没有 grade / mode / 危机字段
+      },
+    };
+    const restored = deserialize(legacyBlob);
+    expect(restored.grade).toBe(0);
+    expect(restored.gradeReached).toBe(0);
+    expect(restored.tianxiaAcknowledged).toBe(false);
+    expect(restored.dualZeroDays).toBe(0);
+    expect(restored.crisisActive).toBe(false);
+    expect(restored.mode).toBe('sandbox');
+    // 废弃字段不应泄漏进 GameState
+    expect('defeatCount' in restored).toBe(false);
+    expect('permanentBuffs' in restored).toBe(false);
+  });
+
+  it('gradeReached 不低于 grade（迁移钳制）', () => {
+    const blob = {
+      schemaVersion: SAVE_SCHEMA_VERSION, savedAt: 0,
+      state: {
+        resources: {}, buildings: [], policies: [], activeModifiers: [], activeDecrees: [],
+        eventHistory: [], tutorialStepId: null, lastSeenTimestamp: 0, currentDay: 0,
+        rngSeed: 1, speed: 1 as const,
+        grade: 4, gradeReached: 2, // 异常：reached < grade
+      },
+    };
+    const restored = deserialize(blob);
+    expect(restored.gradeReached).toBe(4);
   });
 });

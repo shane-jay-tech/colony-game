@@ -455,8 +455,6 @@ describe('GameStore.replaceState / setLastSeenNow', () => {
       pendingEventId: null,
       pendingEventDayStart: null,
       tutorialStepId: null,
-      defeatCount: 0,
-      permanentBuffs: [],
       lastSeenTimestamp: 0,
       paused: false,
       speed: 2 as const,
@@ -470,6 +468,13 @@ describe('GameStore.replaceState / setLastSeenNow', () => {
       npcCountries: [],
       playerMorale: 50,
       playerMilitaryPower: 30,
+      grade: 0,
+      gradeReached: 0,
+      tianxiaAcknowledged: false,
+      dualZeroDays: 0,
+      crisisActive: false,
+      crisisRecoverDays: 0,
+      mode: 'sandbox' as const,
     };
     store.replaceState(newState);
     expect(cb).toHaveBeenCalledTimes(1);
@@ -840,5 +845,115 @@ describe('GameStore.upgradeBuilding (v0.9)', () => {
     store.addResource('wood', 100);
     expect(store.upgradeBuilding(0, 0)).toEqual({ ok: false, reason: 'not_working' });
     spy.mockRestore();
+  });
+});
+
+describe('Phase1 国格阶梯（集成）', () => {
+  function workingMarket() {
+    return {
+      defId: 'bld_market', position: { x: 1, y: 1 }, status: 'working' as const,
+      tier: 1 as const, constructionProgress: 100, modifiers: [],
+    };
+  }
+
+  it('达 level1 门槛 + 建成 bld_market → 一 tick 后晋阶到 1 并发 GRADE_CHANGED', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { people: 40, gold: 120, grain: 50 },
+      buildings: [workingMarket()],
+      npcCountries: [],
+    });
+    const spy = vi.fn();
+    ee.on(STATE_EVENTS.GRADE_CHANGED, spy);
+    expect(store.getGrade()).toBe(0);
+    store.tickDay();
+    expect(store.getGrade()).toBe(1);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toMatchObject({ from: 0, to: 1, reason: 'ascend' });
+  });
+
+  it('门槛达标但缺标志建筑 → 不晋阶', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { people: 40, gold: 120, grain: 50 },
+      buildings: [], // 无 market
+      npcCountries: [],
+    });
+    store.tickDay();
+    expect(store.getGrade()).toBe(0);
+  });
+
+  it('一 tick 最多升 1 级（不连跳）', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      // 资源全顶 + 多标志建筑，但仍应只升到 1
+      resources: { people: 9999, gold: 9999, cloth: 9999, rite: 9999, bronze: 9999, grain: 9999 },
+      buildings: [
+        workingMarket(),
+        { defId: 'bld_ancestor_shrine', position: { x: 2, y: 2 }, status: 'working' as const, tier: 1 as const, constructionProgress: 100, modifiers: [] },
+      ],
+      npcCountries: [],
+    });
+    store.tickDay();
+    expect(store.getGrade()).toBe(1);
+  });
+});
+
+describe('Phase1 低谷危机（集成）', () => {
+  it('国库+存粮双零满 60 日 → 触发危机：人口降、crisisActive、发 CRISIS_TRIGGERED', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { gold: 0, grain: 0, people: 100 },
+      buildings: [],
+      npcCountries: [],
+    });
+    const spy = vi.fn();
+    ee.on(STATE_EVENTS.CRISIS_TRIGGERED, spy);
+    for (let i = 0; i < 59; i++) store.tickDay();
+    expect(spy).not.toHaveBeenCalled();
+    store.tickDay(); // 第 60 日触发
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(store.getResources().people).toBe(70);
+    expect(store.getPlayerMorale()).toBe(30); // 50 - 20
+  });
+
+  it('资源回正 → dualZeroDays 归零，不触发', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { gold: 0, grain: 0, people: 100 },
+      buildings: [],
+      npcCountries: [],
+    });
+    const spy = vi.fn();
+    ee.on(STATE_EVENTS.CRISIS_TRIGGERED, spy);
+    for (let i = 0; i < 40; i++) store.tickDay();
+    store.addResource('gold', 100); // 补回国库 → 下一 tick 计数归零
+    for (let i = 0; i < 40; i++) store.tickDay();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('危机恢复期（crisisActive）内不晋阶——即使满足 level1 门槛也不 ascend', () => {
+    const ee = makeEmitter();
+    // 预置：处于危机态 + 已满足 level1（人口/钱达标 + 建成 bld_market）
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      crisisActive: true,
+      resources: { gold: 500, grain: 200, people: 80 },
+      buildings: [
+        { defId: 'bld_market', position: { x: 1, y: 1 }, status: 'working' as const, tier: 1 as const, constructionProgress: 100, modifiers: [] },
+      ],
+      npcCountries: [],
+    });
+    expect(store.getGrade()).toBe(0);
+    const gradeSpy = vi.fn();
+    ee.on(STATE_EVENTS.GRADE_CHANGED, gradeSpy);
+    store.tickDay();
+    expect(store.getGrade()).toBe(0); // crisisActive 守卫挡住晋阶
+    expect(gradeSpy).not.toHaveBeenCalled();
   });
 });

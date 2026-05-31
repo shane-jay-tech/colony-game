@@ -9,7 +9,6 @@ import { EVENTS } from './events';
 import { DECREES } from './decrees';
 import { TUTORIAL_STEPS } from './tutorial';
 import { FLOATING_TEXTS, PARTICLES, SHAKES } from './particles';
-import { DEFEAT_CONDITIONS } from './defeat';
 import { OFFLINE_REWARD } from './offline';
 import { AUDIO_CUES } from './audio';
 import { validateAllStaticData } from './modifierValidator';
@@ -23,7 +22,6 @@ export {
   FLOATING_TEXTS,
   PARTICLES,
   SHAKES,
-  DEFEAT_CONDITIONS,
   OFFLINE_REWARD,
   AUDIO_CUES,
 };

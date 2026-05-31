@@ -362,23 +362,6 @@ export interface ScreenShakeConfig {
   direction: 'horizontal' | 'vertical' | 'both';
 }
 
-// ============== Defeat / Soft Reset (出公奔卫) ==========================
-
-export interface DefeatCondition {
-  id: string;
-  type: 'hard' | 'soft';
-  /** 引用 ModifierTargetKey 或 country_<resource>，实际是 ResourceId / ModifierTargetKey 子集 */
-  metricTarget: string;
-  /** 触发阈值（≤ 时） */
-  threshold: number;
-  /** 持续多少天才真触发（防短期负值波动） */
-  graceDays: number;
-  /** 软失败：流亡到哪个邦（用 region id） */
-  exileToCountryId?: string;
-  /** 软失败保留科技比例 0..1 */
-  retainTechRatio?: number;
-}
-
 // ============== Offline Reward ==========================================
 
 export interface OfflineReward {
@@ -424,10 +407,6 @@ export interface SaveData {
     eventHistory: string[];
     /** 当前 tutorial 步 */
     tutorialStepId: string | null;
-    /** 软失败计次（出公奔卫 N 次后给天命碎片） */
-    defeatCount: number;
-    /** 永久 buff（天命碎片兑换） */
-    permanentBuffs: string[];
     /** 上次离线的 timestamp（用于 OfflineProgressionService） */
     lastSeenTimestamp: number;
   };

@@ -25,6 +25,9 @@ import { sampleEventTrigger, applyEventChoice, checkEventTimeout } from './event
 import { applyModifiers } from './modifierAggregator';
 import type { CountryMetrics } from './dslEval';
 import { createRng } from './rng';
+import { evaluateGrade, type GradeInput } from './countryGrade';
+import { gradeDefAt, MAX_GRADE, DIPLO_FLAG_ALL_FRIENDLY } from '../data/countryGrades';
+import { isDualZero, planCrisisEffects, CRISIS_GRACE_DAYS, CRISIS_RECOVER_DAYS } from './crisis';
 
 export interface IEventEmitter {
   on(event: string, fn: (...args: unknown[]) => void): void;
@@ -62,6 +65,12 @@ export const STATE_EVENTS = {
   DIPLOMACY_ACTION: 'state:diplomacyAction',
   // v1.0 #6：通商每 30 日入账时发；UI 给玩家飘一个 +X gold +Y cloth 反馈
   TRADE_TICK: 'state:tradeTick',
+  // Phase1：国格晋阶/降格（payload { from, to, def, reason }）→ HUD 徽章刷新 + Toast
+  GRADE_CHANGED: 'state:gradeChanged',
+  // Phase1：登顶天下共主软认可（仅一次）→ 长 Toast 祝贺，不暂停不结束
+  TIANXIA_ACKNOWLEDGED: 'state:tianxiaAcknowledged',
+  // Phase1：低谷危机触发（payload { summary, peopleDelta, moraleDelta, gradeFrom, gradeTo }）→ 居中通告模态
+  CRISIS_TRIGGERED: 'state:crisisTriggered',
 } as const;
 
 export type PanelSide = 'left' | 'right';
@@ -78,8 +87,6 @@ export interface GameState {
   /** pendingEventId 被设上时的 currentDay；用于计算 timeout */
   pendingEventDayStart: number | null;
   tutorialStepId: string | null;
-  defeatCount: number;
-  permanentBuffs: string[];
   lastSeenTimestamp: number;
   paused: boolean;
   speed: 0 | 1 | 2 | 3;
@@ -98,6 +105,20 @@ export interface GameState {
   /** v1.0 #6：玩家国家级 metric（renown 用 modifier 系统聚合，但 morale / militaryPower 由 diplomacy 直接调） */
   playerMorale: number;
   playerMilitaryPower: number;
+  /** Phase1 国格阶梯：当前国格级（0..5，0=聚落） */
+  grade: number;
+  /** Phase1：历史最高国格（不随降格回退；用于软认可只触发一次 + HUD 不倒退里程感） */
+  gradeReached: number;
+  /** Phase1：登顶天下共主软认可是否已弹过（防重复祝贺） */
+  tianxiaAcknowledged: boolean;
+  /** Phase1 低谷：国库+存粮双零的连续天数计数器 */
+  dualZeroDays: number;
+  /** Phase1 低谷：当前是否处于危机态（恢复 CRISIS_RECOVER_DAYS 天双正后复位，可再次触发） */
+  crisisActive: boolean;
+  /** Phase1：危机解除前资源连续双正的天数计数器 */
+  crisisRecoverDays: number;
+  /** Phase1 模式外壳：sandbox（无限经营）/ story（Phase2 叙事，当前灰掉） */
+  mode: 'sandbox' | 'story';
 }
 
 // J-3a v0.8 缺陷 #8：地图扩 32×32(1024 tile) → 80×80(6400 tile)，承载 ~3 小时单次游玩
@@ -117,8 +138,6 @@ function makeDefaultState(): GameState {
     pendingEventDayStart: null,
     // Slice G 教程：新建游戏默认显示欢迎引导；存档读回的 state 会覆盖此值
     tutorialStepId: 'tut_welcome',
-    defeatCount: 0,
-    permanentBuffs: [],
     lastSeenTimestamp: 0,
     paused: false,
     speed: 1,
@@ -132,6 +151,13 @@ function makeDefaultState(): GameState {
     npcCountries: makeInitialNpcStates(),
     playerMorale: 50,
     playerMilitaryPower: 30,
+    grade: 0,
+    gradeReached: 0,
+    tianxiaAcknowledged: false,
+    dualZeroDays: 0,
+    crisisActive: false,
+    crisisRecoverDays: 0,
+    mode: 'sandbox',
   };
 }
 
@@ -476,6 +502,10 @@ export class GameStore {
     this.runEventTick();
     // v1.0 #6：邦交节拍（通商收入 + stance 漂移）
     this.runDiplomacyTick();
+    // Phase1：低谷危机 → 国格晋阶。顺序固定 crisis→grade：
+    // crisis 可能掉人口/降级，grade 判定要用 crisis 后的终值，避免同 tick 既升又降的矛盾。
+    this.runCrisisTick();
+    this.runGradeTick();
   }
 
   /** 当日产出 / 维护开销 → 资源 deltas（grain 等） */
@@ -678,6 +708,10 @@ export class GameStore {
     return applyModifiers(50, 'country_renown', this.state.activeModifiers);
   }
 
+  // Phase1 模式外壳：仅记录玩法模式，沙盒/故事外壳用；不 emit（无 UI 实时依赖）
+  getMode(): 'sandbox' | 'story' { return this.state.mode; }
+  setMode(mode: 'sandbox' | 'story'): void { this.state.mode = mode; }
+
   private findNpcState(id: string): NpcCountryState | undefined {
     return this.state.npcCountries.find(s => s.id === id);
   }
@@ -775,6 +809,119 @@ export class GameStore {
     }
   }
 
+  // ============== Phase1：国格阶梯 ==============
+
+  getGrade(): number { return this.state.grade; }
+  getGradeReached(): number { return this.state.gradeReached; }
+  getGradeDef() { return gradeDefAt(this.state.grade); }
+
+  /** NPC 邦交"友好"阈值：stance ≥ 20（与 stanceLabel 的"友好"档一致） */
+  private static readonly NPC_FRIENDLY_STANCE = 20;
+
+  /** 收集国格判定所需快照（人口口径与 computeMetrics 一致）。 */
+  private buildGradeInput(): GradeInput {
+    // 有意复用 computeMetrics 的"有效人口"口径（people 经 country_population_cap 聚合），
+    // 与事件/DSL 全游戏一致——国格门槛对齐玩家在别处看到的同一人口数，不另立一套裸 people。
+    const populationBase = this.state.resources['people'] ?? 0;
+    const population = applyModifiers(populationBase, 'country_population_cap', this.state.activeModifiers);
+    const builtDefIds = new Set<string>();
+    for (const b of this.state.buildings) {
+      if (b.status === 'working') builtDefIds.add(b.defId);
+    }
+    const diplomacyFlags = new Set<string>();
+    if (this.state.npcCountries.length > 0
+      && this.state.npcCountries.every(n => n.stance >= GameStore.NPC_FRIENDLY_STANCE)) {
+      diplomacyFlags.add(DIPLO_FLAG_ALL_FRIENDLY);
+    }
+    return {
+      population,
+      resources: this.state.resources,
+      builtDefIds,
+      adoptedPolicyIds: this.getAdoptedPolicyIds(),
+      completedDecreeIds: new Set(this.state.completedDecreeIds),
+      diplomacyFlags,
+    };
+  }
+
+  /** 每日：综合门槛 + 标志成就都满足 → 晋一级国格（一次最多 +1，不降级）。 */
+  private runGradeTick(): void {
+    // 终局免扫：已是天下共主无可再升，跳过整套建筑/资源扫描。
+    if (this.state.grade >= MAX_GRADE) return;
+    // 危机恢复期不晋阶：避免"国势倾颓"当 tick 又立刻"国格晋阶"的矛盾，
+    // 也契合"崩溃后励精图治、缓过来才谈晋升"的语义。crisisActive 在双正 30 日后自动解除。
+    if (this.state.crisisActive) return;
+    const next = evaluateGrade(this.state.grade, this.buildGradeInput());
+    if (next <= this.state.grade) return;
+    const from = this.state.grade;
+    this.state.grade = next;
+    if (next > this.state.gradeReached) this.state.gradeReached = next;
+    this.emitter.emit(STATE_EVENTS.GRADE_CHANGED, {
+      from, to: next, def: gradeDefAt(next), reason: 'ascend',
+    });
+    if (next >= MAX_GRADE && !this.state.tianxiaAcknowledged) {
+      this.state.tianxiaAcknowledged = true;
+      this.emitter.emit(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, { def: gradeDefAt(next) });
+    }
+  }
+
+  // ============== Phase1：可翻身低谷（无 Game Over） ==============
+
+  /** 每日：国库+存粮双零累计达 60 日 → 触发一次性危机；资源回正连续 30 日 → 解除危机态。 */
+  private runCrisisTick(): void {
+    if (isDualZero(this.state.resources)) {
+      this.state.dualZeroDays += 1;
+      this.state.crisisRecoverDays = 0;
+      if (this.state.dualZeroDays >= CRISIS_GRACE_DAYS && !this.state.crisisActive) {
+        this.applyCrisis();
+      }
+    } else {
+      this.state.dualZeroDays = 0;
+      if (this.state.crisisActive) {
+        this.state.crisisRecoverDays += 1;
+        if (this.state.crisisRecoverDays >= CRISIS_RECOVER_DAYS) {
+          this.state.crisisActive = false;
+          this.state.crisisRecoverDays = 0;
+        }
+      }
+    }
+  }
+
+  /**
+   * 施加低谷危机：掉人口（×0.7，保底 5）+ 民心重挫（-20）+ 国格降一级（gradeReached 不回退）。
+   * 同局可恢复——补回粮钱供给后人口回升、可重新满足门槛升回国格。不流亡、不跨局、不永久 buff。
+   * emit 顺序：先资源/人口 → 后降级 → 末发 CRISIS_TRIGGERED，保证 UI 读到的是终态。
+   */
+  private applyCrisis(): void {
+    this.state.crisisActive = true;
+    this.state.dualZeroDays = 0;
+    this.state.crisisRecoverDays = 0;
+
+    const currentPeople = this.state.resources['people'] ?? 0;
+    const eff = planCrisisEffects(currentPeople);
+    if (eff.peopleDelta !== 0) this.addResource('people', eff.peopleDelta, 'crisis');
+    this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + eff.moraleDelta));
+
+    const gradeFrom = this.state.grade;
+    let gradeTo = gradeFrom;
+    if (this.state.grade > 0) {
+      gradeTo = this.state.grade - 1;
+      this.state.grade = gradeTo;
+      this.emitter.emit(STATE_EVENTS.GRADE_CHANGED, {
+        from: gradeFrom, to: gradeTo, def: gradeDefAt(gradeTo), reason: 'crisis',
+      });
+    }
+
+    const demoted = gradeTo !== gradeFrom ? `，国格降为「${gradeDefAt(gradeTo).name}」` : '';
+    const summary = `国库空、仓廪罄，旷日六旬。民有流散、士气大挫${demoted}。励精图治，尚可再起。`;
+    this.emitter.emit(STATE_EVENTS.CRISIS_TRIGGERED, {
+      summary,
+      peopleDelta: eff.peopleDelta,
+      moraleDelta: eff.moraleDelta,
+      gradeFrom,
+      gradeTo,
+    });
+  }
+
   setLastSeenNow(): void {
     this.state.lastSeenTimestamp = Date.now();
   }
@@ -802,6 +949,14 @@ export class GameStore {
     }
     if (typeof newState.playerMorale !== 'number') newState.playerMorale = 50;
     if (typeof newState.playerMilitaryPower !== 'number') newState.playerMilitaryPower = 30;
+    // Phase1：国格/低谷/模式字段——内存路径（quick-save/旧测试态）可能缺，兜底
+    if (typeof newState.grade !== 'number') newState.grade = 0;
+    if (typeof newState.gradeReached !== 'number') newState.gradeReached = newState.grade;
+    if (typeof newState.tianxiaAcknowledged !== 'boolean') newState.tianxiaAcknowledged = false;
+    if (typeof newState.dualZeroDays !== 'number') newState.dualZeroDays = 0;
+    if (typeof newState.crisisActive !== 'boolean') newState.crisisActive = false;
+    if (typeof newState.crisisRecoverDays !== 'number') newState.crisisRecoverDays = 0;
+    if (newState.mode !== 'story' && newState.mode !== 'sandbox') newState.mode = 'sandbox';
     this.state = newState;
     this.worldMapAccessor = new WorldMapAccessor(newState.worldMap);
     this.emitter.emit(STATE_EVENTS.STATE_REPLACED, undefined);

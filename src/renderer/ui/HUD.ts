@@ -64,6 +64,12 @@ export class HUD {
   private dateText: Phaser.GameObjects.Text;
   private speedButtons: SpeedButton[] = [];
   private bgGfx: Phaser.GameObjects.Graphics;
+  // Phase1：国格徽章（印章风金框小匾，置于日期右侧）。
+  // Phase4 可在此换万相原画：BootScene 试加载 grade_emblem_<level> 纹理，有图则贴图、无图回退本印章绘制。
+  private gradeBadgeBg: Phaser.GameObjects.Graphics | null = null;
+  private gradeBadgeText: Phaser.GameObjects.Text | null = null;
+  private gradeBadgeX = 0;
+  private gradeBadgeTween: Phaser.Tweens.Tween | null = null;
   // Slice I 动画顺滑化：资源数字差值 tween（300ms 缓动到目标值）
   private prevResourceValues: Map<ResourceId, number> = new Map();
   private resourceTweens: Map<ResourceId, Phaser.Tweens.Tween> = new Map();
@@ -86,12 +92,14 @@ export class HUD {
   private onYearTick = (): void => this.refreshDate();
   private onPaused = (): void => this.refreshSpeed();
   private onSpeed = (): void => this.refreshSpeed();
+  private onGradeChanged = (): void => this.refreshGrade(true);
   private onReplaced = (): void => {
     // 读档/重置：数字直接 snap，不要让玩家看到从 0 缓动到几百
     this.snapNextResourceUpdate = true;
     this.refreshResources();
     this.refreshDate();
     this.refreshSpeed();
+    this.refreshGrade(false);
   };
 
   constructor(scene: Phaser.Scene, store: GameStore) {
@@ -106,10 +114,20 @@ export class HUD {
     this.dateText = scene.add.text(0, 0, '', { ...FONTS.body, color: '#F5ECD7' } as Phaser.Types.GameObjects.Text.TextStyle);
     this.container.add(this.dateText);
 
+    // 国格徽章：印章风金框小匾（bg + 篆意级名）
+    this.gradeBadgeBg = scene.add.graphics();
+    this.container.add(this.gradeBadgeBg);
+    this.gradeBadgeText = scene.add.text(0, 0, '', {
+      ...FONTS.glyph,
+      color: '#C9A84C',
+    } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0, 0.5);
+    this.container.add(this.gradeBadgeText);
+
     this.layout();
     this.refreshResources();
     this.refreshDate();
     this.refreshSpeed();
+    this.refreshGrade(false);
 
     store.on(STATE_EVENTS.RESOURCES_CHANGED, this.onResources);
     store.on(STATE_EVENTS.DAY_TICK, this.onDayTick);
@@ -118,6 +136,7 @@ export class HUD {
     store.on(STATE_EVENTS.PAUSED_CHANGED, this.onPaused);
     store.on(STATE_EVENTS.SPEED_CHANGED, this.onSpeed);
     store.on(STATE_EVENTS.STATE_REPLACED, this.onReplaced);
+    store.on(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
   }
 
   /** 重排子元素（resize 时调用）。 */
@@ -177,6 +196,10 @@ export class HUD {
     // 固定位置，资源 token 多时会和日期重叠；现在动态贴在最后一个 token 后面）
     const dateGapX = 18;
     this.dateText.setPosition(cursorX + dateGapX, tokenY - 9);
+
+    // 国格徽章：日期块右侧固定偏移处（为日期文本预留 ~175px，避免随日期长度抖动）
+    this.gradeBadgeX = cursorX + dateGapX + 175;
+    this.layoutGradeBadge(tokenY);
 
     // 速度按钮（右侧）
     const btnSize = 32;
@@ -312,6 +335,55 @@ export class HUD {
     }
   }
 
+  /** 仅重排徽章位置（layout 调用）；匾宽随级名变化由 paintGradeBadge 处理。 */
+  private layoutGradeBadge(centerY: number): void {
+    if (this.gradeBadgeText) this.gradeBadgeText.setPosition(this.gradeBadgeX + 10, centerY);
+    this.paintGradeBadge();
+  }
+
+  /** 画印章风金框小匾（按当前级名宽度自适应）。 */
+  private paintGradeBadge(): void {
+    if (!this.gradeBadgeBg || !this.gradeBadgeText) return;
+    const padX = 10;
+    const h = 28;
+    const w = Math.ceil(this.gradeBadgeText.width) + padX * 2;
+    const x = this.gradeBadgeX;
+    const y = Math.floor(UI.topbarHeight / 2) - h / 2;
+    const g = this.gradeBadgeBg;
+    g.clear();
+    g.fillStyle(COLORS.WOOD, 0.82);
+    g.fillRect(x, y, w, h);
+    g.lineStyle(2, COLORS.GOLD, 1);
+    g.strokeRect(x, y, w, h);
+    g.lineStyle(1, COLORS.WOOD_LIGHT, 1);
+    g.strokeRect(x + 3, y + 3, w - 6, h - 6);
+  }
+
+  /** 刷新国格徽章文本；pulse=true 时做一次放大淡入（晋阶/降格的"呼吸"反馈）。 */
+  private refreshGrade(pulse: boolean): void {
+    if (!this.gradeBadgeText) return;
+    const def = this.store.getGradeDef();
+    const next = `${def.name}`;
+    const changed = this.gradeBadgeText.text !== next;
+    this.gradeBadgeText.setText(next);
+    this.paintGradeBadge();
+    if (pulse && changed) {
+      // 纯 alpha 呼吸（不放大文字——放大会让级名溢出金框小匾）
+      if (this.gradeBadgeTween) this.gradeBadgeTween.stop();
+      this.gradeBadgeText.setAlpha(0.35);
+      this.gradeBadgeTween = this.scene.tweens.add({
+        targets: this.gradeBadgeText,
+        alpha: 1,
+        duration: 420,
+        ease: 'Cubic.easeOut',
+        onComplete: () => {
+          this.gradeBadgeText?.setAlpha(1);
+          this.gradeBadgeTween = null;
+        },
+      });
+    }
+  }
+
   private refreshDate(): void {
     const day = this.store.getCurrentDay();
     const cal = dayToCalendar(day);
@@ -358,10 +430,12 @@ export class HUD {
     this.store.off(STATE_EVENTS.PAUSED_CHANGED, this.onPaused);
     this.store.off(STATE_EVENTS.SPEED_CHANGED, this.onSpeed);
     this.store.off(STATE_EVENTS.STATE_REPLACED, this.onReplaced);
+    this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
     // 先停所有进行中的 tween，避免 destroy 后 onUpdate / onComplete 仍触发 NPE
     for (const tw of this.resourceTweens.values()) tw.stop();
     this.resourceTweens.clear();
     if (this.dateFadeTween) { this.dateFadeTween.stop(); this.dateFadeTween = null; }
+    if (this.gradeBadgeTween) { this.gradeBadgeTween.stop(); this.gradeBadgeTween = null; }
     this.container.destroy(true);
   }
 }

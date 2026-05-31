@@ -30,8 +30,6 @@ export interface SerializedSave {
     pendingEventDayStart?: number | null;
     productionCarry?: Partial<Record<ResourceId, number>>;
     tutorialStepId: string | null;
-    defeatCount: number;
-    permanentBuffs: string[];
     lastSeenTimestamp: number;
     currentDay: number;
     rngSeed: number;
@@ -46,6 +44,16 @@ export interface SerializedSave {
     /** v1.0 #6：玩家 morale (0..100, default 50)、militaryPower (0..500, default 30) */
     playerMorale?: number;
     playerMilitaryPower?: number;
+    /** Phase1 国格阶梯（旧存档缺则兜底 0 / false） */
+    grade?: number;
+    gradeReached?: number;
+    tianxiaAcknowledged?: boolean;
+    /** Phase1 低谷危机计数器（旧存档缺则兜底 0 / false） */
+    dualZeroDays?: number;
+    crisisActive?: boolean;
+    crisisRecoverDays?: number;
+    /** Phase1 模式（旧存档缺则兜底 'sandbox'） */
+    mode?: 'sandbox' | 'story';
   };
 }
 
@@ -172,8 +180,6 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       pendingEventDayStart: state.pendingEventDayStart,
       productionCarry: state.productionCarry,
       tutorialStepId: state.tutorialStepId,
-      defeatCount: state.defeatCount,
-      permanentBuffs: state.permanentBuffs,
       lastSeenTimestamp: state.lastSeenTimestamp,
       currentDay: state.currentDay,
       rngSeed: state.rngSeed,
@@ -184,6 +190,13 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       npcCountries: state.npcCountries,
       playerMorale: state.playerMorale,
       playerMilitaryPower: state.playerMilitaryPower,
+      grade: state.grade,
+      gradeReached: state.gradeReached,
+      tianxiaAcknowledged: state.tianxiaAcknowledged,
+      dualZeroDays: state.dualZeroDays,
+      crisisActive: state.crisisActive,
+      crisisRecoverDays: state.crisisRecoverDays,
+      mode: state.mode,
     },
   };
 }
@@ -246,8 +259,6 @@ export function deserialize(blob: unknown): GameState {
     pendingEventDayStart: s.pendingEventDayStart ?? null,
     productionCarry: s.productionCarry ?? {},
     tutorialStepId: s.tutorialStepId ?? null,
-    defeatCount: s.defeatCount ?? 0,
-    permanentBuffs: s.permanentBuffs ?? [],
     lastSeenTimestamp: s.lastSeenTimestamp ?? 0,
     currentDay: s.currentDay ?? 0,
     rngSeed,
@@ -275,6 +286,16 @@ export function deserialize(blob: unknown): GameState {
     playerMilitaryPower: typeof s.playerMilitaryPower === 'number' && Number.isFinite(s.playerMilitaryPower)
       ? Math.max(0, Math.min(500, s.playerMilitaryPower))
       : 30,
+    // Phase1 国格阶梯（旧存档无 → 0；clamp 0..5；gradeReached 不低于 grade）
+    grade: clampGrade(finiteNum(s.grade, 0)),
+    gradeReached: Math.max(clampGrade(finiteNum(s.grade, 0)), clampGrade(finiteNum(s.gradeReached, 0))),
+    tianxiaAcknowledged: s.tianxiaAcknowledged === true,
+    // Phase1 低谷危机计数器（旧存档无 → 0 / false）
+    dualZeroDays: Math.max(0, Math.floor(finiteNum(s.dualZeroDays, 0))),
+    crisisActive: s.crisisActive === true,
+    crisisRecoverDays: Math.max(0, Math.floor(finiteNum(s.crisisRecoverDays, 0))),
+    // Phase1 模式（旧存档无 → sandbox）
+    mode: s.mode === 'story' ? 'story' : 'sandbox',
   };
   return gameState;
 }
@@ -284,6 +305,11 @@ const VALID_WAR_STATUS = new Set<WarStatus>(['peace', 'tension', 'war']);
 /** 读一个有限数值字段，拒绝 NaN/Infinity（typeof 不过滤这两者，会绕过冷却或永久锁死）。 */
 function finiteNum(v: unknown, fallback: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
+/** 国格级钳制到 0..5 整数。 */
+function clampGrade(v: number): number {
+  return Math.max(0, Math.min(5, Math.floor(v)));
 }
 
 function validateNpcCountriesArray(arr: unknown): NpcCountryState[] {

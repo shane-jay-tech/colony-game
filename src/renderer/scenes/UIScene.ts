@@ -7,7 +7,9 @@ import { Toast } from '../ui/Toast';
 import { CourtPanel } from '../ui/CourtPanel';
 import { DiplomacyPanel } from '../ui/DiplomacyPanel';
 import { EventModal } from '../ui/EventModal';
+import { CrisisModal } from '../ui/CrisisModal';
 import { TutorialModal } from '../ui/TutorialModal';
+import { STATE_EVENTS } from '../state/gameStore';
 import { Legend } from '../ui/Legend';
 import { ZoomControl } from '../ui/ZoomControl';
 import type { MapRenderer } from '../render/MapRenderer';
@@ -31,10 +33,23 @@ export class UIScene extends Phaser.Scene {
   private courtPanel: CourtPanel | null = null;
   private diplomacyPanel: DiplomacyPanel | null = null;
   private eventModal: EventModal | null = null;
+  private crisisModal: CrisisModal | null = null;
   private tutorialModal: TutorialModal | null = null;
   private toast: Toast | null = null;
   private legend: Legend | null = null;
   private zoomControl: ZoomControl | null = null;
+  private store: GameStore | null = null;
+
+  // Phase1：国格软认可 / 登顶祝贺（晋阶走 Toast；降格由 CrisisModal 通告，不重复 Toast）
+  private onGradeChanged = (payload: unknown): void => {
+    const p = (payload && typeof payload === 'object') ? payload as { to?: number; def?: { ascendBlurb?: string }; reason?: string } : {};
+    if (p.reason !== 'ascend') return; // 仅晋阶祝贺；crisis 降格交给 CrisisModal
+    const blurb = p.def?.ascendBlurb ?? '国格晋阶。';
+    this.toast?.show(`国格晋阶 · ${blurb}`, 'info', 3200);
+  };
+  private onTianxia = (): void => {
+    this.toast?.show('天下共主 · 圆满。山河任君纵横，亦可继续经营，无有尽头。', 'info', 5000);
+  };
 
   constructor() {
     super({ key: 'UIScene', active: false });
@@ -59,8 +74,15 @@ export class UIScene extends Phaser.Scene {
     this.diplomacyPanel = new DiplomacyPanel(this, store);
     this.registry.set('diplomacyPanel', this.diplomacyPanel);
     this.eventModal = new EventModal(this, store);
+    // Phase1：低谷危机通告模态
+    this.crisisModal = new CrisisModal(this, store);
     // 教程模态最后构造：它在欢迎步骤会立即 setPaused(true)，HUD 的 speed 显示需要先就绪
     this.tutorialModal = new TutorialModal(this, store);
+
+    // Phase1：国格晋阶 / 登顶 → Toast 软认可
+    this.store = store;
+    store.on(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
+    store.on(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
     // v1.0 #5：缩放工具条。MapRenderer 由 GameScene 在 create 时注册到 registry，
     // ZoomControl 通过 lazy getter 拿引用——避免 UIScene 比 GameScene 先 create 时拿到 null。
     this.zoomControl = new ZoomControl(this, store, () => {
@@ -105,6 +127,7 @@ export class UIScene extends Phaser.Scene {
     this.legend?.layout();
     this.zoomControl?.layout();
     this.eventModal?.layout();
+    this.crisisModal?.layout();
     this.tutorialModal?.layout();
     this.diplomacyPanel?.layout();
   }
@@ -119,6 +142,11 @@ export class UIScene extends Phaser.Scene {
       window.clearTimeout(this.safetyNetTimer);
       this.safetyNetTimer = null;
     }
+    if (this.store) {
+      this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
+      this.store.off(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
+      this.store = null;
+    }
     this.hud?.destroy();
     this.buildPanel?.destroy();
     this.courtPanel?.destroy();
@@ -126,6 +154,7 @@ export class UIScene extends Phaser.Scene {
     this.legend?.destroy();
     this.zoomControl?.destroy();
     this.eventModal?.destroy();
+    this.crisisModal?.destroy();
     this.tutorialModal?.destroy();
     this.toast?.destroy();
     this.registry.set('toast', undefined);
@@ -137,6 +166,7 @@ export class UIScene extends Phaser.Scene {
     this.legend = null;
     this.zoomControl = null;
     this.eventModal = null;
+    this.crisisModal = null;
     this.tutorialModal = null;
     this.toast = null;
   }
