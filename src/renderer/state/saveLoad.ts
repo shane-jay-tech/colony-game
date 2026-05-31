@@ -56,6 +56,19 @@ export interface SerializedSave {
     mode?: 'sandbox' | 'story';
     /** Phase1 人口增长小数残差（旧存档缺则兜底 0） */
     populationCarry?: number;
+    /** §7 危机次数（防刷递增） */
+    crisisCount?: number;
+    /** §7 附庸于哪个 NPC（null=独立） */
+    vassalOf?: string | null;
+    /** Phase2 故事 storyFlags（sandbox 存档为 null/缺省） */
+    storyFlags?: {
+      chapter?: number;
+      unifyPath?: 'martial' | 'cultural' | null;
+      unified?: boolean;
+      powerAxis?: number;
+      resourceAxis?: number;
+      storyEventsTriggered?: string[];
+    } | null;
   };
 }
 
@@ -200,6 +213,16 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       crisisRecoverDays: state.crisisRecoverDays,
       mode: state.mode,
       populationCarry: state.populationCarry,
+      crisisCount: state.crisisCount,
+      vassalOf: state.vassalOf,
+      storyFlags: state.storyFlags ? {
+        chapter: state.storyFlags.chapter,
+        unifyPath: state.storyFlags.unifyPath,
+        unified: state.storyFlags.unified,
+        powerAxis: state.storyFlags.powerAxis,
+        resourceAxis: state.storyFlags.resourceAxis,
+        storyEventsTriggered: state.storyFlags.storyEventsTriggered,
+      } : null,
     },
   };
 }
@@ -301,8 +324,32 @@ export function deserialize(blob: unknown): GameState {
     mode: s.mode === 'story' ? 'story' : 'sandbox',
     // Phase1 人口增长残差（旧存档无 → 0）
     populationCarry: finiteNum(s.populationCarry, 0),
+    // §7 危机次数 / 附庸
+    crisisCount: Math.max(0, Math.floor(finiteNum(s.crisisCount, 0))),
+    vassalOf: typeof s.vassalOf === 'string' ? s.vassalOf : null,
+    // Phase2 故事 storyFlags（仅 story 存档有；sandbox → null）
+    storyFlags: deserializeStoryFlags(s.storyFlags, s.mode === 'story'),
   };
   return gameState;
+}
+
+/** 反序列化 storyFlags：sandbox 存档或缺省 → null；story 存档逐字段兜底 clamp。 */
+function deserializeStoryFlags(
+  raw: SerializedSave['state']['storyFlags'],
+  isStory: boolean,
+): GameState['storyFlags'] {
+  if (!isStory || raw === null || raw === undefined || typeof raw !== 'object') return null;
+  const up = (raw as { unifyPath?: unknown }).unifyPath;
+  return {
+    chapter: Math.max(0, Math.min(7, Math.floor(finiteNum((raw as { chapter?: unknown }).chapter, 0)))),
+    unifyPath: up === 'martial' || up === 'cultural' ? up : null,
+    unified: (raw as { unified?: unknown }).unified === true,
+    powerAxis: Math.max(-100, Math.min(100, finiteNum((raw as { powerAxis?: unknown }).powerAxis, 0))),
+    resourceAxis: Math.max(-100, Math.min(100, finiteNum((raw as { resourceAxis?: unknown }).resourceAxis, 0))),
+    storyEventsTriggered: Array.isArray((raw as { storyEventsTriggered?: unknown }).storyEventsTriggered)
+      ? ((raw as { storyEventsTriggered: unknown[] }).storyEventsTriggered).filter((x): x is string => typeof x === 'string')
+      : [],
+  };
 }
 
 const VALID_WAR_STATUS = new Set<WarStatus>(['peace', 'tension', 'war']);

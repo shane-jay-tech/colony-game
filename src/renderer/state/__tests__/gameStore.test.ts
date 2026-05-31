@@ -476,6 +476,9 @@ describe('GameStore.replaceState / setLastSeenNow', () => {
       crisisRecoverDays: 0,
       mode: 'sandbox' as const,
       populationCarry: 0,
+      crisisCount: 0,
+      vassalOf: null,
+      storyFlags: null,
     };
     store.replaceState(newState);
     expect(cb).toHaveBeenCalledTimes(1);
@@ -904,25 +907,69 @@ describe('Phase1 国格阶梯（集成）', () => {
 });
 
 describe('Phase1 低谷危机（集成）', () => {
-  it('国库+存粮双零满 60 日 → 触发危机：人口降、crisisActive、发 CRISIS_TRIGGERED', () => {
+  it('国库+存粮双零满 §7 阈值(40 日) → 触发危机：人口降、crisisActive、发 CRISIS_TRIGGERED', () => {
     const ee = makeEmitter();
     const store = new GameStore(ee, {
       worldMap: allPlainMap(),
       resources: { gold: 0, grain: 0, people: 100 },
       buildings: [],
-      npcCountries: [],
+      npcCountries: [], // 无 NPC → 走民变 unrest
     });
     const spy = vi.fn();
     ee.on(STATE_EVENTS.CRISIS_TRIGGERED, spy);
-    // 注：双零期间存粮=0 → 人口同时在饥荒流失（population tick 先于 crisis），
-    // 故 60 日时 people 已 <100；危机再 ×0.7。这里只验"危机触发 + 人口确实降 + 民心挫"。
+    // 注：双零期间存粮=0 → 人口同时在饥荒流失（population tick 先于 crisis）。
+    // 只验"危机触发 + 人口确实降 + 民心挫"。§7 阈值 40 天。
     const peopleBefore = store.getResources().people ?? 0;
-    for (let i = 0; i < 59; i++) store.tickDay();
+    for (let i = 0; i < 39; i++) store.tickDay();
     expect(spy).not.toHaveBeenCalled();
-    store.tickDay(); // 第 60 日触发
+    store.tickDay(); // 第 40 日触发
     expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toMatchObject({ kind: 'unrest' });
     expect(store.getResources().people ?? 0).toBeLessThan(peopleBefore);
     expect(store.getPlayerMorale()).toBe(30); // 50 - 20
+  });
+
+  it('§7 纳贡附庸：双零+军力远超的敌对强邻 → 成附庸，可赎身', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { gold: 0, grain: 0, people: 100 },
+      buildings: [],
+      playerMilitaryPower: 20,
+      npcCountries: [{
+        id: 'npc_jin', stance: -50, militaryPower: 200, renown: 40, tradeRoute: false, tradeCooldown: 0,
+        warStatus: 'tension' as const, lastEnvoyDay: -1, lastWarDay: -1, allyIds: [], aggression: 60, lastActionDay: -1,
+      }],
+    });
+    const spy = vi.fn();
+    ee.on(STATE_EVENTS.CRISIS_TRIGGERED, spy);
+    for (let i = 0; i < 40; i++) store.tickDay();
+    expect(spy.mock.calls[0]?.[0]).toMatchObject({ kind: 'vassalage' });
+    expect(store.isVassal()).toBe(true);
+    // 赎身：钱不够失败，够了成功
+    expect(store.redeemVassalage().ok).toBe(false);
+    store.addResource('gold', 500);
+    expect(store.redeemVassalage().ok).toBe(true);
+    expect(store.isVassal()).toBe(false);
+  });
+
+  it('§7 割地：双零+无强敌+有外城 → 丢一座非核心建筑', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { gold: 0, grain: 0, people: 100 },
+      buildings: [
+        // 用产礼器（非 gold/grain）的非核心建筑，确保双零前提不被产出破坏
+        { defId: 'bld_ancestor_shrine', position: { x: 1, y: 1 }, status: 'working' as const, tier: 1 as const, constructionProgress: 100, modifiers: [] },
+      ],
+      npcCountries: [], // 无强敌
+    });
+    const spy = vi.fn();
+    ee.on(STATE_EVENTS.CRISIS_TRIGGERED, spy);
+    for (let i = 0; i < 40; i++) store.tickDay();
+    expect(spy.mock.calls[0]?.[0]).toMatchObject({ kind: 'cession' });
+    const shrine = store.getState().buildings.find(b => b.defId === 'bld_ancestor_shrine');
+    expect(shrine?.status).toBe('derelict');
   });
 
   it('资源回正 → dualZeroDays 归零，不触发', () => {
@@ -935,7 +982,7 @@ describe('Phase1 低谷危机（集成）', () => {
     });
     const spy = vi.fn();
     ee.on(STATE_EVENTS.CRISIS_TRIGGERED, spy);
-    for (let i = 0; i < 40; i++) store.tickDay();
+    for (let i = 0; i < 30; i++) store.tickDay(); // 未到 40 天阈值
     store.addResource('gold', 100); // 补回国库 → 下一 tick 计数归零
     for (let i = 0; i < 40; i++) store.tickDay();
     expect(spy).not.toHaveBeenCalled();

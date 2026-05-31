@@ -37,6 +37,9 @@ function makeGameState(): GameState {
     crisisRecoverDays: 0,
     mode: 'sandbox',
     populationCarry: 0,
+    crisisCount: 0,
+    vassalOf: null,
+    storyFlags: null,
   };
 }
 

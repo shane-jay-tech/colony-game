@@ -27,7 +27,10 @@ import type { CountryMetrics } from './dslEval';
 import { createRng } from './rng';
 import { evaluateGrade, type GradeInput } from './countryGrade';
 import { gradeDefAt, MAX_GRADE, DIPLO_FLAG_ALL_FRIENDLY } from '../data/countryGrades';
-import { isDualZero, planCrisisEffects, CRISIS_GRACE_DAYS, CRISIS_RECOVER_DAYS } from './crisis';
+import {
+  isDualZero, chooseCrisisKind, planUnrestEffects, planCessionMoraleDrop, planTribute,
+  CRISIS_GRACE_DAYS, CRISIS_RECOVER_DAYS, VASSAL_REDEEM_GOLD, type CrisisKind,
+} from './crisis';
 import { computePopulationGrowth, sumHousingCapacity } from './population';
 import { BALANCE } from '../data/balanceConfig';
 import {
@@ -127,10 +130,32 @@ export interface GameState {
   crisisActive: boolean;
   /** Phase1：危机解除前资源连续双正的天数计数器 */
   crisisRecoverDays: number;
-  /** Phase1 模式外壳：sandbox（无限经营）/ story（Phase2 叙事，当前灰掉） */
+  /** Phase1 模式外壳：sandbox（无限经营）/ story（Phase2 叙事） */
   mode: 'sandbox' | 'story';
   /** Phase1 人口增长的小数残差累加器（独立于 productionCarry） */
   populationCarry: number;
+  /** §7 防刷：已经历的危机次数（惩罚随之递增） */
+  crisisCount: number;
+  /** §7 纳贡附庸：附庸于哪个 NPC id（null=独立）；每季被抽成，可赎身 */
+  vassalOf: string | null;
+  /** Phase2 故事专属：叙事导演层状态。sandbox 模式恒为 null（不污染沙盒） */
+  storyFlags: StoryFlags | null;
+}
+
+/** Phase2 故事模式状态（StoryDriver 层；隐性双轴 + 章节进度）。 */
+export interface StoryFlags {
+  /** 0=序章，1..7=七卷 */
+  chapter: number;
+  /** 序章统一途径：武途偏集权 / 文途偏还权 / 未定 */
+  unifyPath: 'martial' | 'cultural' | null;
+  /** 序章是否已统一（防重复触发建朝跳变） */
+  unified: boolean;
+  /** 权力轴 -100(集权) .. +100(还权于民) */
+  powerAxis: number;
+  /** 生产资料轴 -100(私有) .. +100(公有) */
+  resourceAxis: number;
+  /** 已触发的故事事件 id（防重复） */
+  storyEventsTriggered: string[];
 }
 
 // J-3a v0.8 缺陷 #8：地图扩 32×32(1024 tile) → 80×80(6400 tile)，承载 ~3 小时单次游玩
@@ -171,6 +196,9 @@ function makeDefaultState(): GameState {
     crisisRecoverDays: 0,
     mode: 'sandbox',
     populationCarry: 0,
+    crisisCount: 0,
+    vassalOf: null,
+    storyFlags: null,
   };
 }
 
@@ -987,7 +1015,7 @@ export class GameStore {
 
   // ============== Phase1：可翻身低谷（无 Game Over） ==============
 
-  /** 每日：国库+存粮双零累计达 60 日 → 触发一次性危机；资源回正连续 30 日 → 解除危机态。 */
+  /** 每日：国库+存粮双零累计达 §7 阈值 → 触发危机；资源回正连续 N 日 → 解除危机态。附庸态每季抽成。 */
   private runCrisisTick(): void {
     if (isDualZero(this.state.resources)) {
       this.state.dualZeroDays += 1;
@@ -1005,43 +1033,101 @@ export class GameStore {
         }
       }
     }
+    // 纳贡附庸：每季（30 日）向宗主抽成 gold/grain，直到赎身（redeemVassalage）
+    if (this.state.vassalOf !== null && this.state.currentDay > 0 && this.state.currentDay % 30 === 0) {
+      const goldTribute = planTribute(this.state.resources['gold'] ?? 0);
+      const grainTribute = planTribute(this.state.resources['grain'] ?? 0);
+      if (goldTribute > 0) this.addResource('gold', -goldTribute, 'tribute');
+      if (grainTribute > 0) this.addResource('grain', -grainTribute, 'tribute');
+    }
+  }
+
+  /** 核心建筑（不可被割让）：基本民生。 */
+  private static readonly CORE_BUILDING_IDS = new Set(['bld_farm', 'bld_well', 'bld_house']);
+
+  /** 可被割让的 working 非核心建筑（最近建的在数组末尾）。 */
+  private cedableBuildings(): BuildingInstance[] {
+    return this.state.buildings.filter(
+      b => b.status === 'working' && !GameStore.CORE_BUILDING_IDS.has(b.defId),
+    );
+  }
+
+  /** 是否存在军力远超玩家(≥2×)的敌对 NPC——可逼为附庸。 */
+  private findStrongHostileNpc(): NpcCountryState | undefined {
+    const pmp = this.state.playerMilitaryPower;
+    return this.state.npcCountries.find(n => n.stance < 0 && n.militaryPower >= Math.max(20, pmp * 2));
   }
 
   /**
-   * 施加低谷危机：掉人口（×0.7，保底 5）+ 民心重挫（-20）+ 国格降一级（gradeReached 不回退）。
-   * 同局可恢复——补回粮钱供给后人口回升、可重新满足门槛升回国格。不流亡、不跨局、不永久 buff。
-   * emit 顺序：先资源/人口 → 后降级 → 末发 CRISIS_TRIGGERED，保证 UI 读到的是终态。
+   * 施加低谷危机（§7）：按情境选 民变/纳贡附庸/割地，防刷递增。无 Game Over、同局可恢复。
+   * emit 顺序：先施加后果 → 末发 CRISIS_TRIGGERED（带 kind + summary），保证 UI 读到终态。
    */
   private applyCrisis(): void {
     this.state.crisisActive = true;
     this.state.dualZeroDays = 0;
     this.state.crisisRecoverDays = 0;
 
-    const currentPeople = this.state.resources['people'] ?? 0;
-    const eff = planCrisisEffects(currentPeople);
-    if (eff.peopleDelta !== 0) this.addResource('people', eff.peopleDelta, 'crisis');
-    this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + eff.moraleDelta));
+    const strongHostile = this.findStrongHostileNpc();
+    const cedable = this.cedableBuildings();
+    const kind: CrisisKind = chooseCrisisKind({
+      hasStrongHostileNpc: !!strongHostile && this.state.vassalOf === null,
+      cedableBuildingCount: cedable.length,
+    });
+    const n = this.state.crisisCount; // 本次之前的危机数（用于递增）
 
-    const gradeFrom = this.state.grade;
-    let gradeTo = gradeFrom;
-    if (this.state.grade > 0) {
-      gradeTo = this.state.grade - 1;
-      this.state.grade = gradeTo;
-      this.emitter.emit(STATE_EVENTS.GRADE_CHANGED, {
-        from: gradeFrom, to: gradeTo, def: gradeDefAt(gradeTo), reason: 'crisis',
-      });
+    let summary = '';
+    if (kind === 'vassalage' && strongHostile) {
+      // 纳贡附庸：强邻趁火打劫逼为附庸，每季抽成，可赎身
+      this.state.vassalOf = strongHostile.id;
+      strongHostile.stance = Math.max(-100, Math.min(100, strongHostile.stance + 30)); // 宗主缓和
+      this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale - (10 + n * 5)));
+      const lord = getNpcDef(strongHostile.id)?.name ?? '强邻';
+      summary = `国弱不能自立，「${lord}」陈兵压境，迫我称臣纳贡。岁输其半，可待来日赎身自主。`;
+    } else if (kind === 'cession' && cedable.length > 0) {
+      // 割地：丢最近建的非核心 working 建筑
+      const lost = cedable[cedable.length - 1]!;
+      lost.status = 'derelict';
+      const lostName = getBuildingDef(lost.defId)?.name ?? '城邑';
+      const moraleDrop = planCessionMoraleDrop(n);
+      this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + moraleDrop));
+      this.emitter.emit(STATE_EVENTS.BUILDING_UPGRADED, lost); // 复用刷新建筑视觉
+      summary = `国库空、仓廪罄，旷日逾月。无力守土，「${lostName}」就此荒废。励精图治，尚可再起。`;
+    } else {
+      // 民变（默认）：掉人口 + 挫士气 + 降格
+      const currentPeople = this.state.resources['people'] ?? 0;
+      const eff = planUnrestEffects(currentPeople, n);
+      if (eff.peopleDelta !== 0) this.addResource('people', eff.peopleDelta, 'crisis');
+      this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + eff.moraleDelta));
+      const gradeFrom = this.state.grade;
+      let gradeTo = gradeFrom;
+      if (this.state.grade > 0) {
+        gradeTo = this.state.grade - 1;
+        this.state.grade = gradeTo;
+        this.emitter.emit(STATE_EVENTS.GRADE_CHANGED, {
+          from: gradeFrom, to: gradeTo, def: gradeDefAt(gradeTo), reason: 'crisis',
+        });
+      }
+      const demoted = gradeTo !== gradeFrom ? `，国格降为「${gradeDefAt(gradeTo).name}」` : '';
+      summary = `国库空、仓廪罄，旷日逾月。民有流散、士气大挫${demoted}。励精图治，尚可再起。`;
     }
 
-    const demoted = gradeTo !== gradeFrom ? `，国格降为「${gradeDefAt(gradeTo).name}」` : '';
-    const summary = `国库空、仓廪罄，旷日六旬。民有流散、士气大挫${demoted}。励精图治，尚可再起。`;
-    this.emitter.emit(STATE_EVENTS.CRISIS_TRIGGERED, {
-      summary,
-      peopleDelta: eff.peopleDelta,
-      moraleDelta: eff.moraleDelta,
-      gradeFrom,
-      gradeTo,
-    });
+    this.state.crisisCount += 1; // 防刷递增：下次更狠
+    this.emitter.emit(STATE_EVENTS.CRISIS_TRIGGERED, { kind, summary, crisisCount: this.state.crisisCount });
   }
+
+  /** 赎身：附庸态下攒够 gold 可一次性恢复自主。 */
+  redeemVassalage(): { ok: boolean; reason?: string } {
+    if (this.state.vassalOf === null) return { ok: false, reason: 'not_vassal' };
+    if ((this.state.resources['gold'] ?? 0) < VASSAL_REDEEM_GOLD) return { ok: false, reason: 'insufficient_resources' };
+    this.addResource('gold', -VASSAL_REDEEM_GOLD, 'redeem_vassalage');
+    this.state.vassalOf = null;
+    this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + 10));
+    this.emitter.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined);
+    return { ok: true };
+  }
+
+  isVassal(): boolean { return this.state.vassalOf !== null; }
+  getVassalOf(): string | null { return this.state.vassalOf; }
 
   setLastSeenNow(): void {
     this.state.lastSeenTimestamp = Date.now();
@@ -1079,6 +1165,10 @@ export class GameStore {
     if (typeof newState.crisisRecoverDays !== 'number') newState.crisisRecoverDays = 0;
     if (newState.mode !== 'story' && newState.mode !== 'sandbox') newState.mode = 'sandbox';
     if (typeof newState.populationCarry !== 'number' || !Number.isFinite(newState.populationCarry)) newState.populationCarry = 0;
+    // §7 / Phase2 字段兜底
+    if (typeof newState.crisisCount !== 'number' || !Number.isFinite(newState.crisisCount)) newState.crisisCount = 0;
+    if (typeof newState.vassalOf !== 'string') newState.vassalOf = newState.vassalOf === null ? null : null;
+    if (newState.storyFlags === undefined) newState.storyFlags = null;
     this.state = newState;
     this.worldMapAccessor = new WorldMapAccessor(newState.worldMap);
     this.emitter.emit(STATE_EVENTS.STATE_REPLACED, undefined);
