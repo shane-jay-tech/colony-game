@@ -12,6 +12,7 @@ import { TutorialModal } from '../ui/TutorialModal';
 import { STATE_EVENTS } from '../state/gameStore';
 import { Legend } from '../ui/Legend';
 import { ZoomControl } from '../ui/ZoomControl';
+import { StoryBar } from '../ui/StoryBar';
 import type { MapRenderer } from '../render/MapRenderer';
 
 /**
@@ -38,6 +39,7 @@ export class UIScene extends Phaser.Scene {
   private toast: Toast | null = null;
   private legend: Legend | null = null;
   private zoomControl: ZoomControl | null = null;
+  private storyBar: StoryBar | null = null;
   private store: GameStore | null = null;
 
   // Phase1：国格软认可 / 登顶祝贺（晋阶走 Toast；降格由 CrisisModal 通告，不重复 Toast）
@@ -99,6 +101,9 @@ export class UIScene extends Phaser.Scene {
     // 教程模态最后构造：它在欢迎步骤会立即 setPaused(true)，HUD 的 speed 显示需要先就绪
     this.tutorialModal = new TutorialModal(this, store);
 
+    // Phase2：故事顶栏（章节 + 双轴半可视 + 距下章）；沙盒模式自隐藏
+    this.storyBar = new StoryBar(this, store);
+
     // Phase1：国格晋阶 / 登顶 → Toast 软认可
     this.store = store;
     store.on(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
@@ -153,6 +158,7 @@ export class UIScene extends Phaser.Scene {
     this.crisisModal?.layout();
     this.tutorialModal?.layout();
     this.diplomacyPanel?.layout();
+    this.storyBar?.layout();
   }
 
   shutdown(): void {
@@ -182,6 +188,7 @@ export class UIScene extends Phaser.Scene {
     this.eventModal?.destroy();
     this.crisisModal?.destroy();
     this.tutorialModal?.destroy();
+    this.storyBar?.destroy();
     this.toast?.destroy();
     this.registry.set('toast', undefined);
     this.registry.set('diplomacyPanel', undefined);
@@ -194,6 +201,7 @@ export class UIScene extends Phaser.Scene {
     this.eventModal = null;
     this.crisisModal = null;
     this.tutorialModal = null;
+    this.storyBar = null;
     this.toast = null;
   }
 }

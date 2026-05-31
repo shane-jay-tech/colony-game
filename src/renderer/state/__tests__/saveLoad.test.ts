@@ -452,19 +452,22 @@ describe('Phase2 故事 storyFlags 存档', () => {
     s.crisisCount = 2;
     s.vassalOf = 'npc_jin';
     s.storyFlags = {
-      chapter: 1, unifyPath: 'cultural', unified: true,
+      chapter: 3, unifyPath: 'cultural', unified: true,
       powerAxis: 40, resourceAxis: -30, storyEventsTriggered: ['evt_a'],
+      chapterStartDay: 360, ending: null,
     };
     const r = deserialize(serialize(s));
     expect(r.mode).toBe('story');
     expect(r.crisisCount).toBe(2);
     expect(r.vassalOf).toBe('npc_jin');
     expect(r.storyFlags).not.toBeNull();
-    expect(r.storyFlags?.chapter).toBe(1);
+    expect(r.storyFlags?.chapter).toBe(3);
     expect(r.storyFlags?.unifyPath).toBe('cultural');
     expect(r.storyFlags?.powerAxis).toBe(40);
     expect(r.storyFlags?.resourceAxis).toBe(-30);
     expect(r.storyFlags?.storyEventsTriggered).toEqual(['evt_a']);
+    expect(r.storyFlags?.chapterStartDay).toBe(360);
+    expect(r.storyFlags?.ending).toBeNull();
   });
 
   it('sandbox 存档 storyFlags=null（即使误带 storyFlags 也按 mode 归 null）', () => {

@@ -68,6 +68,8 @@ export interface SerializedSave {
       powerAxis?: number;
       resourceAxis?: number;
       storyEventsTriggered?: string[];
+      chapterStartDay?: number;
+      ending?: 'gong' | 'jia' | 'huo' | null;
     } | null;
   };
 }
@@ -222,6 +224,8 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
         powerAxis: state.storyFlags.powerAxis,
         resourceAxis: state.storyFlags.resourceAxis,
         storyEventsTriggered: state.storyFlags.storyEventsTriggered,
+        chapterStartDay: state.storyFlags.chapterStartDay,
+        ending: state.storyFlags.ending,
       } : null,
     },
   };
@@ -328,15 +332,17 @@ export function deserialize(blob: unknown): GameState {
     crisisCount: Math.max(0, Math.floor(finiteNum(s.crisisCount, 0))),
     vassalOf: typeof s.vassalOf === 'string' ? s.vassalOf : null,
     // Phase2 故事 storyFlags（仅 story 存档有；sandbox → null）
-    storyFlags: deserializeStoryFlags(s.storyFlags, s.mode === 'story'),
+    storyFlags: deserializeStoryFlags(s.storyFlags, s.mode === 'story', finiteNum(s.currentDay, 0)),
   };
   return gameState;
 }
 
-/** 反序列化 storyFlags：sandbox 存档或缺省 → null；story 存档逐字段兜底 clamp。 */
+/** 反序列化 storyFlags：sandbox 存档或缺省 → null；story 存档逐字段兜底 clamp。
+ *  chapterStartDay 缺失时默认取存档当前日（而非 0），避免重载后"已过 currentДay 天"误判瞬间连跳章。 */
 function deserializeStoryFlags(
   raw: SerializedSave['state']['storyFlags'],
   isStory: boolean,
+  currentDay: number,
 ): GameState['storyFlags'] {
   if (!isStory || raw === null || raw === undefined || typeof raw !== 'object') return null;
   const up = (raw as { unifyPath?: unknown }).unifyPath;
@@ -351,6 +357,11 @@ function deserializeStoryFlags(
       ? ((raw as { storyEventsTriggered: unknown[] }).storyEventsTriggered)
           .slice(0, 500).filter((x): x is string => typeof x === 'string')
       : [],
+    chapterStartDay: Math.max(0, Math.floor(finiteNum((raw as { chapterStartDay?: unknown }).chapterStartDay, currentDay))),
+    ending: (() => {
+      const e = (raw as { ending?: unknown }).ending;
+      return e === 'gong' || e === 'jia' || e === 'huo' ? e : null;
+    })(),
   };
 }
 

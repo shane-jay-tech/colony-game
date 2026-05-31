@@ -8,8 +8,9 @@ import type { Toast } from '../ui/Toast';
 import { BuildingPopover } from '../ui/BuildingPopover';
 import { TimeSystem } from '../state/timeSystem';
 import { FONTS, UI } from '../ui/palette';
-import { DYNASTY_TRANSITION_NARRATION } from '../data/storyChapters';
+import { DYNASTY_TRANSITION_NARRATION, ENDING_NARRATION } from '../data/storyChapters';
 import type { TransitionData } from './TransitionScene';
+import type { EndingId } from '../state/storyDriver';
 
 /**
  * GameScene：主舞台。
@@ -95,6 +96,26 @@ export class GameScene extends Phaser.Scene {
     };
     this.scene.launch('TransitionScene', data);
   };
+
+  private endingShown = false;
+  // Phase2：终章三结局兑现 → 暂停 + 全屏结局旁白（占位；结局后 resume 留在世界，重开流程 Phase4）
+  private storyEndingListener = (...args: unknown[]): void => {
+    if (this.endingShown) return; // 防重入（结局只放一次）
+    const ending = (args[0] as { ending?: EndingId } | undefined)?.ending;
+    if (!ending || !ENDING_NARRATION[ending]) return;
+    this.endingShown = true;
+    this.scene.pause();
+    const uiWasActive = this.scene.isActive('UIScene');
+    if (uiWasActive) this.scene.pause('UIScene');
+    const data: TransitionData = {
+      lines: ENDING_NARRATION[ending],
+      onDone: () => {
+        this.scene.resume();
+        if (uiWasActive) this.scene.resume('UIScene');
+      },
+    };
+    this.scene.launch('TransitionScene', data);
+  };
   private escHandler = (): void => { this.buildMode?.cancel(); };
 
   constructor() {
@@ -140,6 +161,8 @@ export class GameScene extends Phaser.Scene {
     store.on(STATE_EVENTS.BUILDING_UPGRADED, this.upgradedListener);
     // Phase2：序章统一 → 建朝跳变过场 → 推进第一章
     store.on(STATE_EVENTS.STORY_UNIFIED, this.storyUnifiedListener);
+    // Phase2：终章 → 三结局画面
+    store.on(STATE_EVENTS.STORY_ENDING, this.storyEndingListener);
 
     // BuildMode 取消时清掉 hover 预览
     this.offBuildModeChange = buildMode.onChange((def) => {
@@ -408,6 +431,7 @@ export class GameScene extends Phaser.Scene {
       this.store.off(STATE_EVENTS.PANEL_COLLAPSED_CHANGED, this.panelCollapsedListener);
       this.store.off(STATE_EVENTS.BUILDING_UPGRADED, this.upgradedListener);
       this.store.off(STATE_EVENTS.STORY_UNIFIED, this.storyUnifiedListener);
+      this.store.off(STATE_EVENTS.STORY_ENDING, this.storyEndingListener);
     }
     if (this.offBuildModeChange) {
       this.offBuildModeChange();

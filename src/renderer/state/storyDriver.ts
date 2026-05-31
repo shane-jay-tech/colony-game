@@ -80,3 +80,22 @@ export function resourceBand(v: number): ResourceBand {
   if (v >= 34) return 'public';
   return 'neutral';
 }
+
+// ---- 三结局判定（终章兑现）----
+
+/** 架空名结局（禁现实政治词；公=社会主义大同 / 家=封建固守 / 货=资本异化）。 */
+export type EndingId = 'gong' | 'jia' | 'huo';
+
+/**
+ * 双轴落区域 → 三结局（D2 架空名）：
+ *   还权 + 公有 → 公天下（撤龙椅·大同）
+ *   集权（不论资料）→ 家天下（权位当家业，停滞循环）
+ *   其余（还权/中立 + 私有/中立）→ 货天下（天下为货，富强而异化）
+ */
+export function checkEnding(powerAxis: number, resourceAxis: number): EndingId {
+  const p = powerBand(powerAxis);
+  const r = resourceBand(resourceAxis);
+  if (p === 'devolve' && r === 'public') return 'gong';
+  if (p === 'centralize') return 'jia';
+  return 'huo';
+}

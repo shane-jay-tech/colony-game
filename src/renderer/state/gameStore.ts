@@ -37,7 +37,7 @@ import {
   npcMilitaryGrowthStep, evaluatePlayerStrength, computeNpcAlliances, computeNpcActions,
   NPC_MP_GROWTH_INTERVAL, NPC_MP_CAP,
 } from './npcDynamics';
-import { checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand } from './storyDriver';
+import { checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand, checkEnding, type EndingId } from './storyDriver';
 import { chapterAt } from '../data/storyChapters';
 
 export interface IEventEmitter {
@@ -92,6 +92,8 @@ export const STATE_EVENTS = {
   STORY_CHAPTER_CHANGED: 'state:storyChapterChanged',
   // Phase2：隐性双轴跨档 → 史官氛围评语 Toast（payload { text }）
   STORY_NARRATION: 'state:storyNarration',
+  // Phase2：终章三结局兑现（payload { ending }）→ 结局画面
+  STORY_ENDING: 'state:storyEnding',
 } as const;
 
 export type PanelSide = 'left' | 'right';
@@ -164,6 +166,10 @@ export interface StoryFlags {
   resourceAxis: number;
   /** 已触发的故事事件 id（防重复） */
   storyEventsTriggered: string[];
+  /** 当前章节起始那一日（占位推进：度过 advanceAfterDays 天进下章） */
+  chapterStartDay: number;
+  /** 终章兑现的结局（null=未到结局） */
+  ending: EndingId | null;
 }
 
 // J-3a v0.8 缺陷 #8：地图扩 32×32(1024 tile) → 80×80(6400 tile)，承载 ~3 小时单次游玩
@@ -231,6 +237,9 @@ export class GameStore {
    * - 不持久化（模态生命周期外应该没有 holder；hot reload 时由 destroy 释放）
    */
   private pauseHolders: Set<string> = new Set();
+  /** Phase2 瞬态（不持久化）：序章统一后等 GameScene 播完建朝过场再 advanceStoryChapter(1)。
+   *  重载时默认 false → 若 storyFlags.unified 仍停在 chapter 0，runStoryTick 自动恢复进第一章，防 softlock。 */
+  private storyTransitionPending = false;
 
   constructor(emitter: IEventEmitter, initialState?: Partial<GameState>, content?: GameStoreContent) {
     this.emitter = emitter;
@@ -937,6 +946,8 @@ export class GameStore {
       powerAxis: 0,
       resourceAxis: 0,
       storyEventsTriggered: [],
+      chapterStartDay: this.state.currentDay,
+      ending: null,
     };
     // §8.1 双表：故事起始资源覆盖（main.ts 已发沙盒基线，这里改写为故事 drama 基线）
     const start = getBalanceConfig('story').startingResources;
@@ -950,26 +961,50 @@ export class GameStore {
   private runStoryTick(): void {
     if (this.state.mode !== 'story' || !this.state.storyFlags) return;
     const sf = this.state.storyFlags;
-    if (sf.chapter === 0 && !sf.unified) {
-      const result = checkUnification({
-        npcs: this.state.npcCountries.map(n => ({ militaryPower: n.militaryPower, stance: n.stance })),
-        playerRenown: this.getPlayerRenown(),
-      });
-      if (result.unified && result.path) {
-        sf.unified = true;
-        sf.unifyPath = result.path;
-        const seed = axisSeedForPath(result.path);
-        sf.powerAxis = clampAxis(sf.powerAxis + seed.power);
-        sf.resourceAxis = clampAxis(sf.resourceAxis + seed.resource);
-        this.emitter.emit(STATE_EVENTS.STORY_UNIFIED, { path: result.path });
+    // 序章：靠统一推进（建朝跳变由 GameScene 接 STORY_UNIFIED 处理，过场后 advanceStoryChapter(1)）
+    if (sf.chapter === 0) {
+      if (!sf.unified) {
+        const result = checkUnification({
+          npcs: this.state.npcCountries.map(n => ({ militaryPower: n.militaryPower, stance: n.stance })),
+          playerRenown: this.getPlayerRenown(),
+        });
+        if (result.unified && result.path) {
+          sf.unified = true;
+          sf.unifyPath = result.path;
+          const seed = axisSeedForPath(result.path);
+          sf.powerAxis = clampAxis(sf.powerAxis + seed.power);
+          sf.resourceAxis = clampAxis(sf.resourceAxis + seed.resource);
+          this.storyTransitionPending = true; // 等 GameScene 播完建朝过场再 advanceStoryChapter(1)
+          this.emitter.emit(STATE_EVENTS.STORY_UNIFIED, { path: result.path });
+        }
+      } else if (!this.storyTransitionPending) {
+        // 防 softlock：已统一但过场未推进（如在过场中存档→重载，过场丢失）→ 直接进第一章恢复
+        this.advanceStoryChapter(1);
       }
+      return;
+    }
+    // 第 1..7 章：占位推进——在本章度过 advanceAfterDays 天即推进/兑现结局
+    if (sf.ending !== null) return; // 已到结局
+    const def = chapterAt(sf.chapter);
+    const dwell = def.advanceAfterDays ?? 0;
+    if (dwell <= 0) return;
+    if (this.state.currentDay - sf.chapterStartDay < dwell) return;
+    if (sf.chapter < 7) {
+      this.advanceStoryChapter(sf.chapter + 1);
+    } else {
+      // 终章：双轴判定三结局
+      const ending = checkEnding(sf.powerAxis, sf.resourceAxis);
+      sf.ending = ending;
+      this.emitter.emit(STATE_EVENTS.STORY_ENDING, { ending });
     }
   }
 
-  /** 场景在建朝跳变过场结束后调：推进到指定章节并发 banner 事件。 */
+  /** 推进到指定章节并发 banner 事件（GameScene 跳变过场结束 / runStoryTick 占位推进调用）。 */
   advanceStoryChapter(chapter: number): void {
     if (!this.state.storyFlags) return;
+    this.storyTransitionPending = false; // 跳变过场已落地
     this.state.storyFlags.chapter = chapter;
+    this.state.storyFlags.chapterStartDay = this.state.currentDay; // 重置本章计时
     this.emitter.emit(STATE_EVENTS.STORY_CHAPTER_CHANGED, { chapter, def: chapterAt(chapter) });
   }
 

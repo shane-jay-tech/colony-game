@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  clampAxis, checkUnification, axisSeedForPath, powerBand, resourceBand,
+  clampAxis, checkUnification, axisSeedForPath, powerBand, resourceBand, checkEnding,
   SUBJUGATE_MP_THRESHOLD, UNIFY_RENOWN_THRESHOLD,
 } from '../storyDriver';
 
@@ -54,5 +54,24 @@ describe('双轴档位', () => {
     expect(resourceBand(-50)).toBe('private');
     expect(resourceBand(0)).toBe('neutral');
     expect(resourceBand(50)).toBe('public');
+  });
+});
+
+describe('checkEnding（三结局判定）', () => {
+  it('还权 + 公有 → 公天下', () => {
+    expect(checkEnding(60, 60)).toBe('gong');
+  });
+  it('集权（不论资料）→ 家天下', () => {
+    expect(checkEnding(-60, -60)).toBe('jia');
+    expect(checkEnding(-60, 60)).toBe('jia'); // 集权+公有也归家天下（集权为定性）
+  });
+  it('还权 + 私有 → 货天下', () => {
+    expect(checkEnding(60, -60)).toBe('huo');
+  });
+  it('中立 → 货天下（默认）', () => {
+    expect(checkEnding(0, 0)).toBe('huo');
+  });
+  it('还权但资料中立 → 货天下（非公有不算大同）', () => {
+    expect(checkEnding(60, 0)).toBe('huo');
   });
 });

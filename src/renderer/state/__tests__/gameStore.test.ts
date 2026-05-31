@@ -1189,3 +1189,72 @@ describe('Phase2 故事框架（集成）', () => {
     expect(s2.getStoryFlags()).toBeNull();
   });
 });
+
+describe('Phase2 故事框架闭环（集成）', () => {
+  function npc(id: string, mp: number, stance: number) {
+    return {
+      id, stance, militaryPower: mp, renown: 40, tradeRoute: false, tradeCooldown: 0,
+      warStatus: 'peace' as const, lastEnvoyDay: -1, lastWarDay: -1,
+      allyIds: [] as string[], aggression: 40, lastActionDay: -1,
+    };
+  }
+
+  it('序章统一→（模拟跳变进第一章）→章节占位推进→第七章兑现三结局 STORY_ENDING', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(),
+      resources: { grain: 9999, gold: 9999, people: 50 }, // 充足，途中不触危机
+      npcCountries: [npc('npc_qi', 10, -30), npc('npc_jin', 12, -40)], // 已被打服
+    });
+    store.startStoryMode();
+    const unified = vi.fn();
+    const ended = vi.fn();
+    ee.on(STATE_EVENTS.STORY_UNIFIED, unified);
+    ee.on(STATE_EVENTS.STORY_ENDING, ended);
+
+    store.tickDay(); // 序章统一
+    expect(unified).toHaveBeenCalledTimes(1);
+    store.advanceStoryChapter(1); // 模拟 GameScene 建朝跳变过场结束
+
+    // 占位推进：每章 120 天，序→1 已切，1..7 共 7 段 dwell
+    for (let i = 0; i < 7 * 120 + 10 && ended.mock.calls.length === 0; i++) store.tickDay();
+
+    expect(ended).toHaveBeenCalledTimes(1);
+    const sf = store.getStoryFlags()!;
+    expect(sf.chapter).toBe(7);
+    expect(['gong', 'jia', 'huo']).toContain(sf.ending);
+    // 双轴中立（martial 种子 -20 仍在 neutral 档）→ 默认货天下
+    expect(sf.ending).toBe('huo');
+  });
+
+  it('防 softlock：统一后未推进就重载（unified+chapter0）→ tick 自动恢复进第一章', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, { worldMap: allPlainMap(), resources: { grain: 9999, gold: 9999 } });
+    store.startStoryMode();
+    const snap = store.getState();
+    // 灌入"过场中存档→重载"的卡住态：chapter 0 + unified true（瞬态 pending 不持久 → 新读档为 false）
+    store.replaceState({
+      ...snap,
+      storyFlags: { ...snap.storyFlags!, chapter: 0, unified: true, unifyPath: 'martial' },
+    });
+    store.tickDay();
+    expect(store.getStoryFlags()?.chapter).toBe(1);
+  });
+
+  it('结局只兑现一次（到结局后不再重复 emit）', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, {
+      worldMap: allPlainMap(), resources: { grain: 9999, gold: 9999, people: 50 },
+      npcCountries: [npc('npc_qi', 10, -30)],
+    });
+    store.startStoryMode();
+    const ended = vi.fn();
+    ee.on(STATE_EVENTS.STORY_ENDING, ended);
+    store.tickDay();
+    store.advanceStoryChapter(1);
+    for (let i = 0; i < 7 * 120 + 10; i++) store.tickDay();
+    const callsAtEnd = ended.mock.calls.length;
+    for (let i = 0; i < 200; i++) store.tickDay(); // 继续推进
+    expect(ended.mock.calls.length).toBe(callsAtEnd); // 不再重复
+  });
+});
