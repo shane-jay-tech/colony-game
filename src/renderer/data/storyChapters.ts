@@ -18,8 +18,38 @@ export interface ChapterDef {
   era: string;
   /** 进入本章时顶栏 banner + 引子 Toast 文案（半文半白） */
   intro: string;
-  /** 占位推进目标：在本章度过 N 天即进下一章（Phase 3 换成真实"达成目标解锁"）。序章靠统一推进，无此值。 */
+  /** 占位推进目标：在本章度过 N 天即进下一章（无 advanceGoal 时的降级/兼容）。序章靠统一推进，无此值。 */
   advanceAfterDays?: number;
+  /** Phase3 真实章节目标：达成即解锁下一章（优先于 advanceAfterDays）。 */
+  advanceGoal?: ChapterAdvanceGoal;
+}
+
+/** 章节推进目标（达成"目标"解锁下一章，替代纯时间 dwell）。 */
+export interface ChapterAdvanceGoal {
+  /** story_events：本章关键剧情事件全部解决；days：度过天数（占位） */
+  kind: 'story_events' | 'days';
+  /** kind=story_events：需全部解决的剧情事件 id 列表 */
+  eventIds?: string[];
+  /** kind=days：度过天数 */
+  days?: number;
+  /** 给玩家的本章目标提示（半文半白） */
+  hint: string;
+}
+
+/**
+ * 判定章节目标是否达成（纯函数）。
+ * @param resolved 已解决的剧情事件 id 集合（storyFlags.storyEventsTriggered）
+ * @param daysInChapter 在本章已度过的天数
+ */
+export function chapterGoalMet(
+  goal: ChapterAdvanceGoal | undefined,
+  resolved: ReadonlySet<string>,
+  daysInChapter: number,
+): boolean {
+  if (!goal) return false;
+  if (goal.kind === 'days') return daysInChapter >= (goal.days ?? 0);
+  // story_events：所有指定事件都已解决
+  return (goal.eventIds ?? []).every(id => resolved.has(id));
 }
 
 export const STORY_CHAPTERS: ChapterDef[] = [
@@ -40,6 +70,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     // 取材卷一"江堤溃决查贪 + 组建教导队"，不喊口号、用情节起手
     intro: '王朝立国已久，堤决而万民溺，库银却不知所踪。有人说该查，有人说该压。你坐在大殿上，第一次觉得这把椅子硌人。',
     advanceAfterDays: 120,
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch1_dike', 'evt_s_ch1_cadre'], hint: '查清江堤贪墨，定下办事的班底。' },
   },
   {
     chapter: 2,
@@ -49,6 +80,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '封建鼎盛',
     intro: '田在世家手里，耕的人却吃不饱。有人请你把地分了、把规矩刻在石上让人人能看；也有人说，动了世家的田，根基就乱了。',
     advanceAfterDays: 120,
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch2_grievance', 'evt_s_ch2_stele'], hint: '回应诉苦之会，决定规矩刻不刻在石上。' },
   },
   {
     chapter: 3,
@@ -58,6 +90,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '吏治成熟',
     intro: '当年随你起事的功臣，如今也学会了中饱私囊，且说得出一肚子苦衷。要不要查？查下去，先寒的是自己人的心。',
     advanceAfterDays: 120,
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch3_corruption'], hint: '面对功臣之蠹，做出你的裁断。' },
   },
   {
     chapter: 4,
@@ -67,6 +100,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '工业前夜',
     intro: '匠人炸了七回炉，终于让铁器自己动了起来。这等利器，是该归一家独占、还是天下共用？一念之差，国势两途。',
     advanceAfterDays: 120,
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch4_patent'], hint: '决定机巧之利归公还是归私。' },
   },
   {
     chapter: 5,
@@ -76,6 +110,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '海洋通联',
     intro: '海上风高浪急，邻邦渔民屡遭劫掠。你可以遣师远征立威，也可以筑一串灯塔，让各邦之人共守这一点光。',
     advanceAfterDays: 120,
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch5_lighthouse'], hint: '在远征立威与平等共守之间抉择。' },
   },
   {
     chapter: 6,
@@ -85,6 +120,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '制度成熟',
     intro: '公议日久，竟也生出新的权门。有人提议立下任期，连你自己也不例外。革到最后一刀，敢不敢落在自己身上？',
     advanceAfterDays: 120,
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch6_term_limit'], hint: '在让权与集权回潮之间，做最后一次自我革命。' },
   },
   {
     chapter: 7,
@@ -94,6 +130,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '终局',
     intro: '外敌压境，而你已老。这一回，把要不要打、怎么打，交给天下人自己定。你这一生，到底给后人留下了什么？',
     advanceAfterDays: 120,
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch7_war_vote'], hint: '把战和之权交付天下人，或乾纲独断——终章见分晓。' },
   },
 ];
 

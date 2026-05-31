@@ -39,6 +39,10 @@ export interface CountryMetrics {
   dayOfYear: number;
   /** 0..1 均匀分布的随机源；测试时可注入确定性 RNG */
   rng: () => number;
+  /** Phase3 故事维度（沙盒模式缺省：chapter=-1 / 双轴=0），供事件 trigger 与 context 按章/按轴门控 */
+  storyChapter?: number;
+  storyPowerAxis?: number;
+  storyResourceAxis?: number;
 }
 
 export class DslSyntaxError extends Error {
@@ -80,6 +84,10 @@ function resolveLhs(key: string, ctx: CountryMetrics): { kind: 'number' | 'strin
   if (key === 'country_population') return { kind: 'number', value: ctx.population };
   if (key === 'country_morale') return { kind: 'number', value: ctx.morale };
   if (key === 'country_military_power') return { kind: 'number', value: ctx.militaryPower };
+  // Phase3 故事维度（沙盒缺省：chapter=-1，双轴=0）
+  if (key === 'story_chapter') return { kind: 'number', value: ctx.storyChapter ?? -1 };
+  if (key === 'story_power_axis') return { kind: 'number', value: ctx.storyPowerAxis ?? 0 };
+  if (key === 'story_resource_axis') return { kind: 'number', value: ctx.storyResourceAxis ?? 0 };
 
   // country_<resourceId>
   if (key.startsWith('country_')) {
@@ -89,7 +97,7 @@ function resolveLhs(key: string, ctx: CountryMetrics): { kind: 'number' | 'strin
     }
   }
 
-  throw new DslSyntaxError(key, `unknown identifier (legal: country_<resource>, country_population, country_morale, country_military_power, year, season, day_of_year)`);
+  throw new DslSyntaxError(key, `unknown identifier (legal: country_<resource>, country_population, country_morale, country_military_power, year, season, day_of_year, story_chapter, story_power_axis, story_resource_axis)`);
 }
 
 function parseRhs(token: string, expectedKind: 'number' | 'string'): number | string {

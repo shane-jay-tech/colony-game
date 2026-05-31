@@ -194,7 +194,7 @@ export interface PolicyNode {
 
 // ============== Court Event (朝议事件) ==================================
 
-export type CourtEventTag = '正' | '负' | '中' | '抉择';
+export type CourtEventTag = '正' | '负' | '中' | '抉择' | '故事';
 
 export interface CourtEventTrigger {
   /** DSL string；'random' + value=概率 / 'season == summer' / 'country_grain < 50' 等 */

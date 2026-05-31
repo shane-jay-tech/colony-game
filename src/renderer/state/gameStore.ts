@@ -1,6 +1,6 @@
 import { RESOURCE_IDS } from '../data/resourceRegistry';
 import type { ResourceId } from '../data/resourceRegistry';
-import type { ModifierInstance, BuildingDef, BuildingInstance, PolicyNode, RoyalDecree, CourtEvent, NpcCountryState } from '../data/schema';
+import type { ModifierInstance, BuildingDef, BuildingInstance, PolicyNode, RoyalDecree, CourtEvent, CourtEventContext, NpcCountryState } from '../data/schema';
 import { makeInitialNpcStates, getNpcDef, selectNpcsForGame } from '../data/npcCountries';
 import {
   tryTrade,
@@ -21,7 +21,7 @@ import { WorldMapAccessor } from './worldMap';
 import { computeProductionTick } from './productionSystem';
 import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
 import { tryAdoptDecree, tickActiveDecree, type AdoptDecreeResult } from './decreeSystem';
-import { sampleEventTrigger, applyEventChoice, checkEventTimeout } from './eventEngine';
+import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from './eventEngine';
 import { applyModifiers } from './modifierAggregator';
 import type { CountryMetrics } from './dslEval';
 import { createRng } from './rng';
@@ -38,7 +38,7 @@ import {
   NPC_MP_GROWTH_INTERVAL, NPC_MP_CAP,
 } from './npcDynamics';
 import { checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand, checkEnding, type EndingId } from './storyDriver';
-import { chapterAt } from '../data/storyChapters';
+import { chapterAt, chapterGoalMet } from '../data/storyChapters';
 
 export interface IEventEmitter {
   on(event: string, fn: (...args: unknown[]) => void): void;
@@ -291,6 +291,10 @@ export class GameStore {
     return this.events.find(e => e.id === id) ?? null;
   }
   getPendingEventDayStart(): number | null { return this.state.pendingEventDayStart; }
+  /** Phase3：按当前状态（含故事双轴）选事件呈现文本变体（OQ-S3 控量）。EventModal 用之取代 contexts[0]。 */
+  pickEventContext(event: CourtEvent): CourtEventContext {
+    return selectContext(event, this.computeMetrics());
+  }
   // Slice G 教程：当前 tutorialStepId（'tut_welcome' | 具体 step id | null=已结束）
   getTutorialStepId(): string | null { return this.state.tutorialStepId; }
   setTutorialStepId(id: string | null): void {
@@ -687,6 +691,7 @@ export class GameStore {
     // RNG：每次 metrics 推进一步 rngSeed，保证 day-to-day 不同。
     // 用箭头包裹以防 createRng 实现被换成需要 this 的形式（DeepSeek 防御）。
     const rngHandle = createRng(this.state.rngSeed ^ this.state.currentDay);
+    const sf = this.state.storyFlags;
     return {
       resources: this.state.resources,
       population,
@@ -696,6 +701,10 @@ export class GameStore {
       season: cal.season,
       dayOfYear: this.state.currentDay % 120,
       rng: () => rngHandle.next(),
+      // Phase3 故事维度（沙盒 storyFlags=null → chapter=-1、双轴=0，事件 trigger 的 story_* 条件自然不命中）
+      storyChapter: sf ? sf.chapter : -1,
+      storyPowerAxis: sf ? sf.powerAxis : 0,
+      storyResourceAxis: sf ? sf.resourceAxis : 0,
     };
   }
 
@@ -720,6 +729,10 @@ export class GameStore {
     }
     this.state.eventHistory.push(id);
     this.pushStoryAxis(def.choices?.[choiceIdx]?.storyAxisDelta); // Phase2：抉择悄悄推双轴
+    // Phase3：'故事' 标签事件解决后记入进度（章节目标 advanceGoal 据此判定解锁）
+    if (this.state.storyFlags && def.tags.includes('故事') && !this.state.storyFlags.storyEventsTriggered.includes(id)) {
+      this.state.storyFlags.storyEventsTriggered.push(id);
+    }
     this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, { eventId: id, choiceIdx, applied: true });
   }
 
@@ -983,12 +996,14 @@ export class GameStore {
       }
       return;
     }
-    // 第 1..7 章：占位推进——在本章度过 advanceAfterDays 天即推进/兑现结局
+    // 第 1..7 章：达成章节目标解锁下一章（advanceGoal 优先；无则降级 advanceAfterDays 占位 dwell）
     if (sf.ending !== null) return; // 已到结局
     const def = chapterAt(sf.chapter);
-    const dwell = def.advanceAfterDays ?? 0;
-    if (dwell <= 0) return;
-    if (this.state.currentDay - sf.chapterStartDay < dwell) return;
+    const daysInChapter = this.state.currentDay - sf.chapterStartDay;
+    const met = def.advanceGoal
+      ? chapterGoalMet(def.advanceGoal, new Set(sf.storyEventsTriggered), daysInChapter)
+      : (def.advanceAfterDays ?? 0) > 0 && daysInChapter >= (def.advanceAfterDays ?? 0);
+    if (!met) return;
     if (sf.chapter < 7) {
       this.advanceStoryChapter(sf.chapter + 1);
     } else {

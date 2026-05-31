@@ -1,10 +1,10 @@
 import type { CourtEvent } from './schema';
+import { STORY_EVENTS } from './storyEvents';
 
 /**
- * v0.7 朝议事件。Part 1 给 2 个代表（负面 / 抉择），
- * Part 2 扩到 30+ 按 3:3:2:2 分布（正/负/中/抉择）。
+ * v0.7 朝议事件（沙盒心跳调味）。Phase3：末尾并入 STORY_EVENTS（故事模式按章触发）。
  */
-export const EVENTS: CourtEvent[] = [
+const BASE_EVENTS: CourtEvent[] = [
   {
     id: 'evt_locust',
     tags: ['负'],
@@ -268,3 +268,5 @@ export const EVENTS: CourtEvent[] = [
     defaultTimeoutDays: 6,
   },
 ];
+
+export const EVENTS: CourtEvent[] = [...BASE_EVENTS, ...STORY_EVENTS];

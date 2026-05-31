@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sampleEventTrigger, applyEventChoice, checkEventTimeout } from '../eventEngine';
+import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from '../eventEngine';
 import type { CourtEvent } from '../../data/schema';
 import type { CountryMetrics } from '../dslEval';
 
@@ -147,5 +147,45 @@ describe('checkEventTimeout', () => {
 
   it('event with no defaultTimeoutDays never times out', () => {
     expect(checkEventTimeout(ev(), 1000)).toBeNull();
+  });
+});
+
+describe('selectContext（OQ-S3 文本变体）', () => {
+  const ev2 = {
+    id: 'e', tags: ['故事' as const, '抉择' as const], triggers: [],
+    contexts: [
+      { condition: 'default', title: '默认', desc: 'd', descPlain: 'd' },
+      { condition: 'story_power_axis > 30', title: '还权变体', desc: 'v', descPlain: 'v' },
+    ],
+  };
+  function m(over: Record<string, unknown> = {}) {
+    return { resources: {}, population: 0, morale: 50, militaryPower: 0, year: 0, season: 0 as const, dayOfYear: 0, rng: () => 0, ...over };
+  }
+  it('条件命中 → 选变体', () => {
+    expect(selectContext(ev2 as never, m({ storyPowerAxis: 50 })).title).toBe('还权变体');
+  });
+  it('条件不命中 → 回退 default', () => {
+    expect(selectContext(ev2 as never, m({ storyPowerAxis: 0 })).title).toBe('默认');
+  });
+});
+
+describe('故事事件章节门控（沙盒零污染）', () => {
+  const storyEv = {
+    id: 'evt_s_ch1', tags: ['故事' as const, '抉择' as const],
+    triggers: [{ condition: 'story_chapter == 1' }],
+    contexts: [{ condition: 'default', title: 't', desc: 'd', descPlain: 'd' }],
+    choices: [{ text: 'a', textPlain: 'a', effects: [], removeEffects: [] }],
+  };
+  function m(over: Record<string, unknown> = {}) {
+    return { resources: {}, population: 0, morale: 50, militaryPower: 0, year: 0, season: 0 as const, dayOfYear: 0, rng: () => 0, ...over };
+  }
+  it('沙盒（storyChapter=-1）→ 故事事件不触发', () => {
+    expect(sampleEventTrigger([storyEv as never], [], m({ storyChapter: -1 }))).toBeNull();
+  });
+  it('第一章（storyChapter=1）→ 触发', () => {
+    expect(sampleEventTrigger([storyEv as never], [], m({ storyChapter: 1 }))).toBe('evt_s_ch1');
+  });
+  it('第二章（storyChapter=2）→ 第一章事件不触发', () => {
+    expect(sampleEventTrigger([storyEv as never], [], m({ storyChapter: 2 }))).toBeNull();
   });
 });

@@ -75,3 +75,21 @@ describe('checkEnding（三结局判定）', () => {
     expect(checkEnding(60, 0)).toBe('huo');
   });
 });
+
+import { chapterGoalMet } from '../../data/storyChapters';
+
+describe('chapterGoalMet（章节目标判定）', () => {
+  it('story_events：全部解决才达成', () => {
+    const goal = { kind: 'story_events' as const, eventIds: ['a', 'b'], hint: '' };
+    expect(chapterGoalMet(goal, new Set(['a']), 999)).toBe(false);
+    expect(chapterGoalMet(goal, new Set(['a', 'b']), 0)).toBe(true);
+  });
+  it('days：度过天数才达成', () => {
+    const goal = { kind: 'days' as const, days: 120, hint: '' };
+    expect(chapterGoalMet(goal, new Set(), 119)).toBe(false);
+    expect(chapterGoalMet(goal, new Set(), 120)).toBe(true);
+  });
+  it('无 goal → false', () => {
+    expect(chapterGoalMet(undefined, new Set(), 999)).toBe(false);
+  });
+});

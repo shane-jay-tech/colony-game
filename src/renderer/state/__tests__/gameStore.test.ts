@@ -1214,10 +1214,12 @@ describe('Phase2 故事框架闭环（集成）', () => {
 
     store.tickDay(); // 序章统一
     expect(unified).toHaveBeenCalledTimes(1);
-    store.advanceStoryChapter(1); // 模拟 GameScene 建朝跳变过场结束
-
-    // 占位推进：每章 120 天，序→1 已切，1..7 共 7 段 dwell
-    for (let i = 0; i < 7 * 120 + 10 && ended.mock.calls.length === 0; i++) store.tickDay();
+    // 模拟逐章达成目标推进（章节目标判定本身由 chapterGoalMet 单测覆盖）。一路推到第七章。
+    for (let ch = 1; ch <= 7; ch++) store.advanceStoryChapter(ch);
+    // 第七章目标 = 解决 evt_s_ch7_war_vote；注入"已解决"再 tick → 终章判定结局
+    const s7 = store.getState();
+    store.replaceState({ ...s7, storyFlags: { ...s7.storyFlags!, chapter: 7, storyEventsTriggered: ['evt_s_ch7_war_vote'] } });
+    for (let i = 0; i < 5 && ended.mock.calls.length === 0; i++) store.tickDay();
 
     expect(ended).toHaveBeenCalledTimes(1);
     const sf = store.getStoryFlags()!;
@@ -1251,10 +1253,45 @@ describe('Phase2 故事框架闭环（集成）', () => {
     const ended = vi.fn();
     ee.on(STATE_EVENTS.STORY_ENDING, ended);
     store.tickDay();
-    store.advanceStoryChapter(1);
-    for (let i = 0; i < 7 * 120 + 10; i++) store.tickDay();
+    for (let ch = 1; ch <= 7; ch++) store.advanceStoryChapter(ch);
+    const s7 = store.getState();
+    store.replaceState({ ...s7, storyFlags: { ...s7.storyFlags!, chapter: 7, storyEventsTriggered: ['evt_s_ch7_war_vote'] } });
+    for (let i = 0; i < 5; i++) store.tickDay();
     const callsAtEnd = ended.mock.calls.length;
+    expect(callsAtEnd).toBe(1);
     for (let i = 0; i < 200; i++) store.tickDay(); // 继续推进
     expect(ended.mock.calls.length).toBe(callsAtEnd); // 不再重复
+  });
+});
+
+describe('Phase3 章节目标解锁（集成）', () => {
+  it('解决本章关键剧情事件 → 解锁下一章（advanceGoal story_events）', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, { worldMap: allPlainMap(), resources: { grain: 9999, gold: 9999 }, npcCountries: [] });
+    store.startStoryMode();
+    store.advanceStoryChapter(1); // 进第一章
+    expect(store.getStoryFlags()?.chapter).toBe(1);
+    // 模拟第一章两个关键事件已解决（注入 storyEventsTriggered）
+    const snap = store.getState();
+    store.replaceState({
+      ...snap,
+      storyFlags: { ...snap.storyFlags!, chapter: 1, storyEventsTriggered: ['evt_s_ch1_dike', 'evt_s_ch1_cadre'] },
+    });
+    store.tickDay();
+    expect(store.getStoryFlags()?.chapter).toBe(2); // 目标达成 → 解锁第二章
+  });
+
+  it('章节关键事件未全解决 → 不解锁', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, { worldMap: allPlainMap(), resources: { grain: 9999, gold: 9999 }, npcCountries: [] });
+    store.startStoryMode();
+    store.advanceStoryChapter(1);
+    const snap = store.getState();
+    store.replaceState({
+      ...snap,
+      storyFlags: { ...snap.storyFlags!, chapter: 1, storyEventsTriggered: ['evt_s_ch1_dike'] }, // 只解决一个
+    });
+    for (let i = 0; i < 300; i++) store.tickDay(); // 久等也不进章（非时间驱动）
+    expect(store.getStoryFlags()?.chapter).toBe(1);
   });
 });

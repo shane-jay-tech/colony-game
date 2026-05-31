@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { COLORS, FONTS, UI } from './palette';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
-import type { CourtEvent, CourtEventChoice } from '../data/schema';
+import type { CourtEvent, CourtEventChoice, CourtEventContext } from '../data/schema';
 
 /**
  * EventModal：朝议事件对话框。
@@ -48,6 +48,7 @@ export class EventModal {
   private buttons: ChoiceButton[] = [];
 
   private currentEvent: CourtEvent | null = null;
+  private activeContext: CourtEventContext | null = null; // Phase3：按状态选中的文本变体（OQ-S3）
   private showPlain = true; // 默认白话；用户可切到古文
   private holdsPause = false; // Slice G hardening：destroy 时若仍 hold 必须释放
   private destroyed = false;
@@ -142,6 +143,7 @@ export class EventModal {
     const evt = this.store.getPendingEvent();
     if (!evt) return;
     this.currentEvent = evt;
+    this.activeContext = this.store.pickEventContext(evt); // 按当前状态选文本变体
     this.showPlain = true;
     // 用 refcount API：玩家手动暂停态不被覆盖；多模态嵌套时不会互踩
     this.acquirePause();
@@ -213,7 +215,7 @@ export class EventModal {
 
   private refreshTexts(): void {
     if (!this.currentEvent) return;
-    const ctx = this.currentEvent.contexts[0];
+    const ctx = this.activeContext ?? this.currentEvent.contexts[0];
     if (!ctx) return;
     this.titleText.setText(ctx.title);
     const body = this.showPlain ? ctx.descPlain : ctx.desc;
@@ -250,7 +252,7 @@ export class EventModal {
     if (!this.currentEvent) return;
     const sceneW = this.scene.scale.width;
     const sceneH = this.scene.scale.height;
-    const ctx = this.currentEvent.contexts[0];
+    const ctx = this.activeContext ?? this.currentEvent.contexts[0];
     const choices = this.currentEvent.choices ?? [];
     const buttonsCount = choices.length === 0 ? 1 : choices.length;
 

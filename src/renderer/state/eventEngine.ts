@@ -25,9 +25,26 @@
  *     UI 用 "查看" 按钮把 pendingEventId 清掉。
  */
 
-import type { CourtEvent, CourtEventChoice, ModifierInstance, ModifierEffect } from '../data/schema';
+import type { CourtEvent, CourtEventChoice, CourtEventContext, ModifierInstance, ModifierEffect } from '../data/schema';
 import { evalPredicate, type CountryMetrics } from './dslEval';
 import { effectsToModifierInstance } from './modifierAggregator';
+
+/**
+ * OQ-S3 控量：同一事件多套 context 文本，按当前状态选呈现版本。
+ * 规则：非 'default' 的 context 依次用 DSL 求值（如 story_power_axis > 30），命中即用；
+ * 都不命中 → 回退到 condition==='default' 的（或首条）。1-2 章只配 default = 零差异。
+ */
+export function selectContext(event: CourtEvent, metrics: CountryMetrics): CourtEventContext {
+  for (const ctx of event.contexts) {
+    if (ctx.condition === 'default' || ctx.condition === '') continue;
+    try {
+      if (evalPredicate(ctx.condition, metrics)) return ctx;
+    } catch {
+      // 条件写错不至于崩事件，跳过该变体
+    }
+  }
+  return event.contexts.find(c => c.condition === 'default' || c.condition === '') ?? event.contexts[0]!;
+}
 
 export interface EventApplyResult {
   /** 新增到 activeModifiers 的实例（来自 choice.effects；可能为空数组） */
