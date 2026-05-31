@@ -1,0 +1,401 @@
+import type { GameState, GameStore } from './gameStore';
+import { DEFAULT_MAP_SIZE } from './gameStore';
+import type { ResourceId } from '../data/resourceRegistry';
+import type { BuildingInstance, BuildingStatus, BuildingTier, ModifierInstance, NpcCountryState, WarStatus } from '../data/schema';
+import { makeInitialNpcStates } from '../data/npcCountries';
+import type { WorldMap, MapTile, ResourceNode } from '../data/mapSchema';
+import { isValidTerrain, isValidResourceNodeKind } from '../data/mapSchema';
+import { generateMap } from './mapGen';
+
+export const SAVE_SCHEMA_VERSION = 1;
+
+export class SaveLoadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SaveLoadError';
+  }
+}
+
+export interface SerializedSave {
+  schemaVersion: number;
+  savedAt: number;
+  state: {
+    resources: Partial<Record<ResourceId, number>>;
+    buildings: BuildingInstance[];
+    policies: { id: string; adopted: boolean }[];
+    activeModifiers: ModifierInstance[];
+    activeDecrees: { id: string; currentStage: number; daysElapsed: number }[];
+    eventHistory: string[];
+    pendingEventId?: string | null;
+    pendingEventDayStart?: number | null;
+    productionCarry?: Partial<Record<ResourceId, number>>;
+    tutorialStepId: string | null;
+    defeatCount: number;
+    permanentBuffs: string[];
+    lastSeenTimestamp: number;
+    currentDay: number;
+    rngSeed: number;
+    speed: 0 | 1 | 2 | 3;
+    worldMap?: WorldMap;
+    /** v0.9：面板折叠态。旧存档没此字段时 deserialize 会兜底为 {left:false, right:false} */
+    panelCollapsed?: { left: boolean; right: boolean };
+    /** v1.0 #2：已完成的 decree id 列表。旧存档没此字段时 deserialize 兜底为 []（链路 decree 视为未解锁） */
+    completedDecreeIds?: string[];
+    /** v1.0 #6：NPC 邦国动态状态。旧存档没此字段时 deserialize 用 makeInitialNpcStates() 兜底 */
+    npcCountries?: NpcCountryState[];
+    /** v1.0 #6：玩家 morale (0..100, default 50)、militaryPower (0..500, default 30) */
+    playerMorale?: number;
+    playerMilitaryPower?: number;
+  };
+}
+
+type MigrationFn = (old: unknown) => unknown;
+// empty for v1; add entries for v2, v3, etc. as needed
+const migrations: Partial<Record<number, MigrationFn>> = {};
+
+function runMigrations(blob: unknown, fromVersion: number): unknown {
+  let current = blob;
+  let version = fromVersion;
+  while (version < SAVE_SCHEMA_VERSION) {
+    const migrate = migrations[version];
+    if (!migrate) {
+      throw new SaveLoadError(
+        `No migration path from schema version ${fromVersion} to ${SAVE_SCHEMA_VERSION}`,
+      );
+    }
+    current = migrate(current);
+    version++;
+  }
+  return current;
+}
+
+// Deep-validates a worldMap blob from disk. Bad terrain strings, non-boolean buildable,
+// NaN positions etc. would otherwise crash the renderer mid-frame later.
+function validateWorldMap(raw: unknown): WorldMap {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new SaveLoadError('worldMap is malformed (not an object)');
+  }
+  const wm = raw as Record<string, unknown>;
+  if (!Number.isInteger(wm['width']) || (wm['width'] as number) <= 0) {
+    throw new SaveLoadError('worldMap.width must be a positive integer');
+  }
+  if (!Number.isInteger(wm['height']) || (wm['height'] as number) <= 0) {
+    throw new SaveLoadError('worldMap.height must be a positive integer');
+  }
+  if (!Number.isFinite(wm['seed'])) {
+    throw new SaveLoadError('worldMap.seed must be a finite number');
+  }
+  if (!Array.isArray(wm['tiles'])) {
+    throw new SaveLoadError('worldMap.tiles must be an array');
+  }
+  if (!Array.isArray(wm['resourceNodes'])) {
+    throw new SaveLoadError('worldMap.resourceNodes must be an array');
+  }
+  const width = wm['width'] as number;
+  const height = wm['height'] as number;
+  const rawTiles = wm['tiles'] as unknown[];
+  if (rawTiles.length !== width * height) {
+    throw new SaveLoadError(
+      `worldMap.tiles.length=${rawTiles.length} does not match width*height=${width * height}`,
+    );
+  }
+  const tiles: MapTile[] = [];
+  for (let i = 0; i < rawTiles.length; i++) {
+    const t = rawTiles[i];
+    if (typeof t !== 'object' || t === null) {
+      throw new SaveLoadError(`worldMap.tiles[${i}] is not an object`);
+    }
+    const rec = t as Record<string, unknown>;
+    if (typeof rec['terrain'] !== 'string' || !isValidTerrain(rec['terrain'])) {
+      throw new SaveLoadError(`worldMap.tiles[${i}].terrain is not a valid terrain`);
+    }
+    if (typeof rec['buildable'] !== 'boolean') {
+      throw new SaveLoadError(`worldMap.tiles[${i}].buildable must be boolean`);
+    }
+    if (typeof rec['walkable'] !== 'boolean') {
+      throw new SaveLoadError(`worldMap.tiles[${i}].walkable must be boolean`);
+    }
+    tiles.push({
+      terrain: rec['terrain'],
+      buildable: rec['buildable'],
+      walkable: rec['walkable'],
+    });
+  }
+  const rawNodes = wm['resourceNodes'] as unknown[];
+  const resourceNodes: ResourceNode[] = [];
+  for (let i = 0; i < rawNodes.length; i++) {
+    const n = rawNodes[i];
+    if (typeof n !== 'object' || n === null) {
+      throw new SaveLoadError(`worldMap.resourceNodes[${i}] is not an object`);
+    }
+    const rec = n as Record<string, unknown>;
+    if (typeof rec['kind'] !== 'string' || !isValidResourceNodeKind(rec['kind'])) {
+      throw new SaveLoadError(`worldMap.resourceNodes[${i}].kind is not a valid kind`);
+    }
+    const pos = rec['position'];
+    if (typeof pos !== 'object' || pos === null) {
+      throw new SaveLoadError(`worldMap.resourceNodes[${i}].position is not an object`);
+    }
+    const posRec = pos as Record<string, unknown>;
+    const px = posRec['x'];
+    const py = posRec['y'];
+    if (!Number.isInteger(px) || (px as number) < 0 || (px as number) >= width) {
+      throw new SaveLoadError(`worldMap.resourceNodes[${i}].position.x out of range`);
+    }
+    if (!Number.isInteger(py) || (py as number) < 0 || (py as number) >= height) {
+      throw new SaveLoadError(`worldMap.resourceNodes[${i}].position.y out of range`);
+    }
+    if (!Number.isFinite(rec['remaining']) || (rec['remaining'] as number) < 0) {
+      throw new SaveLoadError(`worldMap.resourceNodes[${i}].remaining must be a non-negative number`);
+    }
+    resourceNodes.push({
+      kind: rec['kind'],
+      position: { x: px as number, y: py as number },
+      remaining: rec['remaining'] as number,
+    });
+  }
+  return { width, height, tiles, resourceNodes, seed: wm['seed'] as number };
+}
+
+export function serialize(state: Readonly<GameState>): SerializedSave {
+  return {
+    schemaVersion: SAVE_SCHEMA_VERSION,
+    savedAt: Date.now(),
+    state: {
+      resources: state.resources,
+      buildings: state.buildings,
+      policies: state.policies,
+      activeModifiers: state.activeModifiers,
+      activeDecrees: state.activeDecrees,
+      eventHistory: state.eventHistory,
+      pendingEventId: state.pendingEventId,
+      pendingEventDayStart: state.pendingEventDayStart,
+      productionCarry: state.productionCarry,
+      tutorialStepId: state.tutorialStepId,
+      defeatCount: state.defeatCount,
+      permanentBuffs: state.permanentBuffs,
+      lastSeenTimestamp: state.lastSeenTimestamp,
+      currentDay: state.currentDay,
+      rngSeed: state.rngSeed,
+      speed: state.speed,
+      worldMap: state.worldMap,
+      panelCollapsed: state.panelCollapsed,
+      completedDecreeIds: state.completedDecreeIds,
+      npcCountries: state.npcCountries,
+      playerMorale: state.playerMorale,
+      playerMilitaryPower: state.playerMilitaryPower,
+    },
+  };
+}
+
+export function deserialize(blob: unknown): GameState {
+  if (typeof blob !== 'object' || blob === null) {
+    throw new SaveLoadError('Save data must be a non-null object');
+  }
+  const raw = blob as Record<string, unknown>;
+  if (!('schemaVersion' in raw)) {
+    throw new SaveLoadError('Save data missing schemaVersion field');
+  }
+  const schemaVersion = raw['schemaVersion'] as number;
+  if (typeof schemaVersion !== 'number') {
+    throw new SaveLoadError('schemaVersion must be a number');
+  }
+  if (schemaVersion > SAVE_SCHEMA_VERSION) {
+    throw new SaveLoadError(
+      `Save created with future schema version ${schemaVersion} (current: ${SAVE_SCHEMA_VERSION})`,
+    );
+  }
+
+  let migrated: unknown = blob;
+  if (schemaVersion < SAVE_SCHEMA_VERSION) {
+    migrated = runMigrations(blob, schemaVersion);
+  }
+
+  const data = migrated as { schemaVersion: number; state: SerializedSave['state'] };
+  const s = data.state;
+
+  // clamp speed to the literal union 0|1|2|3; a corrupted save shouldn't be able to
+  // smuggle in 99 or -1 and crash downstream code that assumes the union.
+  const rawSpeed = s.speed;
+  const speed: 0 | 1 | 2 | 3 = rawSpeed === 0 || rawSpeed === 1 || rawSpeed === 2 || rawSpeed === 3
+    ? rawSpeed
+    : 1;
+
+  const rngSeed = typeof s.rngSeed === 'number' && Number.isFinite(s.rngSeed) ? s.rngSeed : 12345;
+
+  // worldMap: validate shape if present; regenerate from rngSeed for legacy saves missing the field
+  let worldMap: WorldMap;
+  if (s.worldMap === undefined || s.worldMap === null) {
+    worldMap = generateMap({ width: DEFAULT_MAP_SIZE, height: DEFAULT_MAP_SIZE, seed: rngSeed });
+  } else {
+    worldMap = validateWorldMap(s.worldMap);
+  }
+
+  // Slice G hardening：buildings 必走 shape 校验（损坏 status/tier 会让 productionTick 静默不产出）
+  const buildings = s.buildings === undefined ? [] : validateBuildingsArray(s.buildings);
+
+  // reconstruct GameState, adding runtime-only defaults
+  const gameState: GameState = {
+    resources: s.resources ?? {},
+    buildings,
+    policies: s.policies ?? [],
+    activeModifiers: s.activeModifiers ?? [],
+    activeDecrees: s.activeDecrees ?? [],
+    eventHistory: s.eventHistory ?? [],
+    pendingEventId: s.pendingEventId ?? null,
+    pendingEventDayStart: s.pendingEventDayStart ?? null,
+    productionCarry: s.productionCarry ?? {},
+    tutorialStepId: s.tutorialStepId ?? null,
+    defeatCount: s.defeatCount ?? 0,
+    permanentBuffs: s.permanentBuffs ?? [],
+    lastSeenTimestamp: s.lastSeenTimestamp ?? 0,
+    currentDay: s.currentDay ?? 0,
+    rngSeed,
+    speed,
+    worldMap,
+    paused: false,
+    lastTickTimestamp: 0,
+    // v0.9：旧存档没有 panelCollapsed —— 默认全展开，玩家可手动折叠
+    panelCollapsed: (s.panelCollapsed && typeof s.panelCollapsed === 'object'
+      && typeof (s.panelCollapsed as { left?: unknown }).left === 'boolean'
+      && typeof (s.panelCollapsed as { right?: unknown }).right === 'boolean')
+      ? { left: (s.panelCollapsed as { left: boolean }).left, right: (s.panelCollapsed as { right: boolean }).right }
+      : { left: false, right: false },
+    // v1.0 #2：已完成的 decree id 列表（旧存档无此字段 → 空数组，链路 decree 视为未解锁）
+    completedDecreeIds: Array.isArray(s.completedDecreeIds)
+      ? s.completedDecreeIds.filter((x): x is string => typeof x === 'string')
+      : [],
+    // v1.0 #6：NPC 邦国动态（旧存档无 → 用 makeInitialNpcStates() 兜底）
+    npcCountries: Array.isArray(s.npcCountries) && s.npcCountries.length > 0
+      ? validateNpcCountriesArray(s.npcCountries)
+      : makeInitialNpcStates(),
+    playerMorale: typeof s.playerMorale === 'number' && Number.isFinite(s.playerMorale)
+      ? Math.max(0, Math.min(100, s.playerMorale))
+      : 50,
+    playerMilitaryPower: typeof s.playerMilitaryPower === 'number' && Number.isFinite(s.playerMilitaryPower)
+      ? Math.max(0, Math.min(500, s.playerMilitaryPower))
+      : 30,
+  };
+  return gameState;
+}
+
+const VALID_WAR_STATUS = new Set<WarStatus>(['peace', 'tension', 'war']);
+
+function validateNpcCountriesArray(arr: unknown): NpcCountryState[] {
+  if (!Array.isArray(arr)) return makeInitialNpcStates();
+  const out: NpcCountryState[] = [];
+  for (const it of arr) {
+    if (typeof it !== 'object' || it === null) continue;
+    const o = it as Record<string, unknown>;
+    if (typeof o['id'] !== 'string') continue;
+    const ws = o['warStatus'];
+    const warStatus: WarStatus = typeof ws === 'string' && VALID_WAR_STATUS.has(ws as WarStatus) ? (ws as WarStatus) : 'peace';
+    out.push({
+      id: o['id'] as string,
+      stance: typeof o['stance'] === 'number' ? Math.max(-100, Math.min(100, o['stance'] as number)) : 0,
+      militaryPower: typeof o['militaryPower'] === 'number' ? Math.max(0, Math.min(500, o['militaryPower'] as number)) : 50,
+      renown: typeof o['renown'] === 'number' ? Math.max(0, Math.min(200, o['renown'] as number)) : 50,
+      tradeRoute: o['tradeRoute'] === true,
+      tradeCooldown: typeof o['tradeCooldown'] === 'number' ? Math.max(0, o['tradeCooldown'] as number) : 0,
+      warStatus,
+      lastActionDay: typeof o['lastActionDay'] === 'number' ? o['lastActionDay'] as number : -1,
+    });
+  }
+  return out.length > 0 ? out : makeInitialNpcStates();
+}
+
+const VALID_BUILDING_STATUS = new Set<BuildingStatus>(['idle', 'constructing', 'working', 'paused', 'derelict']);
+const VALID_BUILDING_TIER = new Set<BuildingTier>([1, 2, 3]);
+
+/**
+ * Slice G hardening：deserialize 时校验 buildings 数组每条 shape。
+ * tickDay/runProductionTick 假设 status/tier 字段合法；存档损坏让其沉默渗透
+ * 会引发"建筑不产出但也不报错"的诡异 bug。
+ */
+function validateBuildingsArray(raw: unknown): BuildingInstance[] {
+  if (!Array.isArray(raw)) {
+    throw new SaveLoadError('buildings must be an array');
+  }
+  const out: BuildingInstance[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const b = raw[i];
+    if (typeof b !== 'object' || b === null) {
+      throw new SaveLoadError(`buildings[${i}] is not an object`);
+    }
+    const rec = b as Record<string, unknown>;
+    if (typeof rec['defId'] !== 'string' || rec['defId'].length === 0) {
+      throw new SaveLoadError(`buildings[${i}].defId must be a non-empty string`);
+    }
+    const pos = rec['position'];
+    if (typeof pos !== 'object' || pos === null) {
+      throw new SaveLoadError(`buildings[${i}].position is not an object`);
+    }
+    const px = (pos as Record<string, unknown>)['x'];
+    const py = (pos as Record<string, unknown>)['y'];
+    if (!Number.isInteger(px) || !Number.isInteger(py)) {
+      throw new SaveLoadError(`buildings[${i}].position.{x,y} must be integers`);
+    }
+    if (typeof rec['status'] !== 'string' || !VALID_BUILDING_STATUS.has(rec['status'] as BuildingStatus)) {
+      throw new SaveLoadError(`buildings[${i}].status invalid: "${String(rec['status'])}"`);
+    }
+    if (typeof rec['tier'] !== 'number' || !VALID_BUILDING_TIER.has(rec['tier'] as BuildingTier)) {
+      throw new SaveLoadError(`buildings[${i}].tier invalid: "${String(rec['tier'])}"`);
+    }
+    if (typeof rec['constructionProgress'] !== 'number' || !Number.isFinite(rec['constructionProgress'])) {
+      throw new SaveLoadError(`buildings[${i}].constructionProgress must be finite number`);
+    }
+    if (!Array.isArray(rec['modifiers']) || (rec['modifiers'] as unknown[]).some(m => typeof m !== 'string')) {
+      throw new SaveLoadError(`buildings[${i}].modifiers must be array of string ids`);
+    }
+    // v0.9：upgradingTo 可选；若存在必须是非空字符串
+    let upgradingTo: string | undefined;
+    if (rec['upgradingTo'] !== undefined && rec['upgradingTo'] !== null) {
+      if (typeof rec['upgradingTo'] !== 'string' || rec['upgradingTo'].length === 0) {
+        throw new SaveLoadError(`buildings[${i}].upgradingTo must be a non-empty string when present`);
+      }
+      upgradingTo = rec['upgradingTo'];
+    }
+    out.push({
+      defId: rec['defId'],
+      position: { x: px as number, y: py as number },
+      status: rec['status'] as BuildingStatus,
+      tier: rec['tier'] as BuildingTier,
+      constructionProgress: rec['constructionProgress'] as number,
+      modifiers: rec['modifiers'] as string[],
+      ...(upgradingTo !== undefined ? { upgradingTo } : {}),
+    });
+  }
+  return out;
+}
+
+const VALID_SLOT_RE = /^[a-z0-9_-]{1,32}$/;
+
+export function validateSlot(slot: string): void {
+  if (!VALID_SLOT_RE.test(slot)) {
+    throw new SaveLoadError(
+      `Invalid save slot name "${slot}": must match [a-z0-9_-]{1,32}`,
+    );
+  }
+}
+
+type ColonyApiShape = {
+  saveGame(slot: string, json: string): Promise<boolean>;
+  loadGame(slot: string): Promise<string | null>;
+};
+
+function getColonyApi(): ColonyApiShape {
+  return (window as unknown as { colonyApi: ColonyApiShape }).colonyApi;
+}
+
+export async function saveToSlot(slot: string, store: GameStore): Promise<void> {
+  validateSlot(slot);
+  store.setLastSeenNow();
+  await getColonyApi().saveGame(slot, JSON.stringify(serialize(store.getState())));
+}
+
+export async function loadFromSlot(slot: string): Promise<GameState | null> {
+  validateSlot(slot);
+  const raw = await getColonyApi().loadGame(slot);
+  if (raw === null) return null;
+  return deserialize(JSON.parse(raw) as unknown);
+}

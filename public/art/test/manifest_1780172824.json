@@ -1,0 +1,47 @@
+{
+  "model": "wan2.7-image-pro",
+  "size": "1024*1024",
+  "generated_at": 1780172824,
+  "jobs": [
+    {
+      "id": "commoner_house",
+      "desc": "平民独栋小屋，单进院子，三开间硬山顶民居，前有矮土墙，旁边一棵老槐树，鸡犬围栏，体量小（约同期普通农户家），",
+      "prompt": "中国春秋时代（公元前 770-476 年）的平民独栋小屋，单进院子，三开间硬山顶民居，前有矮土墙，旁边一棵老槐树，鸡犬围栏，体量小（约同期普通农户家），，灰色陶瓦坡屋顶，夯土墙或木结构墙体，木梁架构，建筑朴素少装饰（春秋早期规制，禁飞檐华丽斗拱），暖色午后阳光，手绘 painted-2D 美术风格（参照纪元1800 ANNO1800 美术质感），土黄棕色调，建筑独立放置，背景为纯色浅米黄无杂物，无文字、无人物、无现代元素，俯视斜 45 度等距视角，适合作为 isometric 策略游戏建筑素材，干净易抠图。",
+      "task_id": "63e0a49f-ab1c-460c-970f-3da595445858",
+      "saved": "D:\\code\\colony-game\\public\\art\\test\\commoner_house.png",
+      "image_url": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/f3/20260531/70729cf4/aa355b06-a04d-4672-b0c5-912824d2f1ea_0.png?Expires=1780259221&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=84xX3qdP%2FBg6S2KaPqhX%2Bd8dzX0%3D",
+      "elapsed_s": 27.9,
+      "error": null
+    },
+    {
+      "id": "granary",
+      "desc": "村邑粮仓建筑，木构高脚架空仓楼防潮鼠，方形或圆形仓体，斗状重檐顶，下方有麻袋粮谷散落，旁立木牌标记，体量中等，仓体高于民居，",
+      "prompt": "中国春秋时代（公元前 770-476 年）的村邑粮仓建筑，木构高脚架空仓楼防潮鼠，方形或圆形仓体，斗状重檐顶，下方有麻袋粮谷散落，旁立木牌标记，体量中等，仓体高于民居，，灰色陶瓦坡屋顶，夯土墙或木结构墙体，木梁架构，建筑朴素少装饰（春秋早期规制，禁飞檐华丽斗拱），暖色午后阳光，手绘 painted-2D 美术风格（参照纪元1800 ANNO1800 美术质感），土黄棕色调，建筑独立放置，背景为纯色浅米黄无杂物，无文字、无人物、无现代元素，俯视斜 45 度等距视角，适合作为 isometric 策略游戏建筑素材，干净易抠图。",
+      "task_id": "3467b860-5683-431a-934c-fe16c1fab578",
+      "saved": "D:\\code\\colony-game\\public\\art\\test\\granary.png",
+      "image_url": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/05/20260531/218dd9c9/f7cbf1c8-a78d-4c26-967f-116e1692ca68_0.png?Expires=1780259217&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=bNBaZLjXFid6mFA5nWLbZdbPyR4%3D",
+      "elapsed_s": 24.8,
+      "error": null
+    },
+    {
+      "id": "ancestral_temple",
+      "desc": "邦国祖庙，三开间正殿建筑，重檐瓦顶但檐口朴素不上彩，下设石砌台基三级阶梯，正前方两个石质祭坛，建筑庄重对称，体量明显大于民居，",
+      "prompt": "中国春秋时代（公元前 770-476 年）的邦国祖庙，三开间正殿建筑，重檐瓦顶但檐口朴素不上彩，下设石砌台基三级阶梯，正前方两个石质祭坛，建筑庄重对称，体量明显大于民居，，灰色陶瓦坡屋顶，夯土墙或木结构墙体，木梁架构，建筑朴素少装饰（春秋早期规制，禁飞檐华丽斗拱），暖色午后阳光，手绘 painted-2D 美术风格（参照纪元1800 ANNO1800 美术质感），土黄棕色调，建筑独立放置，背景为纯色浅米黄无杂物，无文字、无人物、无现代元素，俯视斜 45 度等距视角，适合作为 isometric 策略游戏建筑素材，干净易抠图。",
+      "task_id": "4233e43f-3248-453f-b572-ea1631da984a",
+      "saved": "D:\\code\\colony-game\\public\\art\\test\\ancestral_temple.png",
+      "image_url": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/ac/20260531/70729cf4/20bf4700-81e0-438a-8422-fb2c81f66103_0.png?Expires=1780259221&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=m0%2BlxBevNBzNvJOYbpwTAVas5lg%3D",
+      "elapsed_s": 27.9,
+      "error": null
+    },
+    {
+      "id": "barracks_fort",
+      "desc": "驻军营房与瞭望塔组合，木栅栏围墙环绕一圈，内有矮屋三两间和一座两层木结构瞭望塔，栅栏外有几个稻草人和兵器架（木柄长戈靠在架上），体量中等偏大，气氛肃杀，",
+      "prompt": "中国春秋时代（公元前 770-476 年）的驻军营房与瞭望塔组合，木栅栏围墙环绕一圈，内有矮屋三两间和一座两层木结构瞭望塔，栅栏外有几个稻草人和兵器架（木柄长戈靠在架上），体量中等偏大，气氛肃杀，，灰色陶瓦坡屋顶，夯土墙或木结构墙体，木梁架构，建筑朴素少装饰（春秋早期规制，禁飞檐华丽斗拱），暖色午后阳光，手绘 painted-2D 美术风格（参照纪元1800 ANNO1800 美术质感），土黄棕色调，建筑独立放置，背景为纯色浅米黄无杂物，无文字、无人物、无现代元素，俯视斜 45 度等距视角，适合作为 isometric 策略游戏建筑素材，干净易抠图。",
+      "task_id": "f2924a6e-bad1-4a76-acc1-755a35e71e20",
+      "saved": "D:\\code\\colony-game\\public\\art\\test\\barracks_fort.png",
+      "image_url": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/bd/20260531/70729cf4/69ce3610-4610-43a5-a472-737962d7b4a9_0.png?Expires=1780259221&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=ldp5z%2Bv%2FINTLdDAAtWu55Cm5XEU%3D",
+      "elapsed_s": 27.9,
+      "error": null
+    }
+  ]
+}

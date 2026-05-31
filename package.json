@@ -1,0 +1,33 @@
+{
+  "name": "colony-game",
+  "version": "0.8.0",
+  "description": "邦国录 — 春秋战国小邦国经营游戏",
+  "main": "./dist/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "electron:build": "node scripts/gen-icon.mjs && node scripts/patch-7za-wrapper.mjs && electron-vite build && electron-builder",
+    "electron:build:win": "node scripts/gen-icon.mjs && node scripts/patch-7za-wrapper.mjs && electron-vite build && electron-builder --win",
+    "gen-icon": "node scripts/gen-icon.mjs",
+    "pack-sprites": "node scripts/pack-sprites.mjs",
+    "postprocess-png": "node scripts/postprocess-ai-png.mjs",
+    "type-check": "tsc -p tsconfig.renderer.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "phaser": "^3.70.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "electron": "28.2.5",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.1.0",
+    "eventemitter3": "^5.0.4",
+    "free-tex-packer-core": "^0.3.4",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4",
+    "vitest": "^1.6.1"
+  }
+}

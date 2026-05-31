@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>立国 v0.5</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #1a1410;
+    color: #e8dccc;
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+    height: 100vh;
+  }
+  #app {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    height: 100vh;
+  }
+  #map-area {
+    display: flex;
+    flex-direction: column;
+    background: #14100c;
+    padding: 10px;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  /* Top bar */
+  #topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+    background: linear-gradient(90deg, #3a2418 0%, #2a1f15 100%);
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid #5a3520;
+  }
+  #era {
+    font-size: 16px;
+    font-weight: 700;
+    color: #d4a574;
+    border-right: 1px solid #5a3520;
+    padding-right: 12px;
+  }
+  #season {
+    font-size: 13px;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .season-spring { background: #2d5a3d; color: #a8e0b8; }
+  .season-summer { background: #5a4a1d; color: #f0d878; }
+  .season-autumn { background: #6a3a1d; color: #f0a868; }
+  .season-winter { background: #2d4a5a; color: #a8c8e0; }
+  #goal { margin-left: auto; font-size: 12px; color: #a89070; }
+  #goal b { color: #f0c878; }
+
+  /* Speed controls */
+  #speed-bar {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-left: 12px;
+  }
+  .speed-btn {
+    background: #3a2418;
+    border: 1px solid #5a3520;
+    color: #e8dccc;
+    width: 36px;
+    height: 28px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .speed-btn:hover { background: #5a3520; }
+  .speed-btn.active {
+    background: #8b3a1d;
+    border-color: #d4a574;
+    color: #fff;
+  }
+
+  /* Stats row */
+  #stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 8px;
+    background: rgba(40, 28, 20, 0.8);
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid #5a3520;
+  }
+  .stat {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    font-size: 13px;
+  }
+  .stat-icon { font-size: 14px; margin-right: 2px; }
+  .stat-label { color: #a89070; font-size: 11px; }
+  .stat-value { color: #e8dccc; font-weight: 700; }
+  .stat-value.warn { color: #e8a040; }
+  .stat-value.bad { color: #e84838; animation: pulse 0.8s infinite; }
+  .stat-value.good { color: #6ad868; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .pop-detail { font-size: 11px; color: #a89070; margin-left: 4px; }
+
+  /* Hint bar */
+  #hint-bar {
+    margin-bottom: 6px;
+    padding: 8px 14px;
+    background: #2a1f15;
+    border: 1px solid #5a3520;
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: center;
+    color: #a89070;
+    transition: all 0.2s;
+  }
+  #hint-bar.active {
+    background: linear-gradient(90deg, #5a3520, #8b5a2b);
+    border-color: #d4a574;
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 0 12px rgba(212, 165, 116, 0.4);
+  }
+
+  /* Map scrollable — Anno-style continuous terrain, no visible grid */
+  #map-scroll {
+    flex: 1;
+    overflow: auto;
+    border: 3px solid #4a2818;
+    border-radius: 6px;
+    background: #1a0e08;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.7), 0 0 12px rgba(0,0,0,0.5);
+    position: relative;
+  }
+  #map-scroll::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.4) 100%),
+      radial-gradient(ellipse at 70% 80%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.3) 100%);
+    pointer-events: none;
+    z-index: 5;
+  }
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(28, 32px);
+    grid-template-rows: repeat(20, 32px);
+    gap: 0;            /* 无格缝 */
+    padding: 0;
+    width: max-content;
+  }
+  .tile {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+    cursor: pointer;
+    transition: filter 0.12s, transform 0.1s;
+    user-select: none;
+    position: relative;
+  }
+  .tile:hover { filter: brightness(1.18); z-index: 2; }
+  .tile.selectable {
+    outline: 2px dashed rgba(122, 232, 120, 0.8);
+    outline-offset: -2px;
+    z-index: 3;
+  }
+  .tile.selectable:hover {
+    outline: 2px solid #7ae878;
+    box-shadow: 0 0 12px rgba(122, 232, 120, 0.7);
+    z-index: 4;
+  }
+  .tile.invalid:hover {
+    outline: 2px solid #e84838;
+    z-index: 4;
+  }
+  .tile.inspect-active {
+    outline: 2px solid #58a6ff !important;
+    z-index: 5;
+    box-shadow: 0 0 14px rgba(88, 166, 255, 0.7);
+  }
+
+  /* Plain — grass with subtle dots */
+  .tile.plain {
+    background:
+      radial-gradient(circle at 22% 30%, rgba(0,0,0,0.12) 1.5px, transparent 2px),
+      radial-gradient(circle at 75% 65%, rgba(255,255,255,0.10) 1.5px, transparent 2px),
+      radial-gradient(circle at 55% 80%, rgba(0,0,0,0.10) 1px, transparent 1.5px),
+      linear-gradient(135deg, #8a9a5d 0%, #708040 55%, #5a6a30 100%);
+  }
+  /* Forest — bushy clusters */
+  .tile.forest {
+    background:
+      radial-gradient(circle at 28% 28%, #1d3a1d 30%, transparent 33%),
+      radial-gradient(circle at 70% 35%, #2d5a2d 28%, transparent 32%),
+      radial-gradient(circle at 50% 70%, #1d3a1d 32%, transparent 36%),
+      radial-gradient(circle at 22% 78%, #2d5a2d 24%, transparent 28%),
+      linear-gradient(135deg, #3d5a3d 0%, #1d3520 100%);
+  }
+  /* Mountain — sloped highlight + shadow + peak */
+  .tile.mountain {
+    background: linear-gradient(135deg, #a89070 0%, #6a5240 55%, #3a2818 100%);
+    box-shadow: inset 1px 1px 0 rgba(255,255,255,0.10), inset -1px -1px 2px rgba(0,0,0,0.4);
+  }
+  .tile.mountain::before {
+    content: '';
+    position: absolute;
+    bottom: 3px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-bottom: 10px solid rgba(30, 20, 10, 0.55);
+    pointer-events: none;
+  }
+  /* River — water gradient with shimmer band */
+  .tile.river {
+    background:
+      linear-gradient(180deg, transparent 40%, rgba(255,255,255,0.12) 50%, transparent 60%),
+      linear-gradient(135deg, #2d4a8a 0%, #4a7ac0 50%, #2d4a8a 100%);
+    box-shadow: inset 0 0 6px rgba(255,255,255,0.18);
+  }
+  /* Waste — cracked dry */
+  .tile.waste {
+    background:
+      radial-gradient(circle at 30% 30%, rgba(0,0,0,0.18) 2px, transparent 3px),
+      radial-gradient(circle at 75% 70%, rgba(255,255,255,0.10) 1px, transparent 1.5px),
+      linear-gradient(135deg, #8a7558 0%, #5a4530 60%, #3a2818 100%);
+  }
+  /* Building plate — dark wooden tile with golden frame */
+  .tile.has-bld {
+    background: linear-gradient(135deg, #2a1810 0%, #100806 100%) !important;
+    outline: 2px solid #d4a574;
+    box-shadow:
+      0 0 8px rgba(212, 165, 116, 0.45),
+      inset 0 0 5px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(212, 165, 116, 0.3);
+    font-size: 19px;
+    z-index: 1;
+  }
+  .tile.has-bld::before { display: none; }
+  .tile .badge {
+    position: absolute;
+    top: -2px; right: -2px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #e84838;
+    border: 1px solid #1a1410;
+    font-size: 9px;
+    line-height: 10px;
+    text-align: center;
+    color: #fff;
+    font-weight: 700;
+  }
+  .tile .badge.warn { background: #e8a040; }
+  .tile .badge.ok { background: #6ad868; display: none; }
+
+  /* Sidebar */
+  #sidebar {
+    background: #1a1410;
+    border-left: 2px solid #5a3520;
+    padding: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel { margin-bottom: 12px; }
+  .panel h3 {
+    margin: 0 0 6px;
+    font-size: 11px;
+    color: #d4a574;
+    letter-spacing: 2px;
+    font-weight: 700;
+    border-bottom: 1px solid #5a3520;
+    padding-bottom: 3px;
+  }
+
+  .build-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    margin: 2px 0;
+    background: #2a1f15;
+    border: 1px solid #5a3520;
+    color: #e8dccc;
+    cursor: pointer;
+    text-align: left;
+    border-radius: 3px;
+    font-family: inherit;
+    transition: all 0.12s;
+  }
+  .build-btn:hover:not(:disabled) {
+    background: #3a2418;
+    border-color: #d4a574;
+  }
+  .build-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .build-btn.selected {
+    background: #6a3520;
+    border-color: #d4a574;
+  }
+  .build-icon { font-size: 18px; flex-shrink: 0; width: 22px; text-align: center; }
+  .build-info { flex: 1; min-width: 0; }
+  .build-name { font-size: 12px; font-weight: 600; }
+  .build-desc { font-size: 10px; color: #a89070; margin-top: 1px; line-height: 1.3; }
+  .build-cost {
+    color: #d4a574;
+    font-size: 10px;
+    margin-left: 4px;
+    flex-shrink: 0;
+    text-align: right;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .build-locked {
+    color: #6e5a40;
+    font-size: 10px;
+    margin-left: 4px;
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+
+  /* Inspect panel */
+  #inspect-panel {
+    background: #2a1f15;
+    border: 1px solid #d4a574;
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    display: none;
+  }
+  #inspect-panel.show { display: block; }
+  #inspect-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #f0c878;
+    margin-bottom: 6px;
+  }
+  #inspect-status {
+    font-size: 12px;
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    border-radius: 3px;
+  }
+  .status-ok { background: #1d4a1d; color: #a8e0b8; }
+  .status-warn { background: #5a4a1d; color: #f0d878; }
+  .status-bad { background: #5a1d1d; color: #e8a878; }
+  .inspect-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 5px 0;
+    font-size: 12px;
+  }
+  .inspect-row .label { color: #a89070; }
+  .inspect-row .val { color: #e8dccc; font-weight: 600; }
+  .worker-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .wc-btn {
+    width: 24px; height: 24px;
+    background: #3a2418;
+    border: 1px solid #5a3520;
+    color: #e8dccc;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 3px;
+  }
+  .wc-btn:hover:not(:disabled) { background: #5a3520; }
+  .wc-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .wc-count { min-width: 36px; text-align: center; font-weight: 700; }
+  #demolish-btn {
+    width: 100%;
+    margin-top: 8px;
+    padding: 6px;
+    background: #5a1d1d;
+    border: 1px solid #8b3a1d;
+    color: #f0a878;
+    cursor: pointer;
+    font-family: inherit;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  #demolish-btn:hover { background: #8b3a1d; color: #fff; }
+  #close-inspect {
+    float: right;
+    background: none;
+    border: none;
+    color: #a89070;
+    cursor: pointer;
+    font-size: 16px;
+  }
+
+  /* Log */
+  #log {
+    flex: 1;
+    min-height: 100px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: #0d0a07;
+    padding: 6px 8px;
+    font-size: 11px;
+    border: 1px solid #5a3520;
+    border-radius: 3px;
+    line-height: 1.5;
+  }
+  .log-entry { margin: 1px 0; }
+  .log-entry .turn-tag { color: #6e5a40; margin-right: 3px; }
+  .log-entry.event { color: #d4a574; }
+  .log-entry.bad { color: #e87060; }
+  .log-entry.good { color: #6ad868; }
+  .log-entry.info { color: #a89070; }
+
+  /* Toast */
+  #toast-area {
+    position: fixed;
+    top: 16px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 150;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    pointer-events: none;
+  }
+  .toast {
+    padding: 8px 18px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    background: #3a2418;
+    border: 1px solid #d4a574;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+    animation: toastIn 0.3s, toastOut 0.4s 2.6s forwards;
+  }
+  .toast.bad { background: #5a1d1d; border-color: #e84838; }
+  .toast.good { background: #1d4a1d; border-color: #6ad868; }
+  @keyframes toastIn { from { transform: translateY(-15px); opacity: 0; } }
+  @keyframes toastOut { to { transform: translateY(-15px); opacity: 0; } }
+
+  /* End screen */
+  #game-over {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column;
+    z-index: 300;
+    backdrop-filter: blur(4px);
+  }
+  #game-over.show { display: flex; }
+  #game-over h1 { font-size: 44px; margin: 0; }
+  #game-over h1.win { color: #f0c878; }
+  #game-over h1.lose { color: #e84838; }
+  #game-over p {
+    color: #d4c0a0; margin: 14px 0 24px;
+    font-size: 15px; max-width: 460px; text-align: center; line-height: 1.6;
+  }
+  #restart {
+    padding: 12px 36px;
+    background: #8b3a1d;
+    border: 1px solid #d4a574;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 15px;
+    font-family: inherit;
+    font-weight: 600;
+  }
+  #restart:hover { background: #a8451f; }
+
+  /* Morale bar */
+  .morale-good { color: #6ad868; }
+  .morale-warn { color: #e8a040; }
+  .morale-bad  { color: #e84838; }
+
+  /* Topbar focus / auto buttons */
+  .top-action {
+    background: #3a2418;
+    border: 1px solid #5a3520;
+    color: #d4a574;
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+  }
+  .top-action:hover { background: #5a3520; color: #fff; }
+  .top-action.on    { background: #5a3520; color: #f0c878; border-color: #d4a574; }
+  .top-action .pulse { color: #6ad868; font-weight: 700; }
+
+  /* Focus / Decision overlay */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.78);
+    z-index: 200;
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(3px);
+  }
+  .overlay.show { display: flex; }
+  .overlay-box {
+    background: linear-gradient(180deg, #2a1f15 0%, #1a1410 100%);
+    border: 2px solid #d4a574;
+    border-radius: 8px;
+    padding: 22px 26px;
+    width: 720px;
+    max-width: 92vw;
+    max-height: 86vh;
+    overflow-y: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+    color: #e8dccc;
+  }
+  .overlay-box h2 {
+    margin: 0 0 4px;
+    color: #f0c878;
+    font-size: 20px;
+    border-bottom: 1px solid #5a3520;
+    padding-bottom: 8px;
+  }
+  .overlay-box .sub { color: #a89070; font-size: 12px; margin-bottom: 14px; }
+  .overlay-close {
+    float: right;
+    background: none; border: none;
+    color: #a89070; cursor: pointer; font-size: 20px;
+  }
+
+  /* Decision modal specific */
+  #decision-modal .overlay-box { width: 540px; }
+  .decision-desc {
+    font-size: 14px;
+    color: #d4c0a0;
+    line-height: 1.7;
+    margin: 12px 0 18px;
+    padding: 12px 14px;
+    background: #14100c;
+    border-left: 3px solid #d4a574;
+    border-radius: 3px;
+  }
+  .decision-options { display: flex; flex-direction: column; gap: 10px; }
+  .decision-opt {
+    text-align: left;
+    padding: 12px 14px;
+    background: #3a2418;
+    border: 1px solid #5a3520;
+    color: #e8dccc;
+    cursor: pointer;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .decision-opt:hover:not(:disabled) { background: #5a3520; border-color: #d4a574; }
+  .decision-opt:disabled { opacity: 0.4; cursor: not-allowed; }
+  .decision-opt b { color: #f0c878; display: block; margin-bottom: 3px; }
+  .decision-opt .effects { color: #a89070; font-size: 11px; }
+
+  /* Focus tree */
+  .focus-branches {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-top: 10px;
+  }
+  .focus-col h3 {
+    color: #d4a574;
+    font-size: 13px;
+    text-align: center;
+    margin: 0 0 8px;
+    padding: 4px 0;
+    background: #3a2418;
+    border-radius: 3px;
+  }
+  .focus-card {
+    background: #14100c;
+    border: 1px solid #5a3520;
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .focus-card:hover:not(.locked) { border-color: #d4a574; background: #1f1a14; }
+  .focus-card .fc-name { font-size: 12px; font-weight: 700; color: #f0c878; }
+  .focus-card .fc-desc { font-size: 10px; color: #a89070; line-height: 1.3; margin-top: 2px; }
+  .focus-card .fc-foot { font-size: 10px; color: #6ad868; margin-top: 4px; }
+  .focus-card.locked { opacity: 0.35; cursor: not-allowed; }
+  .focus-card.locked .fc-foot { color: #e87060; }
+  .focus-card.completed { border-color: #6ad868; }
+  .focus-card.completed .fc-foot { color: #6ad868; }
+  .focus-card.completed::after { content: '✓'; float: right; color: #6ad868; font-weight: 700; }
+  .focus-card.active {
+    border-color: #d4a574;
+    background: #2a1f15;
+    box-shadow: 0 0 8px rgba(212, 165, 116, 0.4);
+  }
+  .focus-card.active .fc-foot { color: #d4a574; }
+  .focus-active-banner {
+    background: #14100c;
+    border: 1px solid #d4a574;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #d4c0a0;
+  }
+  .focus-active-banner b { color: #f0c878; }
+  .focus-active-banner .progress {
+    width: 100%; height: 6px;
+    background: #14100c;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .focus-active-banner .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #8b3a1d 0%, #d4a574 100%);
+  }
+
+  /* Build button: extra detail line */
+  .build-detail {
+    font-size: 10px;
+    color: #6ad868;
+    margin-top: 1px;
+  }
+
+  /* Tabs for build menu */
+  #build-tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 6px;
+  }
+  .build-tab {
+    flex: 1;
+    padding: 4px 0;
+    background: #2a1f15;
+    border: 1px solid #5a3520;
+    color: #a89070;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    border-radius: 3px;
+  }
+  .build-tab.active {
+    background: #5a3520;
+    color: #f0c878;
+    border-color: #d4a574;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map-area">
+    <div id="topbar">
+      <div id="era">第 1 天</div>
+      <div id="season" class="season-spring">春</div>
+      <div id="speed-bar">
+        <button class="speed-btn" data-speed="0" title="暂停">⏸</button>
+        <button class="speed-btn active" data-speed="1" title="正常">▶</button>
+        <button class="speed-btn" data-speed="2" title="2倍速">▶▶</button>
+        <button class="speed-btn" data-speed="3" title="4倍速">▶▶▶</button>
+      </div>
+      <div id="goal">
+        <button id="focus-btn" class="top-action" title="寨策树（设定方向）">📜 寨策 <span id="focus-pulse"></span></button>
+        <button id="auto-btn" class="top-action on" title="开关自动派工">🔄 自动派工</button>
+        <button id="reset-btn" class="top-action" title="重新开局">↻ 重置</button>
+      </div>
+    </div>
+    <div id="stats">
+      <div class="stat"><span class="stat-icon">👥</span><span class="stat-label">人口</span><span class="stat-value" id="pop-total">0</span><span class="pop-detail">空闲 <span id="pop-idle">0</span> · 在岗 <span id="pop-work">0</span></span></div>
+      <div class="stat"><span class="stat-icon">🍞</span><span class="stat-label">食物</span><span class="stat-value" id="r-food">0</span></div>
+      <div class="stat"><span class="stat-icon">🌾</span><span class="stat-label">麦</span><span class="stat-value" id="r-wheat">0</span></div>
+      <div class="stat"><span class="stat-icon">🌬</span><span class="stat-label">面粉</span><span class="stat-value" id="r-flour">0</span></div>
+      <div class="stat"><span class="stat-icon">🧵</span><span class="stat-label">布</span><span class="stat-value" id="r-cloth">0</span></div>
+      <div class="stat"><span class="stat-icon">🌿</span><span class="stat-label">麻</span><span class="stat-value" id="r-hemp">0</span></div>
+      <div class="stat"><span class="stat-icon">🪵</span><span class="stat-label">木</span><span class="stat-value" id="r-wood">0</span></div>
+      <div class="stat"><span class="stat-icon">⛓</span><span class="stat-label">铁</span><span class="stat-value" id="r-iron">0</span></div>
+      <div class="stat"><span class="stat-icon">💰</span><span class="stat-label">银</span><span class="stat-value" id="r-money">0</span></div>
+      <div class="stat"><span class="stat-icon">❄</span><span class="stat-label">灾</span><span class="stat-value" id="r-disaster">0</span></div>
+      <div class="stat"><span class="stat-icon">❤</span><span class="stat-label">民心</span><span class="stat-value" id="r-morale" title="民心影响产量与人口流动">50</span></div>
+      <div class="stat" style="margin-left:auto"><span class="stat-icon">🏠</span><span class="stat-label">民居</span><span class="stat-value" id="manor-count">0</span></div>
+    </div>
+    <div id="hint-bar">点右侧建筑按钮选中 → 点地图绿框格子放置；点已有建筑可派工/拆除</div>
+    <div id="map-scroll"><div id="grid"></div></div>
+  </div>
+  <div id="sidebar">
+    <div id="inspect-panel">
+      <button id="close-inspect">×</button>
+      <div id="inspect-title"></div>
+      <div id="inspect-status"></div>
+      <div id="inspect-body"></div>
+      <button id="demolish-btn">🔨 拆除（返还半数木材）</button>
+    </div>
+    <div class="panel" id="build-panel">
+      <h3>营造</h3>
+      <div id="build-tabs">
+        <button class="build-tab active" data-tab="house">居住</button>
+        <button class="build-tab" data-tab="food">粮链</button>
+        <button class="build-tab" data-tab="cloth">布链</button>
+        <button class="build-tab" data-tab="civic">民生</button>
+        <button class="build-tab" data-tab="other">其它</button>
+      </div>
+      <div id="build-menu"></div>
+    </div>
+    <div class="panel" style="display: flex; flex-direction: column; flex: 1;">
+      <h3>邸报</h3>
+      <div id="log"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-area"></div>
+
+<!-- Focus tree overlay -->
+<div class="overlay" id="focus-modal">
+  <div class="overlay-box">
+    <button class="overlay-close" id="focus-close">×</button>
+    <h2>📜 寨策树</h2>
+    <div class="sub">每次推进一项寨策，达成解锁新建筑或加成。书塾建好后研究更快。</div>
+    <div id="focus-active"></div>
+    <div class="focus-branches" id="focus-branches"></div>
+  </div>
+</div>
+
+<!-- Decision event overlay -->
+<div class="overlay" id="decision-modal">
+  <div class="overlay-box">
+    <h2 id="decision-title"></h2>
+    <div class="decision-desc" id="decision-desc"></div>
+    <div class="decision-options" id="decision-options"></div>
+  </div>
+</div>
+
+<script>
+// ========== CONSTANTS ==========
+const GRID_W = 28, GRID_H = 20;
+const SEASON_DAYS = 30;
+const SEASONS = ['春', '夏', '秋', '冬'];
+const SPEED_MS = [0, 3000, 1500, 750]; // index = speed (Anno-style 慢节奏)
+// no win/lose — pure sandbox
+
+const TERRAIN = {
+  plain:    { icon: '',   name: '平地' },
+  forest:   { icon: '🌲', name: '林地' },
+  mountain: { icon: '⛰',  name: '山地' },
+  river:    { icon: '🌊', name: '河流' },
+  waste:    { icon: '🏜', name: '荒地' }
+};
+
+const RES = {
+  food: '食物', wheat: '麦', flour: '面粉',
+  cloth: '布', hemp: '麻',
+  wood: '木', iron: '铁', money: '银'
+};
+
+const BUILDINGS = {
+  // ---- HOUSING ----
+  hut: {
+    name: '茅屋', icon: '🏚', tab: 'house',
+    cost: { wood: 8 },
+    isHousing: true, capacity: 4, tier: 1,
+    needs: { food: 0.06 },
+    desc: '人口上限 +4；居民每天吃粮',
+    canBuildOn: ['plain', 'waste']
+  },
+  house: {
+    name: '民居', icon: '🏠', tab: 'house',
+    cost: { wood: 18, iron: 4, money: 15 },
+    isHousing: true, capacity: 6, tier: 2,
+    needs: { food: 0.08, cloth: 0.03 },
+    desc: '人口 +6；要吃粮+穿布',
+    unlockPop: 15,
+    canBuildOn: ['plain']
+  },
+  // ---- FOOD CHAIN ----
+  field_wheat: {
+    name: '麦田', icon: '🌾', tab: 'food',
+    cost: { wood: 4 },
+    workersMax: 3,
+    produces: { wheat: 0.4 }, // per worker per day
+    seasonMod: { 0: 1.2, 1: 1.0, 2: 1.5, 3: 0.3 },
+    desc: '+麦/工/天，春1.2/秋1.5/冬0.3',
+    canBuildOn: ['plain']
+  },
+  mill: {
+    name: '磨坊', icon: '🌬', tab: 'food',
+    cost: { wood: 10, iron: 2 },
+    workersMax: 2,
+    consumes: { wheat: 0.6 },
+    produces: { flour: 0.4 },
+    desc: '麦→面粉',
+    canBuildOn: ['plain']
+  },
+  bakery: {
+    name: '面食坊', icon: '🍞', tab: 'food',
+    cost: { wood: 12, iron: 3 },
+    workersMax: 2,
+    consumes: { flour: 0.4, wood: 0.1 },
+    produces: { food: 0.7 },
+    desc: '面粉→食物',
+    canBuildOn: ['plain']
+  },
+  fishery: {
+    name: '渔坞', icon: '🎣', tab: 'food',
+    cost: { wood: 10 },
+    workersMax: 2,
+    needsAdjacent: 'river',
+    produces: { food: 0.4 },
+    desc: '邻河，直接出食物（产量低）',
+    unlockPop: 8,
+    canBuildOn: ['plain']
+  },
+  // ---- CLOTH CHAIN ----
+  field_hemp: {
+    name: '麻田', icon: '🌿', tab: 'cloth',
+    cost: { wood: 4 },
+    workersMax: 3,
+    produces: { hemp: 0.35 },
+    seasonMod: { 0: 1.0, 1: 1.5, 2: 1.0, 3: 0.2 },
+    desc: '+麻/工/天，夏1.5/冬0.2',
+    unlockPop: 8,
+    canBuildOn: ['plain']
+  },
+  weaver: {
+    name: '织坊', icon: '🧵', tab: 'cloth',
+    cost: { wood: 10, iron: 2 },
+    workersMax: 2,
+    consumes: { hemp: 0.5 },
+    produces: { cloth: 0.3 },
+    desc: '麻→布',
+    unlockPop: 8,
+    canBuildOn: ['plain']
+  },
+  // ---- OTHER ----
+  logger: {
+    name: '樵场', icon: '🪓', tab: 'other',
+    cost: { wood: 3 },
+    workersMax: 2,
+    needsAdjacent: 'forest',
+    produces: { wood: 0.5 },
+    desc: '邻林出木',
+    canBuildOn: ['plain']
+  },
+  mine: {
+    name: '矿坑', icon: '⛏', tab: 'other',
+    cost: { wood: 12, iron: 1 },
+    workersMax: 3,
+    needsAdjacent: 'mountain',
+    produces: { iron: 0.3 },
+    desc: '邻山出铁',
+    unlockPop: 8,
+    canBuildOn: ['plain']
+  },
+  market: {
+    name: '集市', icon: '🏪', tab: 'other',
+    cost: { wood: 12, iron: 3 },
+    workersMax: 2,
+    needsAdjacentBldType: ['hut', 'house'],
+    produces: { money: 0.6 },
+    desc: '邻民居/茅屋出银',
+    unlockPop: 10,
+    canBuildOn: ['plain']
+  },
+  hearth: {
+    name: '火塘', icon: '🔥', tab: 'other',
+    cost: { wood: 6, iron: 2 },
+    workersMax: 1,
+    consumes: { wood: 0.3 },
+    customEffect: 'hearth',
+    desc: '工作时降灾度（烧木）',
+    canBuildOn: ['plain', 'waste']
+  },
+  // ---- v0.5 民生 / 寨策解锁建筑 ----
+  well: {
+    name: '水井', icon: '💧', tab: 'civic',
+    cost: { wood: 5, iron: 1 },
+    customEffect: 'well',
+    desc: '每天民心+0.4；疫病更轻',
+    canBuildOn: ['plain']
+  },
+  granary: {
+    name: '仓廪', icon: '🏯', tab: 'civic',
+    cost: { wood: 15, iron: 3 },
+    customEffect: 'granary',
+    desc: '冬季食物消耗-15%；事件时可开仓',
+    unlockFocus: 'guang_jiliang',
+    canBuildOn: ['plain']
+  },
+  hospice: {
+    name: '医馆', icon: '⚕', tab: 'civic',
+    cost: { wood: 12, iron: 3, money: 10 },
+    workersMax: 1,
+    consumes: { cloth: 0.1, money: 0.2 },
+    customEffect: 'hospice',
+    desc: '工作时降疫病严重度，每天民心+0.2',
+    unlockFocus: 'yiyao',
+    canBuildOn: ['plain']
+  },
+  school: {
+    name: '书塾', icon: '📖', tab: 'civic',
+    cost: { wood: 14, iron: 2, money: 12 },
+    workersMax: 1,
+    consumes: { food: 0.15, money: 0.15 },
+    customEffect: 'school',
+    desc: '工作时寨策研究 +50%/工',
+    unlockFocus: 'kaimeng',
+    canBuildOn: ['plain']
+  },
+  ferry: {
+    name: '渡口', icon: '⛵', tab: 'other',
+    cost: { wood: 18, iron: 4 },
+    workersMax: 2,
+    needsAdjacent: 'river',
+    consumes: { food: 0.3 },
+    produces: { money: 1.0 },
+    desc: '邻河，食物→银（产银高于集市）',
+    unlockFocus: 'hedao',
+    canBuildOn: ['plain']
+  },
+  watchpost: {
+    name: '巡哨营', icon: '🛡', tab: 'civic',
+    cost: { wood: 12, iron: 5 },
+    workersMax: 2,
+    consumes: { wood: 0.2 },
+    customEffect: 'watch',
+    desc: '工作时盗匪事件损失减半',
+    unlockFocus: 'baojia',
+    canBuildOn: ['plain']
+  }
+};
+
+// ========== FOCUS TREE ==========
+// effect: function applied on completion (mutates state.modifiers / state.focus.unlocked / state.morale)
+const FOCUS_CARDS = {
+  // 农桑
+  kaihuang:      { name: '开荒拓土',   branch: '农桑', cost: 18, needs: [],             desc: '麦田出麦永久 +20%' },
+  guang_jiliang: { name: '广积粮',     branch: '农桑', cost: 22, needs: ['kaihuang'],    desc: '解锁 仓廪' },
+  chun_geng:     { name: '春耕图谱',   branch: '农桑', cost: 22, needs: ['kaihuang'],    desc: '麦田春季 +0.4 加成' },
+  ping_tiao:     { name: '仓廪平粜',   branch: '农桑', cost: 26, needs: ['guang_jiliang'], desc: '每月民心 +5（每月耗食 6）' },
+  // 工坊
+  hedao:         { name: '河道互市',   branch: '工坊', cost: 20, needs: [],              desc: '解锁 渡口' },
+  zhouji:        { name: '舟楫之利',   branch: '工坊', cost: 26, needs: ['hedao'],        desc: '渡口产银 +30%' },
+  zhizao_tisu:   { name: '织造提速',   branch: '工坊', cost: 24, needs: [],              desc: '织坊 +25% 产布' },
+  shanglu:       { name: '商路通畅',   branch: '工坊', cost: 28, needs: ['zhouji'],       desc: '集市产银 +40%' },
+  // 礼制
+  yiyao:         { name: '医草备荒',   branch: '礼制', cost: 22, needs: [],              desc: '解锁 医馆' },
+  kaimeng:       { name: '开蒙识字',   branch: '礼制', cost: 26, needs: ['yiyao'],        desc: '解锁 书塾' },
+  // 保甲
+  xiangyue:      { name: '乡约礼制',   branch: '保甲', cost: 18, needs: [],              desc: '民心立涨 +10' },
+  baojia:        { name: '保甲巡夜',   branch: '保甲', cost: 24, needs: ['xiangyue'],     desc: '解锁 巡哨营' }
+};
+
+const FOCUS_BRANCHES = ['农桑', '工坊', '礼制', '保甲'];
+
+function applyFocusEffect(id) {
+  const m = state.modifiers;
+  switch (id) {
+    case 'kaihuang':      m.wheat_yield = (m.wheat_yield || 1) + 0.2; break;
+    case 'guang_jiliang': /* unlock granary handled via unlockFocus check */ break;
+    case 'chun_geng':     m.wheat_spring_bonus = 0.4; break;
+    case 'ping_tiao':     m.ping_tiao_active = true; break;
+    case 'hedao':         /* unlock ferry */ break;
+    case 'zhouji':        m.ferry_money = (m.ferry_money || 1) + 0.3; break;
+    case 'zhizao_tisu':   m.cloth_yield = (m.cloth_yield || 1) + 0.25; break;
+    case 'shanglu':       m.market_money = (m.market_money || 1) + 0.4; break;
+    case 'yiyao':         /* unlock hospice */ break;
+    case 'kaimeng':       /* unlock school */ break;
+    case 'xiangyue':      state.morale = Math.min(100, state.morale + 10); break;
+    case 'baojia':        /* unlock watchpost */ break;
+  }
+  state.focus.completed.add(id);
+  // 自动解锁所有以本卡为前置的卡
+  for (const k in FOCUS_CARDS) {
+    if (FOCUS_CARDS[k].needs.includes(id)) state.focus.unlocked.add(k);
+  }
+  log(`📜 寨策「${FOCUS_CARDS[id].name}」达成。${FOCUS_CARDS[id].desc}`, 'good');
+  toast(`📜 ${FOCUS_CARDS[id].name} 达成`, 'good');
+}
+
+// ========== DECISION EVENTS ==========
+// 触发：每 ~18-30 天，从满足 cond 的事件中随机选 1 个推到队列。
+const DECISION_EVENTS = [
+  {
+    id: 'chun_huang',
+    title: '春荒借粮',
+    desc: '邻村断粮，遣人来寨求开仓相助。开仓则失粮但赢民心；紧守则保粮但树敌。',
+    cond: () => state.season === 0 && state.res.food >= 25,
+    options: [
+      { label: '开仓借粮（−40 食）', enabled: () => state.res.food >= 40,
+        apply: () => { state.res.food -= 40; state.morale = Math.min(100, state.morale + 8);
+          state.modifiers.work_boost = { value: 1.05, daysLeft: 7 };
+          log('开仓借粮，民心+8，七日工效+5%。', 'good'); }, hint: '民心+8 / 7日工效+5%' },
+      { label: '紧守粮仓', enabled: () => true,
+        apply: () => { state.morale = Math.max(0, state.morale - 8);
+          state.modifiers.bandit_risk = { value: 2, daysLeft: 30 };
+          log('粮仓未开，民心−8，盗匪概率上升。', 'bad'); }, hint: '民心-8 / 30日盗匪几率↑' }
+    ]
+  },
+  {
+    id: 'shan_lu',
+    title: '山路盗影',
+    desc: '伐木人说山里有盗匪踩点。是组织巡夜，还是花钱买路？',
+    cond: () => popTotal() >= 10,
+    options: [
+      { label: '组织巡夜（−20 木 / −5 铁）', enabled: () => state.res.wood >= 20 && state.res.iron >= 5,
+        apply: () => { state.res.wood -= 20; state.res.iron -= 5;
+          state.morale = Math.min(100, state.morale + 4);
+          state.modifiers.bandit_protect = { value: 0.5, daysLeft: 30 };
+          log('巡夜布防，民心+4，30日盗匪损失减半。', 'good'); }, hint: '民心+4 / 30日盗损减半' },
+      { label: '送买路钱（−35 银）', enabled: () => state.res.money >= 35,
+        apply: () => { state.res.money -= 35; state.morale = Math.max(0, state.morale - 3);
+          state.modifiers.bandit_risk = { value: 1.5, daysLeft: 60 };
+          log('送银买路，民心−3，下次勒索更狠。', 'bad'); }, hint: '民心-3 / 后续被勒索↑' }
+    ]
+  },
+  {
+    id: 'shui_qu',
+    title: '水渠之争',
+    desc: '田户和磨坊都要用水，争到火塘前。你拿主意。',
+    cond: () => {
+      let hasField = 0, hasMill = 0;
+      state.grid.forEach(t => { if (t.building?.type === 'field_wheat') hasField++; if (t.building?.type === 'mill') hasMill++; });
+      return hasField >= 1 && hasMill >= 1;
+    },
+    options: [
+      { label: '先保麦田', enabled: () => true,
+        apply: () => { state.modifiers.water_field = { value: 1.2, daysLeft: 10 };
+          state.modifiers.water_mill = { value: 0.9, daysLeft: 10 };
+          log('十日内：麦+20%，面粉-10%。', 'event'); }, hint: '10日 麦+20% / 面粉-10%' },
+      { label: '先保磨坊', enabled: () => true,
+        apply: () => { state.modifiers.water_mill = { value: 1.2, daysLeft: 10 };
+          state.modifiers.water_field = { value: 0.9, daysLeft: 10 };
+          state.morale = Math.max(0, state.morale - 2);
+          log('十日内：面粉+20%，麦-10%，民心-2。', 'event'); }, hint: '10日 面粉+20% / 麦-10% / 民心-2' }
+    ]
+  },
+  {
+    id: 'liu_min',
+    title: '流民来投',
+    desc: '一群流民求收容。收则添丁，但口粮告急；拒则民心稍损。',
+    cond: () => totalCapacity() - popTotal() >= 2,
+    options: [
+      { label: '开寨收容（+3 人，民心+5）', enabled: () => totalCapacity() - popTotal() >= 2,
+        apply: () => {
+          let need = 3;
+          for (const t of state.grid) {
+            if (need <= 0) break;
+            if (t.building && BUILDINGS[t.building.type].isHousing) {
+              const room = BUILDINGS[t.building.type].capacity - t.building.residents;
+              const add = Math.min(need, room);
+              t.building.residents += add; need -= add;
+            }
+          }
+          state.morale = Math.min(100, state.morale + 5);
+          log(`收容 ${3-need} 名流民，民心+5。`, 'good');
+        }, hint: '+最多3人 / 民心+5' },
+      { label: '婉言拒绝', enabled: () => true,
+        apply: () => { state.morale = Math.max(0, state.morale - 4); log('婉拒流民，民心-4。', 'bad'); }, hint: '民心-4' }
+    ]
+  },
+  {
+    id: 'wen_yi',
+    title: '疫病初现',
+    desc: '寨中数人发热咳嗽，恐生疫病。',
+    cond: () => popTotal() >= 8,
+    options: [
+      { label: '隔离施药（−15 布 / −20 银）', enabled: () => state.res.cloth >= 15 && state.res.money >= 20,
+        apply: () => { state.res.cloth -= 15; state.res.money -= 20;
+          log('果断隔离，疫病平息。', 'good'); }, hint: '化解疫病' },
+      { label: '听天由命', enabled: () => true,
+        apply: () => {
+          const housings = state.grid.filter(t => t.building?.residents >= 1);
+          let toll = 1 + (state.modifiers.has_well ? 0 : 1) + (state.modifiers.has_hospice ? -1 : 0);
+          toll = Math.max(0, toll);
+          for (let i = 0; i < toll && housings.length > 0; i++) {
+            const h = housings[rand(housings.length)];
+            if (h.building.residents > 0) h.building.residents--;
+          }
+          state.morale = Math.max(0, state.morale - 6);
+          log(`疫病肆虐，${toll} 民殁，民心-6。${state.modifiers.has_hospice?'（医馆减伤）':''}`, 'bad');
+        }, hint: '可能折损人口 / 民心-6' }
+    ]
+  }
+];
+
+// ========== STATE ==========
+let state = null;
+let tickHandle = null;
+
+function rand(n) { return Math.floor(Math.random() * n); }
+
+function genTerrain() {
+  const grid = [];
+  for (let i = 0; i < GRID_W * GRID_H; i++) {
+    const r = Math.random();
+    let t;
+    if (r < 0.55) t = 'plain';
+    else if (r < 0.74) t = 'forest';
+    else if (r < 0.86) t = 'mountain';
+    else if (r < 0.95) t = 'river';
+    else t = 'waste';
+    grid.push({ terrain: t, building: null });
+  }
+  // Carve a meandering river
+  let rx = 4 + rand(GRID_W - 8), ry = 2 + rand(GRID_H - 4);
+  for (let s = 0; s < 16; s++) {
+    if (rx >= 0 && rx < GRID_W && ry >= 0 && ry < GRID_H) {
+      grid[ry * GRID_W + rx].terrain = 'river';
+    }
+    if (Math.random() < 0.5) rx += Math.random() < 0.5 ? -1 : 1;
+    else ry += Math.random() < 0.5 ? -1 : 1;
+  }
+  // Friendly start at (14, 10)
+  const cx = 14, cy = 10;
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      const i = (cy + dy) * GRID_W + (cx + dx);
+      if (grid[i] && Math.abs(dx) + Math.abs(dy) <= 2) {
+        grid[i].terrain = 'plain';
+      }
+    }
+  }
+  // Guarantee nearby resources
+  let near = { forest: 0, mountain: 0, river: 0 };
+  for (let dy = -4; dy <= 4; dy++) {
+    for (let dx = -4; dx <= 4; dx++) {
+      const t = grid[(cy + dy) * GRID_W + (cx + dx)]?.terrain;
+      if (near[t] !== undefined) near[t]++;
+    }
+  }
+  if (near.forest < 3) {
+    grid[(cy - 3) * GRID_W + (cx - 1)].terrain = 'forest';
+    grid[(cy - 3) * GRID_W + (cx)].terrain = 'forest';
+    grid[(cy - 3) * GRID_W + (cx + 1)].terrain = 'forest';
+  }
+  if (near.mountain < 2) {
+    grid[(cy + 3) * GRID_W + (cx + 2)].terrain = 'mountain';
+    grid[(cy + 3) * GRID_W + (cx + 3)].terrain = 'mountain';
+  }
+  if (near.river < 1) grid[(cy) * GRID_W + (cx + 4)].terrain = 'river';
+  return { grid, cx, cy };
+}
+
+function makeBuilding(type) {
+  const def = BUILDINGS[type];
+  return {
+    type,
+    workers: 0,
+    residents: def.isHousing ? 0 : undefined,
+    status: 'idle',
+    statusReason: ''
+  };
+}
+
+function initGame() {
+  const { grid, cx, cy } = genTerrain();
+  state = {
+    day: 1,
+    season: 0,
+    speed: 1,
+    paused: false,
+    grid,
+    res: { food: 50, wheat: 0, flour: 0, cloth: 6, hemp: 0, wood: 60, iron: 12, money: 30 },
+    disaster: 0,
+    selected: null,
+    selectedTab: 'house',
+    inspectIdx: null,
+    log: [],
+    gameOver: false,
+    foodAccum: 0, clothAccum: 0,
+    morale: 50,
+    autoAssign: true,
+    focus: {
+      active: null,                // { id, daysLeft, totalDays }
+      completed: new Set(),
+      unlocked: new Set(['kaihuang', 'hedao', 'zhizao_tisu', 'yiyao', 'xiangyue'])
+    },
+    modifiers: {},                 // 持久或临时的修正字典
+    decisionQueue: [],             // 待玩家选择的事件
+    nextDecisionDay: 12 + rand(8)  // 第一个决策大概第 12-20 天
+  };
+  // Place starting hut with 6 starting residents (above its own capacity briefly until 2nd hut built)
+  const idx = cy * GRID_W + cx;
+  state.grid[idx].building = makeBuilding('hut');
+  state.grid[idx].building.residents = 4;
+  // Spawn 2 idle pop in a virtual 2nd hut? Let's just say start with 4 residents in hut. Player builds more.
+  log('立寨于此。先建生产链养民，再图大业。');
+  log('提示：右上角「📜 寨策」选个方向，看到 ✦ 就是没在推。', 'info');
+  log('提示：默认开了「🔄 自动派工」，新建工坊会自动有人。', 'info');
+  log('提示：每隔一阵子会有事件让你抉择——别怕选错，纯沙盒。', 'info');
+  applySpeed();
+}
+
+// ========== HELPERS ==========
+function getTile(x, y) {
+  if (x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) return null;
+  return state.grid[y * GRID_W + x];
+}
+function tileXY(idx) { return [idx % GRID_W, Math.floor(idx / GRID_W)]; }
+
+function hasAdjacentTerrain(x, y, terrain) {
+  for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+    if (getTile(x+dx, y+dy)?.terrain === terrain) return true;
+  }
+  return false;
+}
+function hasAdjacentBldType(x, y, types) {
+  for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+    const t = getTile(x+dx, y+dy);
+    if (t?.building && types.includes(t.building.type)) return true;
+  }
+  return false;
+}
+
+function canAfford(cost) { for (const k in cost) if ((state.res[k]||0) < cost[k]) return false; return true; }
+function pay(cost) { for (const k in cost) state.res[k] -= cost[k]; }
+function refund(cost, frac=0.5) { for (const k in cost) state.res[k] = (state.res[k]||0) + Math.floor(cost[k]*frac); }
+
+function popTotal() {
+  let n = 0;
+  state.grid.forEach(t => { if (t.building?.residents) n += t.building.residents; });
+  return n;
+}
+function popWorking() {
+  let n = 0;
+  state.grid.forEach(t => { if (t.building?.workers) n += t.building.workers; });
+  return n;
+}
+function popIdle() { return popTotal() - popWorking(); }
+
+function totalCapacity() {
+  let n = 0;
+  state.grid.forEach(t => {
+    if (t.building && BUILDINGS[t.building.type].isHousing) n += BUILDINGS[t.building.type].capacity;
+  });
+  return n;
+}
+function manorCount() {
+  let n = 0;
+  state.grid.forEach(t => {
+    if (t.building?.type === 'house' && t.building.residents >= BUILDINGS.house.capacity) n++;
+  });
+  return n;
+}
+
+function unlockedFor(def) {
+  if (def.unlockPop && popTotal() < def.unlockPop) return false;
+  if (def.unlockFocus && !state.focus.completed.has(def.unlockFocus)) return false;
+  return true;
+}
+function unlockReason(def) {
+  if (def.unlockPop && popTotal() < def.unlockPop) return `🔒 人口 ${def.unlockPop}`;
+  if (def.unlockFocus && !state.focus.completed.has(def.unlockFocus)) return `🔒 寨策「${FOCUS_CARDS[def.unlockFocus].name}」`;
+  return '';
+}
+
+// ========== PLACE / DEMOLISH ==========
+function placeBuilding(idx) {
+  const tile = state.grid[idx];
+  if (!tile) return;
+  // Click on existing building → inspect (拆除/派工等操作在这里)
+  if (tile.building) { inspect(idx); return; }
+  // Empty tile + nothing selected → no-op
+  if (!state.selected || state.gameOver) return;
+  const def = BUILDINGS[state.selected];
+  if (!def.canBuildOn.includes(tile.terrain)) {
+    log(`${def.name} 只能建在：${def.canBuildOn.map(t=>TERRAIN[t].name).join('/')}`, 'bad');
+    return;
+  }
+  if (!canAfford(def.cost)) { log(`资源不足，建 ${def.name} 不成。`, 'bad'); return; }
+
+  pay(def.cost);
+  tile.building = makeBuilding(state.selected);
+
+  // Auto-assign workers from idle if it's a producer
+  if (def.workersMax) {
+    const give = Math.min(def.workersMax, popIdle());
+    tile.building.workers = give;
+  }
+  // For housing, residents flow in over time (handled in tick) — but seed 1 if nobody else
+  if (def.isHousing && popTotal() === 0) tile.building.residents = 1;
+
+  log(`营造完成：${def.name}`, 'good');
+  toast(`${def.icon} ${def.name} 落成`, 'good');
+  state.selected = null;
+  updateHint();
+  render();
+}
+
+function demolish(idx) {
+  const tile = state.grid[idx];
+  if (!tile?.building) return;
+  const def = BUILDINGS[tile.building.type];
+  // Move residents out (they become homeless and may die later)
+  if (tile.building.residents) {
+    log(`${def.name} 拆除，${tile.building.residents} 名居民流离失所。`, 'bad');
+  }
+  refund(def.cost, 0.5);
+  tile.building = null;
+  state.inspectIdx = null;
+  closeInspect();
+  render();
+}
+
+// ========== TICK (1 day) ==========
+function tick() {
+  if (state.gameOver || state.paused) return;
+  state.day++;
+  state.season = Math.floor((state.day - 1) / SEASON_DAYS) % 4;
+
+  // 0. 临时修正衰减；扫一遍 has_X flags（用于事件判定）
+  for (const k in state.modifiers) {
+    const m = state.modifiers[k];
+    if (m && typeof m === 'object' && 'daysLeft' in m) {
+      m.daysLeft--;
+      if (m.daysLeft <= 0) delete state.modifiers[k];
+    }
+  }
+  state.modifiers.has_well = false;
+  state.modifiers.has_hospice = false;
+  state.modifiers.has_granary = false;
+  state.modifiers.school_workers = 0;
+
+  // 0.5 自动派工（如果开启）：把闲人均匀填到工坊空位
+  if (state.autoAssign) autoAssignWorkers();
+
+  // 1. 生产者 tick：消耗 + 产出 + 修正
+  state.grid.forEach((tile) => {
+    if (!tile.building) return;
+    const def = BUILDINGS[tile.building.type];
+    const b = tile.building;
+    // 标记状态建筑（无工人也生效）
+    if (def.customEffect === 'well')    { state.modifiers.has_well = true;    state.morale = Math.min(100, state.morale + 0.1); }
+    if (def.customEffect === 'granary') { state.modifiers.has_granary = true; }
+    if (!def.workersMax) return;
+    if (b.workers === 0) { b.status = 'idle'; b.statusReason = '无工人'; return; }
+    const idx = state.grid.indexOf(tile);
+    const [x, y] = tileXY(idx);
+    if (def.needsAdjacent && !hasAdjacentTerrain(x, y, def.needsAdjacent)) {
+      b.status = 'bad'; b.statusReason = `无邻近${TERRAIN[def.needsAdjacent].name}`; return;
+    }
+    if (def.needsAdjacentBldType && !hasAdjacentBldType(x, y, def.needsAdjacentBldType)) {
+      b.status = 'bad'; b.statusReason = `无邻近民居/茅屋`; return;
+    }
+    const scale = b.workers;
+    if (def.consumes) {
+      for (const k in def.consumes) {
+        if ((state.res[k] || 0) < def.consumes[k] * scale) {
+          b.status = 'bad'; b.statusReason = `缺${RES[k]}`; return;
+        }
+      }
+      for (const k in def.consumes) state.res[k] -= def.consumes[k] * scale;
+    }
+    // 产出（含季节、寨策、事件修正、民心系数）
+    if (def.produces) {
+      let mod = 1.0;
+      if (def.seasonMod) mod = def.seasonMod[state.season] ?? 1.0;
+      mod *= moraleMultiplier();
+      mod *= (state.modifiers.work_boost?.value || 1);
+      for (const k in def.produces) {
+        let m = mod;
+        if (tile.building.type === 'field_wheat') {
+          m *= (state.modifiers.wheat_yield || 1) * (state.modifiers.water_field?.value || 1);
+          if (state.season === 0) m *= (1 + (state.modifiers.wheat_spring_bonus || 0));
+        }
+        if (tile.building.type === 'mill') m *= (state.modifiers.water_mill?.value || 1);
+        if (tile.building.type === 'weaver') m *= (state.modifiers.cloth_yield || 1);
+        if (tile.building.type === 'market') m *= (state.modifiers.market_money || 1);
+        if (tile.building.type === 'ferry')  m *= (state.modifiers.ferry_money || 1);
+        state.res[k] = (state.res[k]||0) + def.produces[k] * scale * m;
+      }
+    }
+    // 自定义效果
+    if (def.customEffect === 'hearth')   { state.disaster = Math.max(0, state.disaster - 0.4 * scale); }
+    if (def.customEffect === 'hospice')  { state.modifiers.has_hospice = true; state.morale = Math.min(100, state.morale + 0.05 * scale); }
+    if (def.customEffect === 'school')   { state.modifiers.school_workers = (state.modifiers.school_workers || 0) + scale; }
+    if (def.customEffect === 'watch')    { state.modifiers.watch_workers = (state.modifiers.watch_workers || 0) + scale; }
+    b.status = 'ok'; b.statusReason = '运转中';
+  });
+
+  // 2. 民居：消耗+人心+离去
+  state.grid.forEach((tile) => {
+    if (!tile.building) return;
+    const def = BUILDINGS[tile.building.type];
+    if (!def.isHousing) return;
+    const b = tile.building;
+    if (b.residents === 0) { b.status = 'idle'; b.statusReason = '空置'; return; }
+    let allOk = true;
+    const missing = [];
+    for (const k in def.needs) {
+      const need = def.needs[k] * b.residents;
+      if ((state.res[k] || 0) < need) { allOk = false; missing.push(RES[k]); }
+    }
+    if (allOk) {
+      for (const k in def.needs) state.res[k] -= def.needs[k] * b.residents;
+      b.status = 'ok'; b.statusReason = '安居'; b.unhappy = 0;
+    } else {
+      for (const k in def.needs) {
+        const have = Math.min(state.res[k] || 0, def.needs[k] * b.residents);
+        state.res[k] = (state.res[k]||0) - have;
+      }
+      b.unhappy = (b.unhappy || 0) + 1;
+      b.status = 'warn'; b.statusReason = `缺${missing.join('/')}`;
+      // 民心也连带受损
+      state.morale = Math.max(0, state.morale - 0.3);
+      // 民心很低时离去更快
+      const threshold = state.morale < 30 ? 5 : 8;
+      if (b.unhappy >= threshold) {
+        b.residents = Math.max(0, b.residents - 1);
+        b.unhappy = 0;
+        log(`${def.name} 内 1 民因缺${missing[0]}离去。`, 'bad');
+      }
+    }
+  });
+
+  // 3. 人口增长 — 民心高时更快，民心低时停止
+  const growEvery = state.morale >= 70 ? 3 : (state.morale >= 40 ? 4 : 6);
+  if (state.morale >= 25 && state.day % growEvery === 0 && popTotal() < totalCapacity() && state.res.food > popTotal() * 0.5) {
+    for (const tile of state.grid) {
+      if (!tile.building) continue;
+      const def = BUILDINGS[tile.building.type];
+      if (!def.isHousing) continue;
+      if (tile.building.residents < def.capacity) {
+        tile.building.residents++;
+        log('👶 一户人家新添丁口。', 'good');
+        break;
+      }
+    }
+  }
+
+  // 4. 气候 / 灾度（仓廪减冬季食物消耗在此一并处理）
+  if (state.season === 3) {
+    state.disaster += 0.3;
+    if (state.modifiers.has_granary) {
+      // 仓廪：冬季食物每天微回血（相当于备荒）
+      state.res.food += popTotal() * 0.012;
+    }
+  }
+  else if (state.season === 0 || state.season === 2) state.disaster = Math.max(0, state.disaster - 0.1);
+  else state.disaster = Math.max(0, state.disaster - 0.2);
+  if (state.disaster >= 10 && state.day % 5 === 0) {
+    const housings = state.grid.filter(t => t.building?.residents > 0);
+    if (housings.length > 0) {
+      const h = housings[rand(housings.length)];
+      h.building.residents--;
+      state.morale = Math.max(0, state.morale - 4);
+      log(`💀 严寒夺一民。民心-4。`, 'bad');
+      toast('💀 严寒夺一民', 'bad');
+    }
+  }
+
+  // 5. 民心被动：水井、医馆已在生产 tick 内累加；这里加全局漂移（慢，让水井等正反馈起作用）
+  if (state.morale > 50) state.morale = Math.max(50, state.morale - 0.02);
+  else if (state.morale < 50) state.morale = Math.min(50, state.morale + 0.02);
+  // 仓廪平粜被动
+  if (state.modifiers.ping_tiao_active && state.day % 30 === 0) {
+    if (state.res.food >= 6) { state.res.food -= 6; state.morale = Math.min(100, state.morale + 5); log('仓廪平粜，月施粥济贫，民心+5。', 'good'); }
+  }
+
+  // 6. 寨策研究推进
+  if (state.focus.active) {
+    let speed = 1 + (state.modifiers.school_workers || 0) * 0.5;
+    state.focus.active.daysLeft -= speed;
+    if (state.focus.active.daysLeft <= 0) {
+      const id = state.focus.active.id;
+      state.focus.active = null;
+      applyFocusEffect(id);
+      // 重绘寨策按钮脉冲
+      document.getElementById('focus-pulse').textContent = '';
+    }
+  } else {
+    // 没有正在推进的寨策 → 提示
+    document.getElementById('focus-pulse').textContent = state.day > 5 ? '✦' : '';
+  }
+
+  // 7. 决策事件触发
+  if (state.day >= state.nextDecisionDay && state.decisionQueue.length === 0) {
+    triggerDecision();
+    state.nextDecisionDay = state.day + 18 + rand(13);  // 下次 18-30 天
+  }
+  // 流民、商队等"好事"独立触发
+  if (state.day > 6 && state.day % 14 === 0 && Math.random() < 0.5) fireBoonEvent();
+
+  render();
+
+  // 弹出待决策事件（如果有）
+  if (state.decisionQueue.length > 0 && !document.getElementById('decision-modal').classList.contains('show')) {
+    showNextDecision();
+  }
+}
+
+// ========== MORALE & MODIFIER HELPERS ==========
+function moraleMultiplier() {
+  // 民心 0→0.85, 50→1.0, 100→1.10
+  const m = state.morale;
+  if (m >= 70) return 1.05 + (m - 70) * 0.001;  // 70→1.05, 100→1.08
+  if (m >= 40) return 1.0;
+  if (m >= 20) return 0.95;
+  return 0.85;
+}
+
+// ========== AUTO-ASSIGN WORKERS ==========
+function autoAssignWorkers() {
+  // 找所有缺工的工坊，按"差值最大优先"派工
+  const needs = [];
+  state.grid.forEach((tile, i) => {
+    if (!tile.building) return;
+    const def = BUILDINGS[tile.building.type];
+    if (!def.workersMax) return;
+    const gap = def.workersMax - tile.building.workers;
+    if (gap > 0) needs.push({ tile, gap });
+  });
+  let idle = popIdle();
+  // 一轮一个一个加，避免某个建筑吃光
+  let safety = 200;
+  while (idle > 0 && needs.some(n => n.gap > 0) && safety-- > 0) {
+    for (const n of needs) {
+      if (idle <= 0) break;
+      if (n.gap <= 0) continue;
+      n.tile.building.workers++;
+      n.gap--;
+      idle--;
+    }
+  }
+}
+
+// ========== DECISION TRIGGER ==========
+function triggerDecision() {
+  const valid = DECISION_EVENTS.filter(e => e.cond());
+  if (valid.length === 0) return;
+  const ev = valid[rand(valid.length)];
+  state.decisionQueue.push(ev);
+}
+function showNextDecision() {
+  if (state.decisionQueue.length === 0) return;
+  const ev = state.decisionQueue[0];
+  const modal = document.getElementById('decision-modal');
+  document.getElementById('decision-title').textContent = ev.title;
+  document.getElementById('decision-desc').textContent = ev.desc;
+  const optsBox = document.getElementById('decision-options');
+  optsBox.innerHTML = '';
+  ev.options.forEach((opt, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'decision-opt';
+    btn.disabled = !opt.enabled();
+    btn.innerHTML = `<b>${opt.label}</b><span class="effects">${opt.hint}${btn.disabled ? '（条件不足）' : ''}</span>`;
+    btn.onclick = () => applyDecisionChoice(idx);
+    optsBox.appendChild(btn);
+  });
+  modal.classList.add('show');
+  setSpeed(0);  // 暂停游戏直到选择
+}
+function applyDecisionChoice(idx) {
+  const ev = state.decisionQueue.shift();
+  ev.options[idx].apply();
+  document.getElementById('decision-modal').classList.remove('show');
+  // 解除暂停（用户原本如果是暂停状态，下面会自动恢复到上次速度；为简单起见，恢复速度1）
+  setSpeed(1);
+  render();
+}
+
+// ========== FOCUS MODAL ==========
+function openFocusModal() {
+  renderFocusModal();
+  document.getElementById('focus-modal').classList.add('show');
+  setSpeed(0);
+}
+function closeFocusModal() {
+  document.getElementById('focus-modal').classList.remove('show');
+  setSpeed(state.speed || 1);
+}
+function renderFocusModal() {
+  const activeBox = document.getElementById('focus-active');
+  if (state.focus.active) {
+    const c = FOCUS_CARDS[state.focus.active.id];
+    const pct = 100 * (1 - state.focus.active.daysLeft / state.focus.active.totalDays);
+    activeBox.innerHTML = `
+      <div class="focus-active-banner">
+        正在推进：<b>${c.name}</b>（${c.branch}）— 还需 ${Math.max(0, Math.ceil(state.focus.active.daysLeft))} 天
+        <div class="progress"><div class="progress-bar" style="width:${pct.toFixed(0)}%"></div></div>
+      </div>`;
+  } else {
+    activeBox.innerHTML = `<div class="focus-active-banner">尚未选择寨策。点选下面任一可推进的卡片来开始。</div>`;
+  }
+  const cols = document.getElementById('focus-branches');
+  cols.innerHTML = '';
+  for (const branch of FOCUS_BRANCHES) {
+    const col = document.createElement('div');
+    col.className = 'focus-col';
+    let inner = `<h3>${branch}</h3>`;
+    for (const id in FOCUS_CARDS) {
+      const c = FOCUS_CARDS[id];
+      if (c.branch !== branch) continue;
+      const completed = state.focus.completed.has(id);
+      const unlocked = state.focus.unlocked.has(id) || completed;
+      const isActive = state.focus.active?.id === id;
+      const cls = completed ? 'completed' : isActive ? 'active' : (unlocked ? '' : 'locked');
+      const foot = completed ? '已达成' : isActive ? `推进中` : (unlocked ? `推进 ${c.cost} 天` : `🔒 需先完成 ${c.needs.map(n => FOCUS_CARDS[n].name).join('、')}`);
+      inner += `<div class="focus-card ${cls}" data-id="${id}">
+        <div class="fc-name">${c.name}</div>
+        <div class="fc-desc">${c.desc}</div>
+        <div class="fc-foot">${foot}</div>
+      </div>`;
+    }
+    col.innerHTML = inner;
+    cols.appendChild(col);
+  }
+  cols.querySelectorAll('.focus-card').forEach(card => {
+    card.onclick = () => {
+      const id = card.dataset.id;
+      if (state.focus.completed.has(id)) return;
+      if (!state.focus.unlocked.has(id)) return;
+      activateFocus(id);
+    };
+  });
+}
+function activateFocus(id) {
+  if (state.focus.active && state.focus.active.id === id) {
+    if (!confirm('已在推进此寨策。')) return;
+  }
+  if (state.focus.active && state.focus.active.id !== id) {
+    if (!confirm(`改换寨策？已积累的进度将清零。`)) return;
+  }
+  const c = FOCUS_CARDS[id];
+  state.focus.active = { id, daysLeft: c.cost, totalDays: c.cost };
+  log(`📜 开始推进寨策：${c.name}（${c.cost} 天）`, 'event');
+  renderFocusModal();
+}
+
+// ========== BOON EVENTS (好事，独立触发) ==========
+function fireBoonEvent() {
+  const r = Math.random();
+  if (r < 0.5) {
+    const cap = totalCapacity() - popTotal();
+    if (cap < 1) return;
+    const n = Math.min(2 + rand(2), cap);
+    let need = n;
+    for (const t of state.grid) {
+      if (need <= 0) break;
+      if (t.building && BUILDINGS[t.building.type].isHousing) {
+        const room = BUILDINGS[t.building.type].capacity - t.building.residents;
+        const add = Math.min(need, room);
+        t.building.residents += add; need -= add;
+      }
+    }
+    log(`🏃 ${n - need} 名流民投奔。`, 'good'); toast(`+${n - need} 流民`, 'good');
+  } else {
+    state.res.iron = (state.res.iron||0) + 10;
+    state.res.money = (state.res.money||0) + 18;
+    log('🐪 西域商队留下 10 铁、18 银。', 'good'); toast('🐪 商队来访', 'good');
+  }
+}
+
+// 旧 RANDOM_EVENTS 已并入 DECISION_EVENTS / fireBoonEvent。
+// endGame removed — sandbox has no end
+
+// ========== SPEED ==========
+function applySpeed() {
+  if (tickHandle) clearInterval(tickHandle);
+  tickHandle = null;
+  if (!state || state.paused || state.gameOver || state.speed === 0) return;
+  tickHandle = setInterval(tick, SPEED_MS[state.speed]);
+}
+function setSpeed(s) {
+  if (s === 0) state.paused = true;
+  else { state.paused = false; state.speed = s; }
+  applySpeed();
+  document.querySelectorAll('.speed-btn').forEach(b => {
+    const sb = parseInt(b.dataset.speed);
+    b.classList.toggle('active', state.paused ? sb === 0 : sb === state.speed);
+  });
+}
+
+// ========== INSPECT ==========
+function inspect(idx) {
+  state.inspectIdx = idx;
+  state.selected = null;
+  updateHint();
+  renderInspect();
+  render();
+}
+function closeInspect() {
+  state.inspectIdx = null;
+  document.getElementById('inspect-panel').classList.remove('show');
+  document.getElementById('build-panel').style.display = '';
+  render();
+}
+
+function adjustWorkers(delta) {
+  if (state.inspectIdx === null) return;
+  const b = state.grid[state.inspectIdx]?.building;
+  if (!b) return;
+  const def = BUILDINGS[b.type];
+  if (!def.workersMax) return;
+  if (delta > 0) {
+    if (popIdle() <= 0) { toast('无空闲人口', 'bad'); return; }
+    if (b.workers >= def.workersMax) return;
+    b.workers++;
+  } else {
+    if (b.workers <= 0) return;
+    b.workers--;
+  }
+  renderInspect();
+  render();
+}
+
+function renderInspect() {
+  const panel = document.getElementById('inspect-panel');
+  const buildPanel = document.getElementById('build-panel');
+  if (state.inspectIdx === null) {
+    panel.classList.remove('show');
+    buildPanel.style.display = '';
+    return;
+  }
+  const tile = state.grid[state.inspectIdx];
+  if (!tile?.building) { closeInspect(); return; }
+  const b = tile.building;
+  const def = BUILDINGS[b.type];
+
+  panel.classList.add('show');
+  buildPanel.style.display = 'none';
+
+  document.getElementById('inspect-title').innerHTML = `<span style="font-size:24px">${def.icon}</span><span>${def.name}</span>`;
+
+  const statusEl = document.getElementById('inspect-status');
+  let cls = 'status-ok';
+  if (b.status === 'bad' || b.status === 'warn') cls = 'status-warn';
+  if (b.status === 'idle') cls = 'status-bad';
+  statusEl.className = '';
+  statusEl.classList.add(cls);
+  statusEl.textContent = b.statusReason || '—';
+
+  let html = '';
+  if (def.isHousing) {
+    html += `<div class="inspect-row"><span class="label">居民</span><span class="val">${b.residents} / ${def.capacity}</span></div>`;
+    html += `<div class="inspect-row"><span class="label">需求/天</span><span class="val">${Object.entries(def.needs).map(([k,v])=>`${(v*b.residents).toFixed(1)}${RES[k]}`).join(' · ')||'—'}</span></div>`;
+  } else if (def.workersMax) {
+    html += `<div class="inspect-row"><span class="label">工人</span><div class="worker-controls"><button class="wc-btn" id="wc-minus">−</button><span class="wc-count">${b.workers} / ${def.workersMax}</span><button class="wc-btn" id="wc-plus">+</button></div></div>`;
+    if (def.consumes) html += `<div class="inspect-row"><span class="label">消耗/天</span><span class="val">${Object.entries(def.consumes).map(([k,v])=>`${(v*b.workers).toFixed(2)}${RES[k]}`).join(' · ')||'—'}</span></div>`;
+    if (def.produces) {
+      let mod = 1.0;
+      if (def.seasonMod) mod = def.seasonMod[state.season] ?? 1.0;
+      html += `<div class="inspect-row"><span class="label">产出/天</span><span class="val">${Object.entries(def.produces).map(([k,v])=>`${(v*b.workers*mod).toFixed(2)}${RES[k]}`).join(' · ')}</span></div>`;
+    }
+  }
+  document.getElementById('inspect-body').innerHTML = html;
+
+  if (!def.isHousing && def.workersMax) {
+    document.getElementById('wc-plus').onclick = () => adjustWorkers(+1);
+    document.getElementById('wc-minus').onclick = () => adjustWorkers(-1);
+  }
+}
+
+// ========== UI ==========
+function log(msg, type='event') {
+  state.log.unshift({ day: state.day, msg, type });
+  state.log = state.log.slice(0, 80);
+  renderLog();
+}
+function renderLog() {
+  const el = document.getElementById('log');
+  el.innerHTML = state.log.map(e =>
+    `<div class="log-entry ${e.type}"><span class="turn-tag">[D${e.day}]</span>${e.msg}</div>`
+  ).join('');
+}
+function toast(msg, type='event') {
+  const area = document.getElementById('toast-area');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  area.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+function setStat(id, value, threshold) {
+  const el = document.getElementById(id);
+  el.textContent = typeof value === 'number' ? Math.floor(value) : value;
+  el.className = 'stat-value';
+  if (!threshold) return;
+  if (threshold.bad !== undefined && value <= threshold.bad) el.classList.add('bad');
+  else if (threshold.warn !== undefined && value <= threshold.warn) el.classList.add('warn');
+  if (threshold.coldBad !== undefined && value >= threshold.coldBad) el.classList.add('bad');
+  else if (threshold.coldWarn !== undefined && value >= threshold.coldWarn) el.classList.add('warn');
+}
+
+function updateHint() {
+  const hint = document.getElementById('hint-bar');
+  if (state.selected) {
+    const d = BUILDINGS[state.selected];
+    hint.textContent = `已选：${d.icon} ${d.name} — 在地图绿框格子点击放置（再点按钮取消）`;
+    hint.classList.add('active');
+  } else if (state.inspectIdx !== null) {
+    hint.textContent = '查看建筑详情；右侧可派工人 / 拆除';
+    hint.classList.remove('active');
+  } else {
+    hint.textContent = '点右侧建筑按钮选中 → 点地图绿框格子放置；点已有建筑可派工/拆除';
+    hint.classList.remove('active');
+  }
+}
+
+function render() {
+  // Era
+  const year = Math.ceil(state.day / 100);
+  document.getElementById('era').textContent = `第 ${state.day} 天 · ${year} 年`;
+  const seasonEl = document.getElementById('season');
+  seasonEl.textContent = SEASONS[state.season];
+  seasonEl.className = 'season-' + ['spring','summer','autumn','winter'][state.season];
+
+  // Stats
+  const total = popTotal();
+  document.getElementById('pop-total').textContent = total + ' / ' + totalCapacity();
+  document.getElementById('pop-idle').textContent = popIdle();
+  document.getElementById('pop-work').textContent = popWorking();
+  setStat('r-food', state.res.food, { bad: total * 0.5, warn: total * 1.5 });
+  setStat('r-wheat', state.res.wheat);
+  setStat('r-flour', state.res.flour);
+  setStat('r-cloth', state.res.cloth);
+  setStat('r-hemp', state.res.hemp);
+  setStat('r-wood', state.res.wood, { bad: 0, warn: 5 });
+  setStat('r-iron', state.res.iron);
+  setStat('r-money', state.res.money);
+  setStat('r-disaster', state.disaster, { coldBad: 12, coldWarn: 8 });
+  // 民心
+  const moraleEl = document.getElementById('r-morale');
+  moraleEl.textContent = Math.round(state.morale);
+  moraleEl.className = 'stat-value ' + (state.morale >= 60 ? 'morale-good' : state.morale >= 35 ? '' : state.morale >= 20 ? 'morale-warn' : 'morale-bad');
+  document.getElementById('manor-count').textContent = manorCount();
+  // 寨策按钮脉冲（无活跃寨策时提示）
+  const fp = document.getElementById('focus-pulse');
+  if (fp) fp.textContent = state.focus.active ? '' : (state.day > 5 ? '✦' : '');
+  // 自动派工开关高亮
+  const autoBtn = document.getElementById('auto-btn');
+  if (autoBtn) autoBtn.classList.toggle('on', state.autoAssign);
+
+  // Grid
+  const grid = document.getElementById('grid');
+  if (grid.children.length !== GRID_W * GRID_H) {
+    grid.innerHTML = '';
+    state.grid.forEach((tile, i) => {
+      const el = document.createElement('div');
+      el.className = `tile ${tile.terrain}`;
+      el.onclick = () => placeBuilding(i);
+      grid.appendChild(el);
+    });
+  }
+  state.grid.forEach((tile, i) => {
+    const el = grid.children[i];
+    el.className = `tile ${tile.terrain}`;
+    if (tile.building) el.classList.add('has-bld');
+    if (state.inspectIdx === i) el.classList.add('inspect-active');
+    if (state.selected && !tile.building) {
+      const def = BUILDINGS[state.selected];
+      if (def.canBuildOn.includes(tile.terrain) && canAfford(def.cost)) {
+        el.classList.add('selectable');
+      } else {
+        el.classList.add('invalid');
+      }
+    }
+    let inner = '';
+    if (tile.building) {
+      const def = BUILDINGS[tile.building.type];
+      inner = def.icon;
+      // Status badge
+      const b = tile.building;
+      if (def.workersMax && b.workers === 0) inner += `<div class="badge warn">!</div>`;
+      else if (b.status === 'bad') inner += `<div class="badge">!</div>`;
+      else if (b.status === 'warn') inner += `<div class="badge warn">!</div>`;
+      el.title = `${def.name} · ${b.statusReason || ''}`;
+    } else {
+      inner = TERRAIN[tile.terrain].icon;
+      el.title = TERRAIN[tile.terrain].name;
+    }
+    el.innerHTML = inner;
+  });
+
+  // Build menu by tab
+  const menu = document.getElementById('build-menu');
+  menu.innerHTML = '';
+  for (const k in BUILDINGS) {
+    const def = BUILDINGS[k];
+    if (def.tab !== state.selectedTab) continue;
+    const btn = document.createElement('button');
+    btn.className = 'build-btn' + (state.selected === k ? ' selected' : '');
+    const unlocked = unlockedFor(def);
+    const affordable = canAfford(def.cost);
+    btn.disabled = !unlocked || !affordable || state.gameOver;
+    const costStr = Object.entries(def.cost).map(([r,v]) => `${v}${RES[r]||r}`).join(' ');
+    const lockStr = !unlocked ? unlockReason(def) : '';
+    // 数值行（产出/消耗一眼可见）
+    let detail = '';
+    if (def.produces) {
+      let mod = 1.0;
+      if (def.seasonMod) mod = def.seasonMod[state.season] ?? 1.0;
+      detail = '产 ' + Object.entries(def.produces).map(([k,v]) => `${(v*mod).toFixed(2)}${RES[k]}/工·天`).join(' ');
+    } else if (def.isHousing) {
+      detail = `+${def.capacity} 人 · 每民每天耗 ${Object.entries(def.needs).map(([k,v]) => `${v.toFixed(2)}${RES[k]}`).join(',')}`;
+    }
+    btn.innerHTML = `
+      <span class="build-icon">${def.icon}</span>
+      <div class="build-info">
+        <div class="build-name">${def.name}</div>
+        <div class="build-desc">${def.desc}</div>
+        ${detail ? `<div class="build-detail">${detail}</div>` : ''}
+      </div>
+      <span class="${unlocked ? 'build-cost' : 'build-locked'}">${unlocked ? costStr : lockStr}</span>
+    `;
+    btn.onclick = () => {
+      if (!unlocked) return;
+      state.selected = (state.selected === k) ? null : k;
+      state.inspectIdx = null;
+      closeInspect();
+      updateHint();
+      render();
+    };
+    menu.appendChild(btn);
+  }
+
+  // Inspect refresh if open
+  if (state.inspectIdx !== null) renderInspect();
+}
+
+// ========== EVENTS ==========
+document.querySelectorAll('.speed-btn').forEach(b => {
+  b.onclick = () => setSpeed(parseInt(b.dataset.speed));
+});
+document.querySelectorAll('.build-tab').forEach(t => {
+  t.onclick = () => {
+    state.selectedTab = t.dataset.tab;
+    document.querySelectorAll('.build-tab').forEach(x => x.classList.toggle('active', x === t));
+    render();
+  };
+});
+document.getElementById('close-inspect').onclick = closeInspect;
+document.getElementById('demolish-btn').onclick = () => {
+  if (state.inspectIdx !== null && confirm('确定拆除？返还半数木材。')) demolish(state.inspectIdx);
+};
+document.getElementById('reset-btn').onclick = () => {
+  if (!confirm('重置地图？当前进度会丢失。')) return;
+  initGame();
+  updateHint();
+  render();
+  setSpeed(1);
+};
+document.getElementById('focus-btn').onclick = openFocusModal;
+document.getElementById('focus-close').onclick = closeFocusModal;
+document.getElementById('focus-modal').onclick = (e) => { if (e.target.id === 'focus-modal') closeFocusModal(); };
+document.getElementById('auto-btn').onclick = () => {
+  state.autoAssign = !state.autoAssign;
+  toast(state.autoAssign ? '🔄 自动派工：开' : '🔄 自动派工：关', state.autoAssign ? 'good' : 'event');
+  render();
+};
+
+// Keyboard: space = pause
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+    e.preventDefault();
+    setSpeed(state.paused ? state.speed : 0);
+  }
+});
+
+initGame();
+updateHint();
+render();
+</script>
+</body>
+</html>

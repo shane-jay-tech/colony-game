@@ -1,0 +1,47 @@
+appId: com.colony.game
+productName: 邦国录
+copyright: Copyright (c) 2026
+
+directories:
+  output: D:\colony-game\dist-out
+  buildResources: resources
+
+files:
+  - dist/**/*
+  - public/fonts/**/*
+  - package.json
+  # phaser / eventemitter3 已被 vite bundle 进 dist/renderer/assets/index-*.js；
+  # main / preload 也是 bundled。运行时不需要 node_modules，全部排除省 ~135MB asar。
+  - "!**/node_modules/**/*"
+
+extraResources:
+  # 让 BrowserWindow runtime 能读到 icon（NSIS exe 自带 icon 由 win.icon 单独编译）
+  - from: resources/icon.ico
+    to: icon.ico
+  # 字体 fallback 走系统 serif/sans-serif（Win 11 中文环境自带宋体/微软雅黑）；
+  # public/fonts/ 当前空目录，extraResources 复制 fonts/ 是多余的（DeepSeek nit F7）。
+  # 若日后 bundle Noto Serif/Sans SC OTF，再加回这一段。
+
+npmArgs:
+  - "--cache"
+  - "D:\\npm-cache"
+
+win:
+  target:
+    - nsis
+    - portable
+  icon: resources/icon.ico
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+portable:
+  artifactName: "${productName}-${version}-portable-${arch}.${ext}"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  deleteAppDataOnUninstall: true
+
+asar: true
+
+publish: null

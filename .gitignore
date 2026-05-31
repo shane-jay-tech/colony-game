@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-out/
+.vite-deps-cache/
+.tsbuildinfo/
+.temp/
+.node-compile-cache/
+.tmp/
+*.log
+.DS_Store
+Thumbs.db
+
+# vite 生成的临时配置
+electron.vite.config.*.mjs
+user-data/
+.logs/

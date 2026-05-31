@@ -1,0 +1,809 @@
+import { RESOURCE_IDS } from '../data/resourceRegistry';
+import type { ResourceId } from '../data/resourceRegistry';
+import type { ModifierInstance, BuildingDef, BuildingInstance, PolicyNode, RoyalDecree, CourtEvent, NpcCountryState } from '../data/schema';
+import { makeInitialNpcStates, getNpcDef } from '../data/npcCountries';
+import {
+  tryTrade,
+  trySendEnvoy,
+  tryDeclareWar,
+  computeTradeTick,
+  computeStanceDrift,
+  type DiplomacyResult,
+} from './diplomacySystem';
+import type { WorldMap } from '../data/mapSchema';
+import { validateModifierInstance } from '../data/modifierValidator';
+import { getBuildingDef } from '../data/buildingRegistry';
+import { dayToCalendar, SEASON_NAMES } from './calendar';
+import { canPlace } from './placementSystem';
+import type { MapBounds, PlacementResult } from './placementSystem';
+import { generateMap } from './mapGen';
+import { WorldMapAccessor } from './worldMap';
+import { computeProductionTick } from './productionSystem';
+import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
+import { tryAdoptDecree, tickActiveDecree, type AdoptDecreeResult } from './decreeSystem';
+import { sampleEventTrigger, applyEventChoice, checkEventTimeout } from './eventEngine';
+import { applyModifiers } from './modifierAggregator';
+import type { CountryMetrics } from './dslEval';
+import { createRng } from './rng';
+
+export interface IEventEmitter {
+  on(event: string, fn: (...args: unknown[]) => void): void;
+  off(event: string, fn: (...args: unknown[]) => void): void;
+  emit(event: string, ...args: unknown[]): void;
+  listenerCount(event: string): number;
+}
+
+export const STATE_EVENTS = {
+  RESOURCES_CHANGED: 'state:resourcesChanged',
+  DAY_TICK: 'state:dayTick',
+  SEASON_TICK: 'state:seasonTick',
+  YEAR_TICK: 'state:yearTick',
+  MODIFIER_ADDED: 'state:modifierAdded',
+  MODIFIER_REMOVED: 'state:modifierRemoved',
+  BUILDING_PLACED: 'state:buildingPlaced',
+  BUILDING_COMPLETED: 'state:buildingCompleted',
+  PAUSED_CHANGED: 'state:pausedChanged',
+  SPEED_CHANGED: 'state:speedChanged',
+  STATE_REPLACED: 'state:replaced',
+  PRODUCTION_TICK: 'state:productionTick',
+  POLICY_ADOPTED: 'state:policyAdopted',
+  DECREE_ADOPTED: 'state:decreeAdopted',
+  DECREE_ADVANCED: 'state:decreeAdvanced',
+  DECREE_COMPLETED: 'state:decreeCompleted',
+  DECREE_STALLED: 'state:decreeStalled',
+  EVENT_TRIGGERED: 'state:eventTriggered',
+  EVENT_RESOLVED: 'state:eventResolved',
+  TUTORIAL_STEP_CHANGED: 'state:tutorialStepChanged',
+  // v0.9：用户原话「如果非要重合，加折叠展开按钮」。左/右面板收/展时通知地图重算视口
+  PANEL_COLLAPSED_CHANGED: 'state:panelCollapsedChanged',
+  // v0.9：建筑升级（纪元 1800 风格 chain）
+  BUILDING_UPGRADED: 'state:buildingUpgraded',
+  // v1.0 #6：邦交动作产生结果（trade/envoy/war 任一）→ UI refresh + toast
+  DIPLOMACY_ACTION: 'state:diplomacyAction',
+  // v1.0 #6：通商每 30 日入账时发；UI 给玩家飘一个 +X gold +Y cloth 反馈
+  TRADE_TICK: 'state:tradeTick',
+} as const;
+
+export type PanelSide = 'left' | 'right';
+
+export interface GameState {
+  resources: Partial<Record<ResourceId, number>>;
+  buildings: BuildingInstance[];
+  policies: { id: string; adopted: boolean }[];
+  activeModifiers: ModifierInstance[];
+  activeDecrees: { id: string; currentStage: number; daysElapsed: number }[];
+  eventHistory: string[];
+  /** 当前等待玩家处理的朝议事件 id；null 表示没有待办 */
+  pendingEventId: string | null;
+  /** pendingEventId 被设上时的 currentDay；用于计算 timeout */
+  pendingEventDayStart: number | null;
+  tutorialStepId: string | null;
+  defeatCount: number;
+  permanentBuffs: string[];
+  lastSeenTimestamp: number;
+  paused: boolean;
+  speed: 0 | 1 | 2 | 3;
+  lastTickTimestamp: number;
+  currentDay: number;
+  rngSeed: number;
+  worldMap: WorldMap;
+  /** 分数累加器：上一 tick 没取整完的资源残差（Slice G hardening — 解决 0.4 grain 永远=0） */
+  productionCarry: Partial<Record<ResourceId, number>>;
+  /** v0.9：左右面板折叠态（用户截图反馈 → 不能让 HUD/侧栏渗到地图后） */
+  panelCollapsed: { left: boolean; right: boolean };
+  /** v1.0 #2：已完成的 decree id 列表（chainPrev 链路解锁需要） */
+  completedDecreeIds: string[];
+  /** v1.0 #6：NPC 邦国动态状态（stance/militaryPower/renown/tradeRoute/...） */
+  npcCountries: NpcCountryState[];
+  /** v1.0 #6：玩家国家级 metric（renown 用 modifier 系统聚合，但 morale / militaryPower 由 diplomacy 直接调） */
+  playerMorale: number;
+  playerMilitaryPower: number;
+}
+
+// J-3a v0.8 缺陷 #8：地图扩 32×32(1024 tile) → 80×80(6400 tile)，承载 ~3 小时单次游玩
+// 80² 在 mapGen MAX_DIM=200 内；DEFAULT_MAP_SIZE² × DEFAULT_TILE_SIZE_PX 不影响 viewport（相机随玩家拖）
+export const DEFAULT_MAP_SIZE = 80;
+
+function makeDefaultState(): GameState {
+  const seed = 12345;
+  return {
+    resources: {},
+    buildings: [],
+    policies: [],
+    activeModifiers: [],
+    activeDecrees: [],
+    eventHistory: [],
+    pendingEventId: null,
+    pendingEventDayStart: null,
+    // Slice G 教程：新建游戏默认显示欢迎引导；存档读回的 state 会覆盖此值
+    tutorialStepId: 'tut_welcome',
+    defeatCount: 0,
+    permanentBuffs: [],
+    lastSeenTimestamp: 0,
+    paused: false,
+    speed: 1,
+    lastTickTimestamp: 0,
+    currentDay: 0,
+    rngSeed: seed,
+    worldMap: generateMap({ width: DEFAULT_MAP_SIZE, height: DEFAULT_MAP_SIZE, seed }),
+    productionCarry: {},
+    panelCollapsed: { left: false, right: false },
+    completedDecreeIds: [],
+    npcCountries: makeInitialNpcStates(),
+    playerMorale: 50,
+    playerMilitaryPower: 30,
+  };
+}
+
+export interface GameStoreContent {
+  policies?: readonly PolicyNode[];
+  decrees?: readonly RoyalDecree[];
+  events?: readonly CourtEvent[];
+}
+
+export class GameStore {
+  private state: GameState;
+  private readonly emitter: IEventEmitter;
+  private worldMapAccessor: WorldMapAccessor;
+  private readonly policies: readonly PolicyNode[];
+  private readonly decrees: readonly RoyalDecree[];
+  private readonly events: readonly CourtEvent[];
+  /**
+   * Slice G UI 暂停 refcount：模态（EventModal / TutorialModal）通过 holder 名注册暂停，
+   * 多模态嵌套时不会互相覆盖玩家手动暂停状态。
+   * - state.paused 仅由 setPaused 写（HUD 速度按钮）
+   * - effective isPaused = state.paused || pauseHolders.size > 0
+   * - 不持久化（模态生命周期外应该没有 holder；hot reload 时由 destroy 释放）
+   */
+  private pauseHolders: Set<string> = new Set();
+
+  constructor(emitter: IEventEmitter, initialState?: Partial<GameState>, content?: GameStoreContent) {
+    this.emitter = emitter;
+    this.state = Object.assign(makeDefaultState(), initialState ?? {});
+    this.worldMapAccessor = new WorldMapAccessor(this.state.worldMap);
+    this.policies = content?.policies ?? [];
+    this.decrees = content?.decrees ?? [];
+    this.events = content?.events ?? [];
+  }
+
+  // full snapshot for UI rendering; per-frame hot paths should use lightweight getters below
+  getState(): Readonly<GameState> {
+    return Object.freeze(structuredClone(this.state));
+  }
+
+  // lightweight getters: zero / shallow copy, safe to call every frame
+  getSpeed(): 0 | 1 | 2 | 3 { return this.state.speed; }
+  // Slice G：含模态 holder 的有效暂停态；timeSystem / HUD 都读这一份
+  isPaused(): boolean { return this.state.paused || this.pauseHolders.size > 0; }
+  /** 仅用于诊断 / 测试：玩家手动暂停标志（不含模态 holder） */
+  getUserPaused(): boolean { return this.state.paused; }
+  getCurrentDay(): number { return this.state.currentDay; }
+  // returns a frozen shallow copy; safe to hold but not safe to mutate (callers shouldn't try)
+  getActiveModifiers(): readonly ModifierInstance[] { return Object.freeze([...this.state.activeModifiers]); }
+  getBuildings(): readonly BuildingInstance[] { return Object.freeze([...this.state.buildings]); }
+  // shallow copy of resources dict; ~8 keys, cheap enough for per-frame use (Slice E Critical)
+  getResources(): Readonly<Partial<Record<ResourceId, number>>> { return Object.freeze({ ...this.state.resources }); }
+  getLastSeenTimestamp(): number { return this.state.lastSeenTimestamp; }
+  getWorldMap(): WorldMapAccessor { return this.worldMapAccessor; }
+  getPendingEventId(): string | null { return this.state.pendingEventId; }
+  getActiveDecrees(): readonly { id: string; currentStage: number; daysElapsed: number }[] {
+    return Object.freeze(this.state.activeDecrees.map(d => ({ ...d })));
+  }
+  /** v1.0 #2：已完成的 decree id（链路解锁判定 + 历史记录） */
+  getCompletedDecreeIds(): readonly string[] {
+    return Object.freeze([...this.state.completedDecreeIds]);
+  }
+  getAdoptedPolicyIds(): ReadonlySet<string> {
+    return new Set(this.state.policies.filter(p => p.adopted).map(p => p.id));
+  }
+  // Slice G UI：暴露静态内容给右侧政策/朝令面板与朝议对话框
+  getPolicies(): readonly PolicyNode[] { return this.policies; }
+  getDecrees(): readonly RoyalDecree[] { return this.decrees; }
+  getEvents(): readonly CourtEvent[] { return this.events; }
+  /** 把 pendingEventId 解析成完整 CourtEvent 对象；找不到返回 null */
+  getPendingEvent(): CourtEvent | null {
+    const id = this.state.pendingEventId;
+    if (id === null) return null;
+    return this.events.find(e => e.id === id) ?? null;
+  }
+  getPendingEventDayStart(): number | null { return this.state.pendingEventDayStart; }
+  // Slice G 教程：当前 tutorialStepId（'tut_welcome' | 具体 step id | null=已结束）
+  getTutorialStepId(): string | null { return this.state.tutorialStepId; }
+  setTutorialStepId(id: string | null): void {
+    if (this.state.tutorialStepId === id) return;
+    this.state.tutorialStepId = id;
+    this.emitter.emit(STATE_EVENTS.TUTORIAL_STEP_CHANGED, id);
+  }
+
+  // v0.9 panel collapse — MapRenderer 算视口、BuildPanel/CourtPanel 自渲染
+  getPanelCollapsed(side: PanelSide): boolean {
+    return side === 'left' ? this.state.panelCollapsed.left : this.state.panelCollapsed.right;
+  }
+  setPanelCollapsed(side: PanelSide, collapsed: boolean): void {
+    const cur = side === 'left' ? this.state.panelCollapsed.left : this.state.panelCollapsed.right;
+    if (cur === collapsed) return;
+    if (side === 'left') this.state.panelCollapsed.left = collapsed;
+    else this.state.panelCollapsed.right = collapsed;
+    this.emitter.emit(STATE_EVENTS.PANEL_COLLAPSED_CHANGED, { side, collapsed });
+  }
+
+  // subscribe API; emitter is intentionally not exposed publicly to prevent external emit injection
+  on(event: string, fn: (...args: unknown[]) => void): void { this.emitter.on(event, fn); }
+  off(event: string, fn: (...args: unknown[]) => void): void { this.emitter.off(event, fn); }
+  listenerCount(event: string): number { return this.emitter.listenerCount(event); }
+
+  private setResourceClamped(id: ResourceId, value: number): void {
+    this.state.resources[id] = Math.min(9999, Math.max(0, Math.floor(value)));
+  }
+
+  addResource(id: ResourceId, amount: number, reason?: string): void {
+    const current = this.state.resources[id] ?? 0;
+    this.setResourceClamped(id, current + amount);
+    const deltas: Partial<Record<ResourceId, number>> = { [id]: amount };
+    this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason });
+  }
+
+  setSpeed(s: 0 | 1 | 2 | 3): void {
+    if (this.state.speed === s) return;
+    this.state.speed = s;
+    this.emitter.emit(STATE_EVENTS.SPEED_CHANGED, s);
+  }
+
+  setPaused(b: boolean): void {
+    if (this.state.paused === b) return;
+    const wasEffective = this.isPaused();
+    this.state.paused = b;
+    const isEffective = this.isPaused();
+    if (wasEffective !== isEffective) {
+      this.emitter.emit(STATE_EVENTS.PAUSED_CHANGED, isEffective);
+    }
+  }
+
+  /**
+   * Slice G：模态（EventModal/TutorialModal）请求"软暂停"。
+   * - holder 是字符串 key（同 holder 重入是 idempotent）
+   * - 仅当 effective paused 由 false→true 时才 emit PAUSED_CHANGED
+   */
+  requestPause(holder: string): void {
+    if (this.pauseHolders.has(holder)) return;
+    const wasEffective = this.isPaused();
+    this.pauseHolders.add(holder);
+    if (!wasEffective) this.emitter.emit(STATE_EVENTS.PAUSED_CHANGED, true);
+  }
+
+  /** 与 requestPause 配对；同 holder 多次释放是 idempotent */
+  releasePause(holder: string): void {
+    if (!this.pauseHolders.has(holder)) return;
+    this.pauseHolders.delete(holder);
+    if (!this.isPaused()) this.emitter.emit(STATE_EVENTS.PAUSED_CHANGED, false);
+  }
+
+  addModifier(instance: ModifierInstance): void {
+    validateModifierInstance(instance);
+    if (!instance.stackable) {
+      const existing = this.state.activeModifiers.find(m => m.id === instance.id);
+      if (existing) return;
+    }
+    this.state.activeModifiers.push(instance);
+    this.emitter.emit(STATE_EVENTS.MODIFIER_ADDED, instance);
+  }
+
+  removeModifier(id: string): void {
+    this.state.activeModifiers = this.state.activeModifiers.filter(m => m.id !== id);
+    this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id });
+  }
+
+  placeBuilding(def: BuildingDef, gridX: number, gridY: number, bounds: MapBounds): PlacementResult {
+    const result = canPlace(
+      this.state.resources, this.state.buildings, def, gridX, gridY, bounds, this.worldMapAccessor,
+    );
+    if (!result.ok) return result;
+
+    const deltas: Partial<Record<ResourceId, number>> = {};
+    for (const id of RESOURCE_IDS) {
+      const amount = def.cost[id];
+      if (amount === undefined || amount === 0) continue;
+      const current = this.state.resources[id] ?? 0;
+      this.setResourceClamped(id, current - amount);
+      deltas[id] = -amount;
+    }
+
+    const building: BuildingInstance = {
+      defId: def.id,
+      position: { x: gridX, y: gridY },
+      status: 'constructing',
+      tier: def.tier,
+      constructionProgress: 0,
+      modifiers: [],
+    };
+    this.state.buildings.push(building);
+    if (Object.keys(deltas).length > 0) {
+      this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_cost' });
+    }
+    this.emitter.emit(STATE_EVENTS.BUILDING_PLACED, building);
+    return { ok: true };
+  }
+
+  /**
+   * v0.9 建筑升级（纪元 1800 风格 chain）：原地把 T1 → T2 / T2 → T3。
+   *
+   * 失败原因：
+   * - unknown_building: 该坐标没有建筑
+   * - not_working: 建筑还在建造 / 升级中 / 废弃，不能起新升级
+   * - already_upgrading: upgradingTo 已被设
+   * - no_upgrade_path: 当前 def 没有 upgradesTo
+   * - unknown_def / unknown_target_def: 数据丢失
+   * - prerequisites_unmet: target def 的 upgradeRequires（前置建筑/国策）未满足
+   * - insufficient_resources: 资源不足
+   *
+   * 成功路径：扣 upgradeCost → status='constructing' + upgradingTo=target →
+   * tickDay 推进 upgradeTime 天后 finishUpgrade()（事件 BUILDING_UPGRADED）。
+   */
+  upgradeBuilding(x: number, y: number): { ok: true } | { ok: false; reason: string; missing?: string[] } {
+    const inst = this.state.buildings.find(b => b.position.x === x && b.position.y === y);
+    if (!inst) return { ok: false, reason: 'unknown_building' };
+    if (inst.upgradingTo) return { ok: false, reason: 'already_upgrading' };
+    if (inst.status !== 'working') return { ok: false, reason: 'not_working' };
+    const fromDef = getBuildingDef(inst.defId);
+    if (!fromDef) return { ok: false, reason: 'unknown_def' };
+    if (!fromDef.upgradesTo) return { ok: false, reason: 'no_upgrade_path' };
+    const toDef = getBuildingDef(fromDef.upgradesTo);
+    if (!toDef) return { ok: false, reason: 'unknown_target_def' };
+
+    // 前置（同 placeBuilding：bld_*=已建建筑 id；pol_*=已采纳国策 id）
+    const builtDefIds = new Set(
+      this.state.buildings.filter(b => b.status === 'working').map(b => b.defId),
+    );
+    const adoptedPolicyIds = this.getAdoptedPolicyIds();
+    const missing: string[] = [];
+    for (const req of toDef.upgradeRequires) {
+      if (req.startsWith('pol_')) {
+        if (!adoptedPolicyIds.has(req)) missing.push(req);
+      } else {
+        if (!builtDefIds.has(req)) missing.push(req);
+      }
+    }
+    if (missing.length > 0) return { ok: false, reason: 'prerequisites_unmet', missing };
+
+    // 资源：升级专用 cost；未给则回退到 toDef.cost
+    const cost = toDef.upgradeCost ?? toDef.cost;
+    for (const id of RESOURCE_IDS) {
+      const need = cost[id];
+      if (need === undefined || need === 0) continue;
+      if ((this.state.resources[id] ?? 0) < need) {
+        return { ok: false, reason: 'insufficient_resources' };
+      }
+    }
+
+    const deltas: Partial<Record<ResourceId, number>> = {};
+    for (const id of RESOURCE_IDS) {
+      const need = cost[id];
+      if (need === undefined || need === 0) continue;
+      const cur = this.state.resources[id] ?? 0;
+      this.setResourceClamped(id, cur - need);
+      deltas[id] = -need;
+    }
+
+    inst.upgradingTo = toDef.id;
+    inst.constructionProgress = 0;
+    inst.status = 'constructing';
+
+    if (Object.keys(deltas).length > 0) {
+      this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_upgrade' });
+    }
+    return { ok: true };
+  }
+
+  applyDayDeltas(deltas: Partial<Record<ResourceId, number>>): void {
+    for (const id of RESOURCE_IDS) {
+      const delta = deltas[id];
+      if (delta === undefined) continue;
+      const current = this.state.resources[id] ?? 0;
+      this.setResourceClamped(id, current + delta);
+    }
+    this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas });
+  }
+
+  // Advance exactly ONE day. TimeSystem calls this in a loop; emitting per-day ensures
+  // multi-season / multi-year boundaries are not silently skipped.
+  tickDay(): void {
+    const prevDay = this.state.currentDay;
+    const calBefore = dayToCalendar(prevDay);
+    this.state.currentDay = prevDay + 1;
+    const calAfter = dayToCalendar(this.state.currentDay);
+
+    for (const m of this.state.activeModifiers) {
+      if (m.remainingDays > 0) m.remainingDays -= 1;
+    }
+    const expired = this.state.activeModifiers.filter(m => m.remainingDays === 0);
+    if (expired.length > 0) {
+      this.state.activeModifiers = this.state.activeModifiers.filter(m => m.remainingDays !== 0);
+      for (const m of expired) {
+        this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id: m.id });
+      }
+    }
+
+    for (const b of this.state.buildings) {
+      if (b.status !== 'constructing') continue;
+      const isUpgrade = !!b.upgradingTo;
+      // 升级用 target def 的 upgradeTime；新建用 def.constructionTime
+      const targetDef = isUpgrade ? getBuildingDef(b.upgradingTo!) : getBuildingDef(b.defId);
+      if (!targetDef) continue;
+      const time = isUpgrade ? (targetDef.upgradeTime ?? 1) : targetDef.constructionTime;
+      const finishUpgrade = (): void => {
+        const oldDefId = b.defId;
+        b.defId = b.upgradingTo!;
+        b.tier = targetDef.tier;
+        b.upgradingTo = undefined;
+        this.emitter.emit(STATE_EVENTS.BUILDING_UPGRADED, {
+          instance: b, fromDefId: oldDefId, toDefId: b.defId,
+        });
+      };
+      // ct<=0 means instant build (degenerate static-content case); complete in this tick
+      if (time <= 0) {
+        b.constructionProgress = 100;
+        b.status = 'working';
+        if (isUpgrade) finishUpgrade();
+        else this.emitter.emit(STATE_EVENTS.BUILDING_COMPLETED, b);
+        continue;
+      }
+      b.constructionProgress += 100 / time;
+      // 浮点累加可能停在 99.9999 而少建一天；以 99.999 为闸门兜底（DeepSeek findings）
+      if (b.constructionProgress >= 99.999) {
+        b.constructionProgress = 100;
+        b.status = 'working';
+        if (isUpgrade) finishUpgrade();
+        else this.emitter.emit(STATE_EVENTS.BUILDING_COMPLETED, b);
+      }
+    }
+
+    this.emitter.emit(STATE_EVENTS.DAY_TICK, this.state.currentDay);
+
+    if (calAfter.season !== calBefore.season) {
+      this.emitter.emit(STATE_EVENTS.SEASON_TICK, {
+        season: calAfter.season,
+        seasonName: SEASON_NAMES[calAfter.season] ?? 'unknown',
+        year: calAfter.year,
+      });
+    }
+    if (calAfter.year !== calBefore.year) {
+      this.emitter.emit(STATE_EVENTS.YEAR_TICK, { year: calAfter.year });
+    }
+
+    // Slice F: production / decree / event tick
+    this.runProductionTick();
+    this.runDecreeTick();
+    this.runEventTick();
+    // v1.0 #6：邦交节拍（通商收入 + stance 漂移）
+    this.runDiplomacyTick();
+  }
+
+  /** 当日产出 / 维护开销 → 资源 deltas（grain 等） */
+  private runProductionTick(): void {
+    const result = computeProductionTick(
+      this.state.buildings,
+      getBuildingDef,
+      this.state.activeModifiers,
+      this.state.productionCarry,
+    );
+    // 把本 tick 的小数残差留到下一 tick（Slice G hardening 分数累加器）
+    this.state.productionCarry = result.fractionalCarry;
+    if (Object.keys(result.deltas).length > 0) {
+      this.applyDayDeltas(result.deltas);
+    }
+    this.emitter.emit(STATE_EVENTS.PRODUCTION_TICK, result);
+  }
+
+  /**
+   * 推进 active decrees；阶段到期 → 应用 modifier / 扣下阶 cost / stall 处理。
+   *
+   * 关键不变量（DeepSeek 二审 #4）：循环开始前对 resources 取一次快照，每个 decree
+   * 都基于同一份快照评估 affordability；扣费 deltas 累积到末尾一次性应用。这样多个
+   * decree 同日推进时不再依赖 activeDecrees 的插入顺序——任意一个 decree 是否能
+   * advance 只取决于"日初资源 vs 自己一阶 cost"。
+   */
+  private runDecreeTick(): void {
+    const next: { id: string; currentStage: number; daysElapsed: number }[] = [];
+    // 快照：所有 decree 同步评估的资源基准
+    const resourcesSnapshot = { ...this.state.resources };
+    const accumulatedDeltas: Partial<Record<ResourceId, number>> = {};
+    for (const rec of this.state.activeDecrees) {
+      const def = this.decrees.find(d => d.id === rec.id);
+      if (!def) {
+        // 未知 decree（数据丢失 / 已被移除）：保留但不推进，避免崩溃
+        next.push(rec);
+        continue;
+      }
+      const advance = tickActiveDecree(def, rec, resourcesSnapshot);
+      if (advance === null) {
+        // 未到期 OR 仍 stalled：daysElapsed +1（stall 状态下也累加，纯纯诊断用）
+        next.push({ ...rec, daysElapsed: rec.daysElapsed + 1 });
+        continue;
+      }
+
+      // 仅当 applyEffects=true 时才发 modifier 增删（防止 stall 重复 apply）
+      if (advance.applyEffects) {
+        for (const id of advance.modifiersToRemove) {
+          this.removeModifier(id);
+        }
+        this.addModifier(advance.modifier);
+      }
+
+      if (advance.next === null) {
+        // decree 完成 — v1.0 #2：记入 completedDecreeIds，给链路解锁用
+        if (!this.state.completedDecreeIds.includes(rec.id)) {
+          this.state.completedDecreeIds.push(rec.id);
+        }
+        this.emitter.emit(STATE_EVENTS.DECREE_COMPLETED, { decreeId: rec.id, fromStage: advance.fromStage });
+        continue; // 不 push 进 next（从 active 列表移除）
+      }
+
+      if (advance.didStall) {
+        // 首次卡住：保留 record（daysElapsed 推到 stage.days+1 sentinel），不扣 cost
+        next.push({ id: rec.id, currentStage: advance.next.currentStage, daysElapsed: advance.next.daysElapsed });
+        this.emitter.emit(STATE_EVENTS.DECREE_STALLED, { decreeId: rec.id, stage: advance.next.currentStage });
+        continue;
+      }
+
+      // 正常 advance（含从 stall 中恢复的"补 advance"）：把下阶 cost 累积到末尾再应用
+      for (const [k, v] of Object.entries(advance.costDeltas) as [ResourceId, number | undefined][]) {
+        if (v === undefined) continue;
+        accumulatedDeltas[k] = (accumulatedDeltas[k] ?? 0) + v;
+      }
+      next.push({ id: rec.id, currentStage: advance.next.currentStage, daysElapsed: advance.next.daysElapsed });
+      this.emitter.emit(STATE_EVENTS.DECREE_ADVANCED, { decreeId: rec.id, fromStage: advance.fromStage, toStage: advance.next.currentStage });
+    }
+    this.state.activeDecrees = next;
+    if (Object.keys(accumulatedDeltas).length > 0) {
+      this.applyDayDeltas(accumulatedDeltas);
+    }
+  }
+
+  /** 朝议事件采样 + 超时回退 */
+  private runEventTick(): void {
+    if (this.state.pendingEventId !== null) {
+      // 已有挂起事件：检查是否超时
+      const def = this.events.find(e => e.id === this.state.pendingEventId);
+      if (def && this.state.pendingEventDayStart !== null) {
+        const elapsed = this.state.currentDay - this.state.pendingEventDayStart;
+        if (checkEventTimeout(def, elapsed) === 'pick0') {
+          this.resolveEvent(0);
+        }
+      }
+      return;
+    }
+    if (this.events.length === 0) return;
+    const metrics = this.computeMetrics();
+    const id = sampleEventTrigger(this.events, this.state.eventHistory, metrics);
+    if (id === null) return;
+    this.state.pendingEventId = id;
+    this.state.pendingEventDayStart = this.state.currentDay;
+    this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, { eventId: id });
+  }
+
+  /** 用当前 state + activeModifiers 算 DSL/事件采样所需的国家级指标快照 */
+  private computeMetrics(): CountryMetrics {
+    const cal = dayToCalendar(this.state.currentDay);
+    // base 值（Slice F 简化）：people 资源即 population；morale 默认 50；militaryPower 默认 0
+    const populationBase = this.state.resources['people'] ?? 0;
+    const morale = applyModifiers(50, 'country_morale', this.state.activeModifiers);
+    const militaryPower = applyModifiers(0, 'country_military_power', this.state.activeModifiers);
+    const population = applyModifiers(populationBase, 'country_population_cap', this.state.activeModifiers);
+    // RNG：每次 metrics 推进一步 rngSeed，保证 day-to-day 不同。
+    // 用箭头包裹以防 createRng 实现被换成需要 this 的形式（DeepSeek 防御）。
+    const rngHandle = createRng(this.state.rngSeed ^ this.state.currentDay);
+    return {
+      resources: this.state.resources,
+      population,
+      morale,
+      militaryPower,
+      year: cal.year,
+      season: cal.season,
+      dayOfYear: this.state.currentDay % 120,
+      rng: () => rngHandle.next(),
+    };
+  }
+
+  /** 玩家点 choice 或 timeout 自动 0：清掉 pendingEventId + 应用 effects + 写 history */
+  resolveEvent(choiceIdx: number): void {
+    const id = this.state.pendingEventId;
+    if (id === null) return;
+    const def = this.events.find(e => e.id === id);
+    this.state.pendingEventId = null;
+    this.state.pendingEventDayStart = null;
+    if (!def) {
+      // 静态数据找不到：仅清理状态
+      this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, { eventId: id, choiceIdx, applied: false });
+      return;
+    }
+    const result = applyEventChoice(def, choiceIdx);
+    for (const rid of result.modifiersToRemove) {
+      this.removeModifier(rid);
+    }
+    if (result.modifierToAdd) {
+      this.addModifier(result.modifierToAdd);
+    }
+    this.state.eventHistory.push(id);
+    this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, { eventId: id, choiceIdx, applied: true });
+  }
+
+  /** 玩家采纳 policy；返回 result 给 UI（成功 / 失败原因） */
+  adoptPolicy(policyId: string): AdoptPolicyResult {
+    const def = this.policies.find(p => p.id === policyId);
+    if (!def) return { ok: false, reason: 'unknown_policy' };
+    const adoptedSet = this.getAdoptedPolicyIds();
+    const result = tryAdoptPolicy(def, adoptedSet, this.state.resources);
+    if (!result.ok) return result;
+
+    // 落盘：扣资源 / 推进 policies 列表 / addModifier
+    this.applyDayDeltas(result.deltas);
+    const existing = this.state.policies.find(p => p.id === policyId);
+    if (existing) existing.adopted = true;
+    else this.state.policies.push({ id: policyId, adopted: true });
+    this.addModifier(result.modifier);
+    this.emitter.emit(STATE_EVENTS.POLICY_ADOPTED, { policyId });
+    return result;
+  }
+
+  /** 玩家采纳 decree；返回 result 给 UI */
+  adoptDecree(decreeId: string): AdoptDecreeResult {
+    const def = this.decrees.find(d => d.id === decreeId);
+    if (!def) return { ok: false, reason: 'unknown_decree' };
+    const metrics = this.computeMetrics();
+    const result = tryAdoptDecree(
+      def,
+      this.state.activeDecrees,
+      this.state.resources,
+      metrics,
+      this.state.completedDecreeIds,
+    );
+    if (!result.ok) return result;
+
+    this.applyDayDeltas(result.deltas);
+    this.state.activeDecrees.push({ ...result.activeRecord });
+    this.emitter.emit(STATE_EVENTS.DECREE_ADOPTED, { decreeId });
+    return result;
+  }
+
+  // ============== v1.0 #6：NPC 邦国 / 邦交 ===============================
+
+  getNpcCountries(): readonly NpcCountryState[] {
+    return Object.freeze(this.state.npcCountries.map(s => ({ ...s })));
+  }
+
+  getPlayerMorale(): number { return this.state.playerMorale; }
+  getPlayerMilitaryPower(): number { return this.state.playerMilitaryPower; }
+  /** 国家级声誉（renown）：聚合 modifier 系统的 country_renown，base = 50 */
+  getPlayerRenown(): number {
+    return applyModifiers(50, 'country_renown', this.state.activeModifiers);
+  }
+
+  private findNpcState(id: string): NpcCountryState | undefined {
+    return this.state.npcCountries.find(s => s.id === id);
+  }
+
+  private applyDiplomacyResult(npcId: string, result: DiplomacyResult, kind: 'trade' | 'envoy' | 'war'): DiplomacyResult {
+    if (!result.ok) return result;
+    const npcState = this.findNpcState(npcId)!;
+    Object.assign(npcState, result.stateDelta);
+    // stance / militaryPower / renown clamp（防溢出）
+    npcState.stance = Math.max(-100, Math.min(100, npcState.stance));
+    npcState.militaryPower = Math.max(0, Math.min(500, npcState.militaryPower));
+    npcState.renown = Math.max(0, Math.min(200, npcState.renown));
+    if (Object.keys(result.resourceDeltas).length > 0) {
+      this.applyDayDeltas(result.resourceDeltas);
+    }
+    if (result.playerDeltas.morale !== undefined) {
+      this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + result.playerDeltas.morale));
+    }
+    if (result.playerDeltas.militaryPower !== undefined) {
+      this.state.playerMilitaryPower = Math.max(0, Math.min(500, this.state.playerMilitaryPower + result.playerDeltas.militaryPower));
+    }
+    // renown 通过临时 modifier 加（因为 renown 走 modifier 聚合）
+    if (result.playerDeltas.renown !== undefined && result.playerDeltas.renown !== 0) {
+      this.addModifier({
+        id: `mod_diplomacy_renown_${kind}_${npcId}_${this.state.currentDay}`,
+        name: kind === 'trade' ? '通商之誉' : kind === 'envoy' ? '使节之誉' : '征伐之誉',
+        category: 'diplomacy',
+        stackable: true,
+        effects: [{ target: 'country_renown', op: 'add', value: result.playerDeltas.renown }],
+        visualBadge: null,
+        remainingDays: -1,
+        description: result.message,
+        descPlain: result.message,
+      });
+    }
+    this.emitter.emit(STATE_EVENTS.DIPLOMACY_ACTION, { npcId, kind, result });
+    return result;
+  }
+
+  tradeWithNpc(npcId: string): DiplomacyResult {
+    const def = getNpcDef(npcId);
+    if (!def) return { ok: false, reason: 'unknown_npc' };
+    const state = this.findNpcState(npcId);
+    if (!state) return { ok: false, reason: 'unknown_npc' };
+    const result = tryTrade(def, state, this.state.resources);
+    return this.applyDiplomacyResult(npcId, result, 'trade');
+  }
+
+  sendEnvoyTo(npcId: string): DiplomacyResult {
+    const def = getNpcDef(npcId);
+    if (!def) return { ok: false, reason: 'unknown_npc' };
+    const state = this.findNpcState(npcId);
+    if (!state) return { ok: false, reason: 'unknown_npc' };
+    const result = trySendEnvoy(def, state, this.state.resources, this.state.currentDay);
+    return this.applyDiplomacyResult(npcId, result, 'envoy');
+  }
+
+  declareWarOn(npcId: string, rng?: () => number): DiplomacyResult {
+    const def = getNpcDef(npcId);
+    if (!def) return { ok: false, reason: 'unknown_npc' };
+    const state = this.findNpcState(npcId);
+    if (!state) return { ok: false, reason: 'unknown_npc' };
+    const rngFn = rng ?? createRng(this.state.rngSeed ^ this.state.currentDay ^ 0xdeadbeef).next;
+    const result = tryDeclareWar(def, state, this.state.playerMilitaryPower, this.state.currentDay, rngFn);
+    return this.applyDiplomacyResult(npcId, result, 'war');
+  }
+
+  /** 每日：通商节拍 + stance 漂移；放在 tickDay 末尾跑 */
+  private runDiplomacyTick(): void {
+    const playerRenown = this.getPlayerRenown();
+    const aggregateDeltas: Partial<Record<ResourceId, number>> = {};
+    let tradeIncomeFired = false;
+    for (const npcState of this.state.npcCountries) {
+      const def = getNpcDef(npcState.id);
+      if (!def) continue;
+      // 通商
+      const tick = computeTradeTick(def, npcState);
+      Object.assign(npcState, tick.stateDelta);
+      for (const [k, v] of Object.entries(tick.resourceDeltas) as [ResourceId, number | undefined][]) {
+        if (v === undefined || v === 0) continue;
+        aggregateDeltas[k] = (aggregateDeltas[k] ?? 0) + v;
+        tradeIncomeFired = true;
+      }
+      // stance 漂移
+      const drift = computeStanceDrift(def, npcState, playerRenown);
+      if (drift !== 0) {
+        npcState.stance = Math.max(-100, Math.min(100, npcState.stance + drift));
+      }
+    }
+    if (Object.keys(aggregateDeltas).length > 0) {
+      this.applyDayDeltas(aggregateDeltas);
+    }
+    if (tradeIncomeFired) {
+      this.emitter.emit(STATE_EVENTS.TRADE_TICK, { deltas: aggregateDeltas });
+    }
+  }
+
+  setLastSeenNow(): void {
+    this.state.lastSeenTimestamp = Date.now();
+  }
+
+  replaceState(newState: GameState): void {
+    // Slice G hardening：deserialize 已经在 saveLoad.ts 做过深度校验，但 replaceState
+    // 也可能从内存里灌进 quick-save / 测试场景。运行时 modifier shape 出错会让 tickDay
+    // NaN 蔓延，所以这里再过一道：每条 activeModifier.effects 走一遍 validateModifierEffect。
+    for (const m of newState.activeModifiers) {
+      try { validateModifierInstance(m); }
+      catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(`[GameStore.replaceState] invalid activeModifier "${m.id}": ${msg}`);
+      }
+    }
+    // productionCarry 在旧存档里可能不存在 — saveLoad 会注入 {}，但内存路径要兜一道
+    if (!newState.productionCarry) newState.productionCarry = {};
+    // v0.9：旧存档没有 panelCollapsed —— 兜底默认全展开
+    if (!newState.panelCollapsed) newState.panelCollapsed = { left: false, right: false };
+    // v1.0 #2：旧存档没有 completedDecreeIds —— 兜底空数组
+    if (!Array.isArray(newState.completedDecreeIds)) newState.completedDecreeIds = [];
+    // v1.0 #6：旧存档没有 NPC 邦国字段 —— 兜底初始化
+    if (!Array.isArray(newState.npcCountries) || newState.npcCountries.length === 0) {
+      newState.npcCountries = makeInitialNpcStates();
+    }
+    if (typeof newState.playerMorale !== 'number') newState.playerMorale = 50;
+    if (typeof newState.playerMilitaryPower !== 'number') newState.playerMilitaryPower = 30;
+    this.state = newState;
+    this.worldMapAccessor = new WorldMapAccessor(newState.worldMap);
+    this.emitter.emit(STATE_EVENTS.STATE_REPLACED, undefined);
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "outDir": "dist/renderer",
+    "tsBuildInfoFile": "D:/colony-game/.tsbuildinfo/renderer.tsbuildinfo",
+    "types": []
+  },
+  "include": ["src/renderer/**/*"]
+}

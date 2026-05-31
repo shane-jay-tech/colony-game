@@ -1,0 +1,1138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>邦国录 · v0.6</title>
+<style>
+:root{
+  --paper:#f1e3c4; --paper-2:#e6d2a8; --paper-dark:#c8ab74;
+  --wood:#5a3a22; --wood-2:#7a4f30; --wood-light:#8b5a3c;
+  --gold:#c89a3a; --gold-2:#b8851f; --gold-soft:#e2c884;
+  --ink:#2b1f10; --ink-2:#4a3520; --ink-soft:#6a5236;
+  --good:#3e7a3a; --warn:#a36a14; --bad:#8a2c2c;
+  --grass:#a7c27a; --grass-2:#8fb360; --grass-3:#7da050;
+  --soil:#caa874; --water:#6ea7c0; --road:#a89070;
+  --shadow:rgba(50,30,10,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:"FangSong","KaiTi","STKaiti","SimSun",serif;background:#3a2a18;color:var(--ink);overflow:hidden;user-select:none}
+body{background:radial-gradient(circle at 20% 10%,rgba(255,230,180,.15),transparent 50%),radial-gradient(circle at 80% 80%,rgba(0,0,0,.25),transparent 60%),#2c1f11}
+#app{display:grid;grid-template-rows:48px 1fr;height:100vh}
+#topbar{display:flex;align-items:center;gap:14px;padding:0 16px;background:linear-gradient(180deg,#7a4f30 0%,#5a3a22 100%);border-bottom:2px solid var(--gold);box-shadow:0 2px 6px var(--shadow);color:var(--paper);font-size:14px}
+#topbar .crest{font-size:18px;color:var(--gold-soft);letter-spacing:2px}
+#topbar .stat{display:flex;align-items:center;gap:4px}
+#topbar .stat b{color:var(--gold-soft);font-weight:normal}
+#topbar .sep{width:1px;height:22px;background:var(--gold);opacity:.4}
+#topbar .speed{margin-left:auto;display:flex;gap:4px}
+#topbar .speed button{background:transparent;border:1px solid var(--gold);color:var(--paper);width:32px;height:28px;cursor:pointer;font-family:inherit;border-radius:3px}
+#topbar .speed button.on{background:var(--gold);color:var(--ink)}
+#topbar .speed button:hover{background:var(--gold-2);color:var(--ink)}
+#main{display:grid;grid-template-columns:240px 1fr 280px;height:100%;min-height:0}
+.panel{background:linear-gradient(180deg,var(--paper) 0%,var(--paper-2) 100%);border:2px solid var(--wood);box-shadow:inset 0 0 0 1px var(--gold-soft);margin:6px;display:flex;flex-direction:column;overflow:hidden}
+.panel h3{background:var(--wood);color:var(--gold-soft);padding:6px 10px;font-size:13px;border-bottom:1px solid var(--gold);font-weight:normal;letter-spacing:2px}
+.panel .body{padding:8px;overflow-y:auto;flex:1;font-size:12px;color:var(--ink-2)}
+.build-cat{margin-bottom:8px}
+.build-cat>.label{color:var(--wood);font-size:12px;letter-spacing:2px;border-bottom:1px dashed var(--paper-dark);padding:2px 0;margin-bottom:4px}
+.build-item{display:flex;align-items:center;gap:6px;padding:5px 6px;cursor:pointer;border:1px solid transparent;border-radius:3px;color:var(--ink)}
+.build-item:hover{background:var(--paper-dark);border-color:var(--gold-2)}
+.build-item.selected{background:var(--gold-soft);border-color:var(--gold-2)}
+.build-item.locked{opacity:.45;cursor:not-allowed}
+.build-item .ic{width:24px;height:24px;flex-shrink:0}
+.build-item .nm{flex:1;font-size:12px}
+.build-item .cs{font-size:10px;color:var(--ink-soft)}
+#center{position:relative;margin:6px;min-width:0;border:2px solid var(--wood);box-shadow:inset 0 0 0 1px var(--gold-soft)}
+#stage{width:100%;height:100%;display:block;background:linear-gradient(180deg,#cfe0a8 0%,#a7c27a 100%)}
+#hudOverlay{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+#hudOverlay .pill{background:rgba(241,227,196,.92);border:1px solid var(--wood);border-radius:14px;padding:3px 10px;font-size:11px;color:var(--ink);box-shadow:0 1px 3px var(--shadow);pointer-events:auto;cursor:pointer}
+#hudOverlay .pill:hover{background:var(--gold-soft)}
+#viewToggle{position:absolute;left:8px;top:8px;display:flex;gap:6px}
+#viewToggle button{background:rgba(90,58,34,.92);color:var(--gold-soft);border:1px solid var(--gold);padding:4px 10px;font-family:inherit;font-size:12px;cursor:pointer;border-radius:3px}
+#viewToggle button.on{background:var(--gold);color:var(--ink)}
+#zoomBar{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:4px}
+#zoomBar button{width:30px;height:30px;background:rgba(90,58,34,.92);color:var(--gold-soft);border:1px solid var(--gold);font-family:inherit;font-size:16px;cursor:pointer;border-radius:3px}
+#right .body{display:flex;flex-direction:column;gap:8px}
+.info-block{background:rgba(255,250,235,.7);border:1px solid var(--paper-dark);border-radius:3px;padding:6px 8px;font-size:12px}
+.info-block .h{color:var(--wood);font-size:11px;letter-spacing:2px;margin-bottom:3px}
+.info-block .row{display:flex;justify-content:space-between;color:var(--ink-2);margin:2px 0}
+.info-block .row b{font-weight:normal;color:var(--ink)}
+.info-block .neg{color:var(--bad)}
+.info-block .pos{color:var(--good)}
+#log-box{flex:1;min-height:120px;overflow-y:auto;font-size:11px;line-height:1.5;background:rgba(60,40,20,.08);padding:6px 8px;border:1px dashed var(--paper-dark)}
+#log-box .e{margin:1px 0;color:var(--ink-2)}
+#log-box .e .t{color:var(--gold-2);font-size:10px;margin-right:4px}
+#log-box .e.ev{color:var(--bad)}
+#log-box .e.pos{color:var(--good)}
+.modal-bg{position:fixed;inset:0;background:rgba(20,12,4,.55);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:linear-gradient(180deg,var(--paper) 0%,var(--paper-2) 100%);border:3px double var(--wood);box-shadow:0 0 0 1px var(--gold) inset,0 8px 30px rgba(0,0,0,.4);max-width:90vw;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;color:var(--ink);min-width:480px}
+.modal .mh{background:var(--wood);color:var(--gold-soft);padding:10px 16px;font-size:16px;letter-spacing:3px;border-bottom:2px solid var(--gold);display:flex;justify-content:space-between;align-items:center}
+.modal .mh button{background:transparent;color:var(--gold-soft);border:1px solid var(--gold);padding:2px 8px;cursor:pointer;font-family:inherit}
+.modal .mb{padding:14px 18px;overflow:auto;flex:1}
+.modal .mt{font-size:13px;line-height:1.7;color:var(--ink-2)}
+.modal .opts{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.modal .opt{display:flex;justify-content:space-between;align-items:center;background:var(--paper);border:1px solid var(--wood);padding:8px 12px;cursor:pointer;border-radius:3px}
+.modal .opt:hover{background:var(--gold-soft)}
+.modal .opt.dis{opacity:.45;cursor:not-allowed;background:#d6c69a}
+.modal .opt .lbl{font-size:14px;color:var(--ink)}
+.modal .opt .hint{font-size:11px;color:var(--ink-soft);margin-top:3px}
+.modal .opt .right{font-size:11px;color:var(--wood)}
+#focusSvg{display:block;background:radial-gradient(circle at 50% 30%,#f6e6c2 0%,#dfc593 100%);border:1px solid var(--paper-dark)}
+.focus-node rect{fill:var(--paper);stroke:var(--wood);stroke-width:1.5}
+.focus-node.done rect{fill:var(--gold-soft);stroke:var(--gold-2)}
+.focus-node.cur rect{fill:#fff5d0;stroke:var(--gold);stroke-width:2.5}
+.focus-node.lock rect{fill:#bfae84;stroke:#7a6432}
+.focus-node text{font-size:11px;fill:var(--ink);text-anchor:middle}
+.focus-node .ic{font-size:16px;text-anchor:middle}
+.focus-link{stroke:var(--wood);stroke-width:1.4;fill:none;opacity:.7}
+.focus-link.done{stroke:var(--gold-2);opacity:1}
+.focus-tabs{display:flex;gap:4px;margin-bottom:8px;align-items:center}
+.focus-tabs button{background:var(--paper);border:1px solid var(--wood);padding:4px 12px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--ink)}
+.focus-tabs button.on{background:var(--gold);color:var(--ink)}
+.focus-tabs .progress{margin-left:auto;font-size:12px;color:var(--ink-soft)}
+.focus-detail{margin-top:8px;padding:8px 12px;background:rgba(255,250,235,.6);border:1px dashed var(--paper-dark);font-size:12px;min-height:60px}
+.focus-detail b{color:var(--wood)}
+.region path{stroke:var(--wood);stroke-width:1.5;cursor:pointer}
+.region.self path{fill:#d8b85a}
+.region.known path{fill:#b9a577}
+.region.unknown path{fill:#8e7a4e;opacity:.6}
+.region:hover path{stroke:var(--gold);stroke-width:2}
+.region text{font-size:13px;fill:var(--ink);text-anchor:middle;pointer-events:none}
+.region.self text{font-weight:bold}
+.trade-line{stroke:var(--gold);stroke-width:2;stroke-dasharray:4 3;fill:none;opacity:.7}
+.btn{background:var(--wood);color:var(--gold-soft);border:1px solid var(--gold);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px;border-radius:3px}
+.btn:hover{background:var(--wood-2)}
+.btn.dis{opacity:.45;cursor:not-allowed}
+.btn.gold{background:var(--gold);color:var(--ink)}
+.btn.gold:hover{background:var(--gold-2)}
+.preview-ok{fill:rgba(80,160,80,.3);stroke:var(--good);stroke-width:1.5;stroke-dasharray:3 2}
+.preview-bad{fill:rgba(180,40,40,.3);stroke:var(--bad);stroke-width:1.5;stroke-dasharray:3 2}
+.bld{cursor:pointer}
+.bld.sel rect.base,.bld.sel circle.base{stroke:var(--gold);stroke-width:2.5}
+text.label{font-size:9px;fill:var(--ink);text-anchor:middle;pointer-events:none}
+text.cap{font-size:11px;fill:var(--wood);text-anchor:middle;font-weight:bold;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <span class="crest">邦号「<span id="tb-state">卫</span>」</span>
+    <span class="sep"></span>
+    <span class="stat">📅 <b id="tb-date">春 1 月 1 日</b></span>
+    <span class="sep"></span>
+    <span class="stat">民心 <b id="tb-morale">60</b></span>
+    <span class="stat">户 <b id="tb-pop">280</b></span>
+    <span class="stat">闲 <b id="tb-idle">12</b></span>
+    <span class="sep"></span>
+    <span class="stat">🌾<b id="tb-food">800</b></span>
+    <span class="stat">🪵<b id="tb-wood">300</b></span>
+    <span class="stat">🪨<b id="tb-stone">120</b></span>
+    <span class="stat">🧵<b id="tb-cloth">40</b></span>
+    <span class="stat">🪙<b id="tb-coin">200</b></span>
+    <span class="speed">
+      <button data-s="0" title="暂停">‖</button>
+      <button data-s="1" class="on" title="慢">▶</button>
+      <button data-s="2" title="中">▶▶</button>
+      <button data-s="3" title="快">▶▶▶</button>
+    </span>
+  </div>
+  <div id="main">
+    <div class="panel" id="left"><h3>营　造</h3><div class="body" id="buildList"></div></div>
+    <div id="center">
+      <svg id="stage" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet"></svg>
+      <div id="viewToggle">
+        <button id="vt-set" class="on">国都</button>
+        <button id="vt-world">列国图</button>
+      </div>
+      <div id="zoomBar">
+        <button id="zin">＋</button>
+        <button id="zout">－</button>
+        <button id="zrst">↺</button>
+      </div>
+      <div id="hudOverlay">
+        <span class="pill" id="pill-focus">国策：<b id="pf-name">—</b> · <span id="pf-prog">0%</span></span>
+        <span class="pill" id="pill-edict">朝令</span>
+        <span class="pill" id="pill-tree">国策树</span>
+        <span class="pill" id="pill-trade">商路 <b id="pt-n">0</b></span>
+      </div>
+    </div>
+    <div class="panel" id="right">
+      <h3>邦　情</h3>
+      <div class="body">
+        <div class="info-block" id="ib-yield"><div class="h">本季产出</div><div id="ib-yield-rows"></div></div>
+        <div class="info-block" id="ib-mod"><div class="h">现行修正</div><div id="ib-mod-rows"></div></div>
+        <div class="info-block" id="ib-decision"><div class="h">朝议待决</div><div id="ib-decision-rows">无</div></div>
+        <div id="log-box"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+"use strict";
+/* 邦国录 v0.6 — Paradox 模式数据形状 */
+
+const SPEED_MS=[0,3000,1500,750];
+const SEASONS=['春','夏','秋','冬'];
+const DAYS_PER_SEASON=90,DAYS_PER_YEAR=360;
+const STAGE_W=1200,STAGE_H=800;
+const SNAP=32;
+
+/* 命名修正聚合 */
+function aggregateModifier(scope,thing,op){
+  const k=`${scope}_${thing}_${op}`;
+  let v=(op==='factor')?1:0;
+  for(const id in state.world.modifiers){
+    const m=state.world.modifiers[id];
+    if(m.effects[k]!=null){
+      if(op==='factor') v*=m.effects[k];
+      else v+=m.effects[k];
+    }
+  }
+  return v;
+}
+function addModifier(id,effects,daysLeft,source,picture){
+  state.world.modifiers[id]={effects,daysLeft:daysLeft??null,source:source||'misc',picture:picture||id};
+}
+function removeModifier(id){ delete state.world.modifiers[id]; }
+
+/* 建筑定义 */
+const BUILDINGS={
+  guodu:{name:'国都',cat:'根本',w:80,h:80,cost:{},limit:1,desc:'邦国之根。提供 +20 户上限。建一座足矣。',icon:'guodu',uniq:true,
+    onBuild:(s)=>{ s.popCap=(s.popCap||0)+20; },yield:()=>({}),workers:0},
+  minli:{name:'民里',cat:'民生',w:48,h:48,cost:{wood:25,stone:5},desc:'编户齐民之处。每座 +8 户上限。',icon:'minli',
+    onBuild:(s)=>{ s.popCap=(s.popCap||0)+8; },yield:()=>({}),workers:0},
+  liangtian:{name:'良田',cat:'农桑',w:64,h:48,cost:{wood:10},desc:'垦田播谷。冬季减产、夏秋增产。',icon:'liangtian',workers:4,
+    yield:(s,b)=>{
+      const base=2.0*b.staffed;
+      const seasonal=[1.0,1.1,1.4,0.3][s.world.season];
+      const m=1+aggregateModifier('country','wheat','mult');
+      return {food:base*seasonal*m};
+    }},
+  cangku:{name:'仓廪',cat:'民生',w:48,h:48,cost:{wood:15,stone:10},desc:'囤粮为本。每座 +500 食物上限。',icon:'cangku',workers:1,
+    onBuild:(s)=>{ s.cap.food=(s.cap.food||500)+500; },yield:()=>({})},
+  fangwu:{name:'匠坊',cat:'工坊',w:56,h:48,cost:{wood:20,stone:5},desc:'伐木采石。出木与石。',icon:'fangwu',workers:3,
+    yield:(s,b)=>{
+      const base=b.staffed*1.0;
+      const m=1+aggregateModifier('country','craft','mult');
+      return {wood:base*0.6*m,stone:base*0.4*m};
+    }},
+  zhiguan:{name:'织官',cat:'工坊',w:56,h:48,cost:{wood:25,stone:10},desc:'桑麻为衣。出布。',icon:'zhiguan',workers:3,
+    yield:(s,b)=>{
+      const base=b.staffed*0.5;
+      const m=1+aggregateModifier('country','cloth','mult');
+      return {cloth:base*m};
+    }},
+  shisi:{name:'市肆',cat:'工坊',w:56,h:48,cost:{wood:20,stone:15},desc:'通商货泉，以食、布易钱。',icon:'shisi',workers:2,
+    yield:(s,b)=>{
+      const r=b.staffed*0.4;
+      const m=1+aggregateModifier('country','trade','mult');
+      return {_consume:{food:r*1,cloth:r*0.5},coin:r*0.8*m};
+    }},
+  bianjun:{name:'边军',cat:'边武',w:64,h:56,cost:{wood:20,stone:25},desc:'戍守边境，慑止盗匪。',icon:'bianjun',workers:5,
+    onBuild:()=>{ const e=state.world.modifiers['bld_bianjun_count']; if(e){e.effects.country_bandit_mult-=0.3;} else addModifier('bld_bianjun_count',{country_bandit_mult:-0.3},null,'bld','边军镇守'); },
+    onRemove:()=>{ const e=state.world.modifiers['bld_bianjun_count']; if(e){e.effects.country_bandit_mult+=0.3; if(Math.abs(e.effects.country_bandit_mult)<.001) removeModifier('bld_bianjun_count');} },
+    yield:()=>({})},
+  xueguan:{name:'学宫',cat:'学问',w:64,h:56,cost:{wood:30,stone:15},desc:'子弟读书。国策研习 +25%。',icon:'xueguan',workers:2,uniq:true,
+    onBuild:()=>addModifier('bld_xueguan',{country_focus_speed_mult:0.25},null,'bld','学宫'),
+    onRemove:()=>removeModifier('bld_xueguan'),yield:()=>({})},
+  yiguan:{name:'医馆',cat:'民生',w:48,h:48,cost:{wood:20,stone:10},desc:'防疫救伤。瘟疫损失减半。',icon:'yiguan',workers:2,
+    onBuild:()=>addModifier('bld_yiguan',{country_plague_mult:-0.5},null,'bld','医馆'),
+    onRemove:()=>removeModifier('bld_yiguan'),yield:()=>({})},
+};
+const BLD_CATS=['根本','民生','农桑','工坊','边武','学问'];
+
+/* 国策 */
+const FOCUS_CARDS={
+  nongkai:{branch:'农桑',name:'开荒拓土',x:0,y:0,cost:18,prereq:[],desc:'良田出麦永久 +20%。',icon:'🌾',
+    onComplete:()=>addModifier('focus_nongkai',{country_wheat_mult:0.20},null,'focus','开荒拓土')},
+  nongshi:{branch:'农桑',name:'劝课农桑',x:0,y:1,cost:24,prereq:['nongkai'],desc:'良田再 +15%、织官再 +10%。',icon:'🐂',
+    onComplete:()=>addModifier('focus_nongshi',{country_wheat_mult:0.15,country_cloth_mult:0.10},null,'focus','劝课农桑')},
+  nongchu:{branch:'农桑',name:'积粟备饥',x:0,y:2,cost:30,prereq:['nongshi'],desc:'仓廪上限 +50%、冬季良田损失 -50%。',icon:'🏯',
+    onComplete:()=>{
+      addModifier('focus_nongchu',{country_storage_mult:0.5},null,'focus','积粟备饥');
+      for(const s of state.settlements){ s.cap.food=Math.round((s.cap.food||500)*1.5); }
+    }},
+  gongmu:{branch:'工坊',name:'伐木通材',x:1,y:0,cost:18,prereq:[],desc:'匠坊产出 +20%。',icon:'🪓',
+    onComplete:()=>addModifier('focus_gongmu',{country_craft_mult:0.20},null,'focus','伐木通材')},
+  gongma:{branch:'工坊',name:'桑麻为衣',x:1,y:1,cost:24,prereq:['gongmu'],desc:'织官产出 +30%。',icon:'🧵',
+    onComplete:()=>addModifier('focus_gongma',{country_cloth_mult:0.30},null,'focus','桑麻为衣')},
+  gongtong:{branch:'工坊',name:'通商惠泉',x:1,y:2,cost:30,prereq:['gongma'],desc:'市肆出钱 +40%、商路上限 +2。',icon:'🪙',
+    onComplete:()=>{ addModifier('focus_gongtong',{country_trade_mult:0.40},null,'focus','通商惠泉'); state.world.tradeCap+=2; }},
+  liyue:{branch:'礼制',name:'制礼作乐',x:2,y:0,cost:20,prereq:[],desc:'民心上限 +10、自然回升 +0.05/日。',icon:'🎼',
+    onComplete:()=>addModifier('focus_liyue',{country_morale_cap_add:10,country_morale_drift_add:0.05},null,'focus','制礼作乐')},
+  lixiao:{branch:'礼制',name:'尊老敬贤',x:2,y:1,cost:24,prereq:['liyue'],desc:'户上限 +20%、闲户分配速度 +50%。',icon:'👴',
+    onComplete:()=>{
+      addModifier('focus_lixiao',{country_assign_speed_mult:0.5},null,'focus','尊老敬贤');
+      for(const s of state.settlements){ s.popCap=Math.round((s.popCap||20)*1.2); }
+    }},
+  baojia:{branch:'保甲',name:'编户保甲',x:3,y:0,cost:18,prereq:[],desc:'盗匪概率 -30%。',icon:'🛡',
+    onComplete:()=>addModifier('focus_baojia',{country_bandit_mult:-0.30},null,'focus','编户保甲')},
+  bingbei:{branch:'保甲',name:'整军备武',x:3,y:1,cost:24,prereq:['baojia'],desc:'外邦袭扰 -25%。',icon:'⚔',
+    onComplete:()=>addModifier('focus_bingbei',{country_raid_mult:-0.25},null,'focus','整军备武')},
+  shoujiang:{branch:'保甲',name:'求贤养士',x:3,y:2,cost:30,prereq:['bingbei'],desc:'国策研习再 +30%、解锁举旗求贤朝令。',icon:'🎓',
+    onComplete:()=>{ addModifier('focus_shoujiang',{country_focus_speed_mult:0.30},null,'focus','求贤养士');
+      state.world.flags.shoujiang=true; }},
+};
+
+/* 朝议 */
+const DECISION_EVENTS=[
+  {id:'chun_huang',title:'春荒借粮',
+    desc:'去冬粮歉，邻里断炊，使者跪请仓粮。开仓济众则民心归附；紧守府库则恐生流言。',
+    cond:()=>state.world.season===0 && active().res.food>=25 && (state.world.day-1)%DAYS_PER_YEAR>5,
+    timeout_days:10,
+    timeout_apply:()=>{ addMorale(-12); log('春荒未决，民间流言：「邦无仁君」。','ev'); active().res.food=Math.max(0,active().res.food-15); },
+    options:[
+      {label:'开仓济众',hint:'食 -40，民心 +10，七日工效 +5%',
+        enabled:()=>active().res.food>=40,
+        apply:()=>{ active().res.food-=40; addMorale(10); addModifier('ev_chun_huang_boost',{country_work_speed_mult:0.05},7,'event','春荒赈济'); }},
+      {label:'紧守府库',hint:'民心 -8，盗匪概率 ↑',
+        apply:()=>{ addMorale(-8); addModifier('ev_chun_huang_bandit',{country_bandit_mult:0.30},30,'event','民怨载道'); }},
+      {label:'析土散粮',hint:'食 -20、布 -10，民心 +6',
+        enabled:()=>active().res.food>=20 && active().res.cloth>=10,
+        apply:()=>{ active().res.food-=20; active().res.cloth-=10; addMorale(6); }},
+    ]},
+  {id:'liu_min',title:'流民来投',
+    desc:'乱世离散，一群流民跪伏邦门，求一席之地。',
+    cond:()=>state.world.day>20 && (active().pop.total<active().popCap-3) && rand()<0.02,
+    timeout_days:8,
+    timeout_apply:()=>{ log('流民他去，邻邦得人。','ev'); },
+    options:[
+      {label:'尽数收纳',hint:'户 +5，需食 -20',
+        enabled:()=>active().res.food>=20 && (active().popCap-active().pop.total)>=5,
+        apply:()=>{ active().res.food-=20; active().pop.total+=5; active().pop.idle+=5; addMorale(3); }},
+      {label:'择其健者',hint:'户 +2，民心 +2',
+        enabled:()=>(active().popCap-active().pop.total)>=2,
+        apply:()=>{ active().pop.total+=2; active().pop.idle+=2; addMorale(2); }},
+      {label:'闭门不纳',hint:'民心 -3',
+        apply:()=>{ addMorale(-3); }},
+    ]},
+  {id:'bian_dao',title:'边盗夜袭',
+    desc:'夜半烽起，邻境盗骑掠仓而去。当问罪何人？',
+    cond:()=>state.world.day>40 && rand()<(0.015*(1+aggregateModifier('country','bandit','mult'))),
+    timeout_days:5,
+    timeout_apply:()=>{ const loss=Math.min(40,active().res.food); active().res.food-=loss; addMorale(-6); log('盗去仓粮 '+Math.round(loss)+'，民心 -6。','ev'); },
+    options:[
+      {label:'征兵讨之',hint:'户出 -3、石 -10，盗概率 -50%（90日）',
+        enabled:()=>active().pop.idle>=3 && active().res.stone>=10,
+        apply:()=>{ active().pop.idle-=3; active().res.stone-=10;
+          addModifier('ev_bian_dao_garrison',{country_bandit_mult:-0.5},90,'event','征讨盗骑'); addMorale(4);
+          log('讨伐归来，盗匪敛迹。','pos'); }},
+      {label:'增筑望楼',hint:'木 -25、石 -15，盗概率 -30%（永久）',
+        enabled:()=>active().res.wood>=25 && active().res.stone>=15,
+        apply:()=>{ active().res.wood-=25; active().res.stone-=15;
+          addModifier('ev_wanglou',{country_bandit_mult:-0.3},null,'event','望楼戒备'); }},
+      {label:'纳贡求和',hint:'钱 -30，免此次损失',
+        enabled:()=>active().res.coin>=30,
+        apply:()=>{ active().res.coin-=30; addMorale(-2); }},
+    ]},
+  {id:'yi_bing',title:'瘟疫初起',
+    desc:'巷陌有人发热咳血。医馆若立，可半其害；否则恐成大疫。',
+    cond:()=>state.world.season>=1 && state.world.day>60 && rand()<(0.012*(1+aggregateModifier('country','plague','mult'))),
+    timeout_days:6,
+    timeout_apply:()=>{ const lose=Math.ceil(active().pop.total*0.05); active().pop.total-=lose; active().pop.idle=Math.max(0,active().pop.idle-lose); addMorale(-15); log('疫病蔓延，户损 '+lose+'，民心 -15。','ev'); },
+    options:[
+      {label:'封巷隔离',hint:'户 -1（隔离），3 季工效 -10%',
+        enabled:()=>active().pop.idle>=1,
+        apply:()=>{ active().pop.idle-=1;
+          addModifier('ev_yi_bing_iso',{country_work_speed_mult:-0.1},90,'event','疫中隔离'); }},
+      {label:'施药救民',hint:'食 -30、布 -10，民心 +5',
+        enabled:()=>active().res.food>=30 && active().res.cloth>=10,
+        apply:()=>{ active().res.food-=30; active().res.cloth-=10; addMorale(5); }},
+      {label:'听之任之',hint:'高风险',
+        apply:()=>{ const lose=Math.ceil(active().pop.total*0.08); active().pop.total-=lose; addMorale(-12); }},
+    ]},
+  {id:'lin_bang',title:'邻邦遣使',
+    desc:'邻邦致玉帛与笺，议结盟好或互市。',
+    cond:()=>state.world.day>120 && state.world.flags.lin_bang_done!==true && rand()<0.01,
+    timeout_days:7,
+    immediate:()=>{ state.world.flags.lin_bang_seen=true; },
+    timeout_apply:()=>{ log('使节他归，邻邦不悦。','ev'); },
+    options:[
+      {label:'约为兄弟',hint:'钱 -50，外邦袭扰 -50%（永久），市肆 +20%',
+        enabled:()=>active().res.coin>=50,
+        apply:()=>{ active().res.coin-=50;
+          addModifier('ev_alliance',{country_raid_mult:-0.5,country_trade_mult:0.20},null,'event','结盟睦邻');
+          state.world.flags.lin_bang_done=true; addMorale(6);
+          if(!state.world.knownRegions.includes('yan')) state.world.knownRegions.push('yan'); }},
+      {label:'许互市',hint:'解锁邻邦商路、布出 +15%',
+        apply:()=>{ addModifier('ev_market',{country_cloth_mult:0.15},null,'event','互市通商');
+          state.world.flags.lin_bang_done=true;
+          if(!state.world.knownRegions.includes('yan')) state.world.knownRegions.push('yan'); }},
+      {label:'拒之',hint:'民心 +2，外邦袭扰 +25%',
+        apply:()=>{ addMorale(2);
+          addModifier('ev_refuse',{country_raid_mult:0.25},180,'event','拒交招怨');
+          state.world.flags.lin_bang_done=true; }},
+    ]},
+];
+
+/* 朝令 */
+const EDICTS=[
+  {id:'open_granary',name:'开仓济民',cat:'民生',icon:'🏯',
+    desc:'拨仓粮以平市价。30 日内民心缓涨，工坊小幅减产。',
+    potential:()=>true,allow:()=>active().res.food>=30,
+    cost:{food:30},days_remove:30,
+    modifier:{country_morale_drift_add:0.5,country_craft_mult:-0.05},
+    on_apply:()=>log('诏令颁下：开仓济民。','pos'),
+    remove_effect:()=>log('开仓事毕，仓廪复封。')},
+  {id:'rotate_garrisons',name:'屯戍轮换',cat:'边武',icon:'🛡',
+    desc:'调营换戍。60 日内盗匪与外袭概率减半，但工效 -5%。',
+    potential:()=>true,allow:()=>active().pop.idle>=2 && active().res.coin>=20,
+    cost:{coin:20},days_remove:60,
+    modifier:{country_bandit_mult:-0.5,country_raid_mult:-0.5,country_work_speed_mult:-0.05},
+    on_apply:()=>log('诏令颁下：屯戍轮换。','pos'),
+    remove_effect:()=>log('戍卒归乡，干戈再起。')},
+  {id:'seek_talent',name:'举旗求贤',cat:'学问',icon:'🎓',
+    desc:'广征贤士入仕。120 日内国策研习 +30%，钱日耗 1。',
+    potential:()=>state.world.flags.shoujiang===true,
+    allow:()=>active().res.coin>=40,
+    cost:{coin:40},days_remove:120,
+    modifier:{country_focus_speed_mult:0.30,country_coin_drain_add:1},
+    on_apply:()=>log('诏令颁下：举旗求贤。','pos'),
+    remove_effect:()=>log('贤士归山，案牍尘封。')},
+  {id:'hold_court',name:'大礼朝会',cat:'礼制',icon:'🎼',
+    desc:'集邦民于国都行礼。40 日内民心 +0.4/日，需食与布。',
+    potential:()=>true,allow:()=>active().res.food>=20 && active().res.cloth>=10,
+    cost:{food:20,cloth:10},days_remove:40,
+    modifier:{country_morale_drift_add:0.4},
+    on_apply:()=>log('诏令颁下：大礼朝会。','pos'),
+    remove_effect:()=>log('礼成乐止。')},
+];
+
+/* 邻邦 */
+const REGIONS={
+  wei:{name:'卫',self:true,x:600,y:380,path:'M540,340 L660,330 L680,400 L620,440 L540,420 Z'},
+  yan:{name:'燕',x:780,y:200,path:'M720,140 L860,160 L880,240 L760,260 Z'},
+  chu:{name:'楚',x:520,y:600,path:'M440,560 L620,560 L640,680 L460,680 Z'},
+  qi:{name:'齐',x:880,y:440,path:'M820,400 L960,420 L970,520 L840,500 Z'},
+  jin:{name:'晋',x:340,y:340,path:'M280,280 L420,300 L420,400 L300,400 Z'},
+};
+
+/* 状态 */
+let state={};
+function createInitialState(){
+  state={
+    speed:1,running:true,
+    world:{
+      day:1,month:1,season:0,morale:60,
+      modifiers:{},
+      focus:{cur:null,progress:0,done:[]},
+      decisionQueue:[],activeEdicts:{},tradeRoutes:[],tradeCap:1,
+      knownRegions:['wei'],flags:{},log:[],
+    },
+    settlements:[],activeId:0,placement:null,selectedBldId:null,
+    view:'set',zoom:1,panX:0,panY:0,
+  };
+  state.settlements.push(makeInitSettlement('国都',true));
+  const s=state.settlements[0];
+  spawnBuilding(s,'guodu',600,400);
+  spawnBuilding(s,'minli',520,470);
+  spawnBuilding(s,'minli',680,470);
+  spawnBuilding(s,'liangtian',440,360);
+  spawnBuilding(s,'liangtian',760,360);
+  spawnBuilding(s,'fangwu',520,300);
+  spawnBuilding(s,'cangku',680,300);
+  for(const b of s.buildings){
+    const def=BUILDINGS[b.type];
+    if(def.workers>0){ b.staffed=Math.min(def.workers,Math.floor(s.pop.idle/2)); s.pop.idle-=b.staffed; }
+  }
+}
+function makeInitSettlement(name,isCapital){
+  return {
+    id:'s'+(Math.random().toString(36).slice(2,7)),
+    name,isCapital,
+    pop:{total:280,idle:24},popCap:300,
+    res:{food:800,wood:300,stone:120,cloth:40,coin:200},
+    cap:{food:500,wood:1000,stone:1000,cloth:500,coin:9999},
+    buildings:[],nextBldId:1,
+  };
+}
+function active(){ return state.settlements[state.activeId]; }
+function rand(){ return Math.random(); }
+function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+function aabbOverlap(a,b){
+  return Math.abs(a.x-b.x)<(a.w+b.w)/2 && Math.abs(a.y-b.y)<(a.h+b.h)/2;
+}
+
+function spawnBuilding(s,type,x,y){
+  const def=BUILDINGS[type];
+  const b={id:'b'+(s.nextBldId++),type,x,y,w:def.w,h:def.h,staffed:0};
+  s.buildings.push(b);
+  if(def.onBuild) def.onBuild(s,b);
+  return b;
+}
+
+/* 民心 */
+function addMorale(d){
+  const cap=60+aggregateModifier('country','morale_cap','add');
+  state.world.morale=clamp(state.world.morale+d,0,cap);
+}
+function moraleDrift(){
+  const drift=aggregateModifier('country','morale_drift','add');
+  const s=active();
+  if(s.res.food<10) return -0.4+drift;
+  if(s.res.food<30) return -0.05+drift;
+  const cap=60+aggregateModifier('country','morale_cap','add');
+  const target=cap*0.5;
+  if(state.world.morale<target) return 0.05+drift;
+  if(state.world.morale>target) return -0.02+drift;
+  return drift;
+}
+
+function log(text,kind){
+  const w=state.world;
+  w.log.unshift({t:`${SEASONS[w.season]}${w.month}/${(w.day-1)%30+1}`,text,kind:kind||''});
+  if(w.log.length>200) w.log.length=200;
+  renderLog();
+}
+
+/* 主循环 */
+let tickTimer=null;
+function startTick(){
+  if(tickTimer) clearInterval(tickTimer);
+  if(state.speed===0) return;
+  tickTimer=setInterval(tick,SPEED_MS[state.speed]);
+}
+function setSpeed(s){
+  state.speed=s;
+  document.querySelectorAll('#topbar .speed button').forEach(b=>b.classList.toggle('on',+b.dataset.s===s));
+  startTick();
+}
+function tick(){
+  const w=state.world;
+  w.day++;
+  if((w.day-1)%30===0){ w.month++; if(w.month>12) w.month=1; }
+  w.season=Math.floor(((w.day-1)%DAYS_PER_YEAR)/DAYS_PER_SEASON);
+
+  for(const id in w.modifiers){
+    const m=w.modifiers[id];
+    if(m.daysLeft!=null){
+      m.daysLeft--;
+      if(m.daysLeft<=0){ delete w.modifiers[id]; log('修正失效：'+(m.picture||id)); }
+    }
+  }
+  for(const id in w.activeEdicts){
+    const e=w.activeEdicts[id];
+    e.daysLeft--;
+    if(e.daysLeft<=0){
+      const ed=EDICTS.find(x=>x.id===id);
+      if(ed){ removeModifier('edict_'+id); if(ed.remove_effect) ed.remove_effect(); }
+      delete w.activeEdicts[id];
+    }
+  }
+
+  for(const s of state.settlements){
+    const yields={food:0,wood:0,stone:0,cloth:0,coin:0};
+    const consumes={food:0,wood:0,stone:0,cloth:0,coin:0};
+    for(const b of s.buildings){
+      const def=BUILDINGS[b.type];
+      if(!def.yield) continue;
+      const y=def.yield({world:w},b);
+      for(const k in y){
+        if(k==='_consume'){
+          for(const c in y._consume) consumes[c]=(consumes[c]||0)+y._consume[c];
+        } else {
+          yields[k]=(yields[k]||0)+y[k];
+        }
+      }
+    }
+    consumes.food+=s.pop.total*0.04;
+    const coinDrain=aggregateModifier('country','coin_drain','add');
+    if(coinDrain) consumes.coin+=coinDrain;
+    const speedMult=1+aggregateModifier('country','work_speed','mult');
+    for(const k in yields) yields[k]*=speedMult;
+    for(const k in yields){
+      s.res[k]=Math.min((s.res[k]||0)+yields[k]-(consumes[k]||0), s.cap[k]||9999);
+      if(s.res[k]<0) s.res[k]=0;
+    }
+  }
+
+  addMorale(moraleDrift());
+
+  if(w.focus.cur){
+    const def=FOCUS_CARDS[w.focus.cur];
+    const speed=1+aggregateModifier('country','focus_speed','mult');
+    w.focus.progress+=speed;
+    if(w.focus.progress>=def.cost){
+      log('国策成：「'+def.name+'」','pos');
+      if(def.onComplete) def.onComplete();
+      w.focus.done.push(w.focus.cur);
+      w.focus.cur=null; w.focus.progress=0;
+    }
+  }
+
+  for(const ev of DECISION_EVENTS){
+    if(w.decisionQueue.find(q=>q.id===ev.id)) continue;
+    if(w.flags['done_'+ev.id]) continue;
+    if(ev.cond && ev.cond()){
+      if(ev.immediate) ev.immediate();
+      w.decisionQueue.push({id:ev.id,daysLeft:ev.timeout_days||10});
+      log('朝议：'+ev.title,'ev');
+    }
+  }
+  for(let i=w.decisionQueue.length-1;i>=0;i--){
+    const q=w.decisionQueue[i];
+    q.daysLeft--;
+    if(q.daysLeft<=0){
+      const ev=DECISION_EVENTS.find(x=>x.id===q.id);
+      if(ev && ev.timeout_apply) ev.timeout_apply();
+      w.flags['done_'+q.id]=true;
+      w.decisionQueue.splice(i,1);
+    }
+  }
+
+  autoAssignWorkers();
+  renderTopBar(); renderRightPanel(); if(state.view==='set') renderStage();
+}
+
+function autoAssignWorkers(){
+  const speed=1+aggregateModifier('country','assign_speed','mult');
+  if(rand()>0.4*speed) return;
+  for(const s of state.settlements){
+    if(s.pop.idle<=0) continue;
+    let target=null,gap=0;
+    for(const b of s.buildings){
+      const def=BUILDINGS[b.type];
+      if(!def.workers) continue;
+      const g=def.workers-b.staffed;
+      if(g>gap){ gap=g; target=b; }
+    }
+    if(target){ target.staffed++; s.pop.idle--; }
+  }
+}
+
+/* 渲染 */
+const $=(s)=>document.querySelector(s);
+const stage=$('#stage');
+
+function renderTopBar(){
+  const w=state.world;
+  $('#tb-state').textContent='卫';
+  $('#tb-date').textContent=`${SEASONS[w.season]} ${w.month} 月 ${(w.day-1)%30+1} 日`;
+  $('#tb-morale').textContent=Math.round(w.morale);
+  const s=active();
+  $('#tb-pop').textContent=s.pop.total;
+  $('#tb-idle').textContent=s.pop.idle;
+  $('#tb-food').textContent=Math.round(s.res.food);
+  $('#tb-wood').textContent=Math.round(s.res.wood);
+  $('#tb-stone').textContent=Math.round(s.res.stone);
+  $('#tb-cloth').textContent=Math.round(s.res.cloth);
+  $('#tb-coin').textContent=Math.round(s.res.coin);
+  if(w.focus.cur){
+    const d=FOCUS_CARDS[w.focus.cur];
+    $('#pf-name').textContent=d.name;
+    $('#pf-prog').textContent=Math.round(w.focus.progress/d.cost*100)+'%';
+  } else {
+    $('#pf-name').textContent='—'; $('#pf-prog').textContent='点击择策';
+  }
+  $('#pt-n').textContent=w.tradeRoutes.length;
+}
+
+function renderRightPanel(){
+  const s=active();
+  const ys={};
+  for(const b of s.buildings){
+    const def=BUILDINGS[b.type];
+    if(!def.yield) continue;
+    const y=def.yield({world:state.world},b);
+    for(const k in y){
+      if(k==='_consume'){
+        for(const c in y._consume) ys[c]=(ys[c]||0)-y._consume[c];
+      } else {
+        ys[k]=(ys[k]||0)+y[k];
+      }
+    }
+  }
+  const speedMult=1+aggregateModifier('country','work_speed','mult');
+  let html='';
+  const NM={food:'🌾粮',wood:'🪵木',stone:'🪨石',cloth:'🧵布',coin:'🪙钱'};
+  for(const k of ['food','wood','stone','cloth','coin']){
+    const v=(ys[k]||0)*speedMult;
+    if(Math.abs(v)<0.01) continue;
+    const cls=v>0?'pos':'neg';
+    html+=`<div class="row"><span>${NM[k]}</span><b class="${cls}">${v>0?'+':''}${v.toFixed(1)}/日</b></div>`;
+  }
+  // 人口净食
+  const popEat=-s.pop.total*0.04;
+  html+=`<div class="row"><span>人口日耗</span><b class="neg">${popEat.toFixed(1)}/日</b></div>`;
+  $('#ib-yield-rows').innerHTML=html||'<div class="row" style="color:var(--ink-soft)">尚无产出</div>';
+
+  let mh='';
+  for(const id in state.world.modifiers){
+    const m=state.world.modifiers[id];
+    const tag=m.picture||id;
+    const left=m.daysLeft==null?'永久':(m.daysLeft+'日');
+    mh+=`<div class="row"><span>${tag}</span><b style="color:var(--ink-soft)">${left}</b></div>`;
+  }
+  for(const id in state.world.activeEdicts){
+    const e=state.world.activeEdicts[id];
+    const ed=EDICTS.find(x=>x.id===id);
+    if(ed) mh+=`<div class="row"><span>${ed.icon} ${ed.name}（朝令）</span><b style="color:var(--gold-2)">${e.daysLeft}日</b></div>`;
+  }
+  $('#ib-mod-rows').innerHTML=mh||'<div class="row" style="color:var(--ink-soft)">无</div>';
+
+  const w=state.world;
+  let dh='';
+  for(const q of w.decisionQueue){
+    const ev=DECISION_EVENTS.find(x=>x.id===q.id);
+    if(ev) dh+=`<div class="row" style="cursor:pointer;color:var(--bad)" data-dec="${ev.id}"><span>· ${ev.title}</span><b>${q.daysLeft}日</b></div>`;
+  }
+  $('#ib-decision-rows').innerHTML=dh||'无';
+  $('#ib-decision-rows').querySelectorAll('[data-dec]').forEach(el=>{
+    el.onclick=()=>showDecisionModal(el.dataset.dec);
+  });
+}
+
+function renderLog(){
+  const box=$('#log-box');
+  if(!box) return;
+  box.innerHTML=state.world.log.slice(0,80).map(e=>
+    `<div class="e ${e.kind}"><span class="t">[${e.t}]</span>${e.text}</div>`
+  ).join('');
+}
+
+function renderStage(){
+  if(state.view==='set') renderSettlement();
+  else renderWorldMap();
+}
+
+function renderSettlement(){
+  const s=active();
+  const z=state.zoom;
+  let body=`<g transform="translate(${state.panX},${state.panY}) scale(${z})">`;
+  body+=`<rect x="0" y="0" width="${STAGE_W}" height="${STAGE_H}" fill="url(#grassGrad)"/>`;
+  body+=terrainPatterns();
+  body+=`<rect x="0" y="395" width="${STAGE_W}" height="14" fill="#a89070" opacity=".7"/>`;
+  body+=`<rect x="593" y="0" width="14" height="${STAGE_H}" fill="#a89070" opacity=".7"/>`;
+  for(const b of s.buildings) body+=renderBuilding(b);
+  body+=`<text class="cap" x="600" y="120">${s.name}</text>`;
+  if(state.placement) body+=renderPlacementPreview();
+  body+=`</g>`;
+  const defs=`<defs>
+    <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cfe0a8"/><stop offset="1" stop-color="#a7c27a"/>
+    </linearGradient>
+    <pattern id="trees" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="6" fill="#5d8042" opacity=".5"/>
+      <circle cx="45" cy="40" r="5" fill="#6f9555" opacity=".5"/>
+    </pattern>
+    ${buildingSymbols()}
+  </defs>`;
+  stage.innerHTML=defs+body;
+  installSettlementEvents();
+}
+
+function terrainPatterns(){
+  return `
+    <rect x="0" y="0" width="240" height="180" fill="url(#trees)" opacity=".55"/>
+    <rect x="980" y="620" width="220" height="180" fill="url(#trees)" opacity=".55"/>
+    <ellipse cx="120" cy="700" rx="90" ry="50" fill="#6ea7c0" opacity=".6"/>
+    <text x="120" y="710" font-size="11" fill="#fff" text-anchor="middle" opacity=".8">塘</text>
+  `;
+}
+
+function buildingSymbols(){
+  return `
+    <symbol id="sym-guodu" viewBox="0 0 80 80">
+      <rect class="base" x="6" y="30" width="68" height="44" fill="#a37340" stroke="#5a3a22" stroke-width="2"/>
+      <polygon points="0,30 80,30 70,8 10,8" fill="#7a4f30" stroke="#3e2410" stroke-width="2"/>
+      <polygon points="35,8 45,8 40,0" fill="#c89a3a"/>
+      <rect x="32" y="48" width="16" height="26" fill="#3e2410"/>
+      <rect x="14" y="40" width="10" height="10" fill="#fff5d0" stroke="#5a3a22"/>
+      <rect x="56" y="40" width="10" height="10" fill="#fff5d0" stroke="#5a3a22"/>
+    </symbol>
+    <symbol id="sym-minli" viewBox="0 0 48 48">
+      <rect class="base" x="4" y="22" width="40" height="22" fill="#caa874" stroke="#5a3a22" stroke-width="1.5"/>
+      <polygon points="0,22 48,22 40,8 8,8" fill="#8b5a3c" stroke="#3e2410" stroke-width="1.5"/>
+      <rect x="20" y="30" width="8" height="14" fill="#3e2410"/>
+    </symbol>
+    <symbol id="sym-liangtian" viewBox="0 0 64 48">
+      <rect class="base" x="2" y="2" width="60" height="44" fill="#caa874" stroke="#7a4f30" stroke-width="1.5"/>
+      <line x1="2" y1="14" x2="62" y2="14" stroke="#7a4f30" stroke-width="1"/>
+      <line x1="2" y1="26" x2="62" y2="26" stroke="#7a4f30" stroke-width="1"/>
+      <line x1="2" y1="38" x2="62" y2="38" stroke="#7a4f30" stroke-width="1"/>
+      <text x="32" y="30" font-size="14" text-anchor="middle">🌾</text>
+    </symbol>
+    <symbol id="sym-cangku" viewBox="0 0 48 48">
+      <rect class="base" x="4" y="14" width="40" height="32" fill="#b8851f" stroke="#5a3a22" stroke-width="1.5"/>
+      <polygon points="0,14 48,14 40,2 8,2" fill="#c89a3a" stroke="#3e2410" stroke-width="1.5"/>
+      <rect x="20" y="26" width="8" height="20" fill="#3e2410"/>
+      <text x="24" y="40" font-size="11" text-anchor="middle">廪</text>
+    </symbol>
+    <symbol id="sym-fangwu" viewBox="0 0 56 48">
+      <rect class="base" x="4" y="20" width="48" height="24" fill="#8b5a3c" stroke="#3e2410" stroke-width="1.5"/>
+      <polygon points="0,20 56,20 46,6 10,6" fill="#5a3a22"/>
+      <rect x="14" y="28" width="6" height="6" fill="#3e2410"/>
+      <rect x="36" y="28" width="6" height="6" fill="#3e2410"/>
+      <text x="28" y="40" font-size="10" fill="#fff" text-anchor="middle">匠</text>
+    </symbol>
+    <symbol id="sym-zhiguan" viewBox="0 0 56 48">
+      <rect class="base" x="4" y="18" width="48" height="26" fill="#b9a577" stroke="#5a3a22" stroke-width="1.5"/>
+      <polygon points="0,18 56,18 46,4 10,4" fill="#7a4f30"/>
+      <rect x="22" y="28" width="6" height="16" fill="#3e2410"/>
+      <text x="40" y="36" font-size="14" text-anchor="middle">🧵</text>
+    </symbol>
+    <symbol id="sym-shisi" viewBox="0 0 56 48">
+      <rect class="base" x="4" y="14" width="48" height="30" fill="#caa874" stroke="#5a3a22" stroke-width="1.5"/>
+      <polygon points="0,14 56,14 46,0 10,0" fill="#8b5a3c"/>
+      <rect x="14" y="22" width="28" height="14" fill="#fff5d0" stroke="#7a4f30"/>
+      <text x="28" y="33" font-size="11" text-anchor="middle">市</text>
+    </symbol>
+    <symbol id="sym-bianjun" viewBox="0 0 64 56">
+      <rect class="base" x="6" y="20" width="52" height="34" fill="#7a4f30" stroke="#3e2410" stroke-width="2"/>
+      <polygon points="0,20 64,20 32,2" fill="#3e2410"/>
+      <rect x="20" y="32" width="6" height="22" fill="#1d1106"/>
+      <rect x="38" y="32" width="6" height="22" fill="#1d1106"/>
+      <text x="32" y="14" font-size="14" text-anchor="middle" fill="#c89a3a">⚔</text>
+    </symbol>
+    <symbol id="sym-xueguan" viewBox="0 0 64 56">
+      <rect class="base" x="4" y="22" width="56" height="32" fill="#dfc593" stroke="#5a3a22" stroke-width="1.5"/>
+      <polygon points="0,22 64,22 54,4 10,4" fill="#8b5a3c"/>
+      <rect x="28" y="32" width="8" height="22" fill="#3e2410"/>
+      <text x="32" y="48" font-size="11" fill="#fff" text-anchor="middle">学</text>
+    </symbol>
+    <symbol id="sym-yiguan" viewBox="0 0 48 48">
+      <rect class="base" x="4" y="18" width="40" height="26" fill="#b9a577" stroke="#5a3a22" stroke-width="1.5"/>
+      <polygon points="0,18 48,18 40,4 8,4" fill="#7a4f30"/>
+      <rect x="20" y="26" width="8" height="6" fill="#bb1818"/>
+      <rect x="16" y="28" width="16" height="2" fill="#bb1818"/>
+      <text x="24" y="42" font-size="10" fill="#fff" text-anchor="middle">医</text>
+    </symbol>
+  `;
+}
+
+function renderBuilding(b){
+  const def=BUILDINGS[b.type];
+  const x=b.x-b.w/2,y=b.y-b.h/2;
+  const sel=state.selectedBldId===b.id?'sel':'';
+  const need=def.workers||0;
+  const stf=b.staffed||0;
+  const lblY=b.y+b.h/2+12;
+  const staffStr=need>0?` ${stf}/${need}`:'';
+  return `<g class="bld ${sel}" data-bid="${b.id}">
+    <use href="#sym-${def.icon}" x="${x}" y="${y}" width="${b.w}" height="${b.h}"/>
+    <text class="label" x="${b.x}" y="${lblY}">${def.name}${staffStr}</text>
+  </g>`;
+}
+
+function renderPlacementPreview(){
+  const p=state.placement;
+  if(!p.x) return '';
+  const def=BUILDINGS[p.type];
+  const valid=isPlacementValid(p.type,p.x,p.y);
+  const cls=valid?'preview-ok':'preview-bad';
+  return `<rect class="${cls}" x="${p.x-def.w/2}" y="${p.y-def.h/2}" width="${def.w}" height="${def.h}"/>
+    <text x="${p.x}" y="${p.y}" font-size="11" text-anchor="middle" fill="${valid?'var(--good)':'var(--bad)'}">${def.name}</text>`;
+}
+
+function isPlacementValid(type,x,y){
+  const def=BUILDINGS[type];
+  if(x-def.w/2<0||x+def.w/2>STAGE_W) return false;
+  if(y-def.h/2<0||y+def.h/2>STAGE_H) return false;
+  const probe={x,y,w:def.w,h:def.h};
+  const s=active();
+  for(const b of s.buildings){
+    if(aabbOverlap(probe,{x:b.x,y:b.y,w:b.w,h:b.h})) return false;
+  }
+  return true;
+}
+
+function renderWorldMap(){
+  let body=`<rect x="0" y="0" width="${STAGE_W}" height="${STAGE_H}" fill="url(#worldGrad)"/>`;
+  body+=`<path d="M0,500 Q300,460 600,500 T1200,520" stroke="#6ea7c0" stroke-width="6" fill="none" opacity=".7"/>`;
+  for(const tr of state.world.tradeRoutes){
+    const a=REGIONS[tr.from],b=REGIONS[tr.to];
+    if(!a||!b) continue;
+    body+=`<path class="trade-line" d="M${a.x},${a.y} L${b.x},${b.y}"/>`;
+  }
+  for(const id in REGIONS){
+    const r=REGIONS[id];
+    let cls='region ';
+    if(r.self) cls+='self';
+    else if(state.world.knownRegions.includes(id)) cls+='known';
+    else cls+='unknown';
+    body+=`<g class="${cls}" data-rid="${id}">
+      <path d="${r.path}"/>
+      <text x="${r.x}" y="${r.y}">${r.name}</text>
+      ${r.self?`<text x="${r.x}" y="${r.y+18}" font-size="10" fill="#5a3a22">国都·${active().name}</text>`:''}
+    </g>`;
+  }
+  const defs=`<defs>
+    <linearGradient id="worldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e6d2a8"/><stop offset="1" stop-color="#caa874"/>
+    </linearGradient>
+  </defs>`;
+  stage.innerHTML=defs+body;
+  stage.querySelectorAll('.region').forEach(g=>{
+    g.onclick=()=>{
+      const id=g.dataset.rid;
+      if(REGIONS[id].self) log('国都已是「'+REGIONS[id].name+'」。');
+      else if(state.world.knownRegions.includes(id)) log('「'+REGIONS[id].name+'」尚无可议之事。');
+      else log('未识此邦。','ev');
+    };
+  });
+}
+
+function installSettlementEvents(){
+  stage.querySelectorAll('.bld').forEach(g=>{
+    g.onclick=(e)=>{
+      e.stopPropagation();
+      if(state.placement) return;
+      state.selectedBldId=(state.selectedBldId===g.dataset.bid)?null:g.dataset.bid;
+      renderStage();
+    };
+  });
+}
+
+stage.addEventListener('mousemove',(e)=>{
+  if(!state.placement) return;
+  const r=stage.getBoundingClientRect();
+  const sx=(e.clientX-r.left)*(STAGE_W/r.width);
+  const sy=(e.clientY-r.top)*(STAGE_H/r.height);
+  state.placement.x=Math.round(sx/SNAP)*SNAP;
+  state.placement.y=Math.round(sy/SNAP)*SNAP;
+  if(state.view==='set') renderStage();
+});
+stage.addEventListener('click',(e)=>{
+  if(!state.placement) return;
+  const p=state.placement;
+  if(!p.x) return;
+  if(!isPlacementValid(p.type,p.x,p.y)){ log('此处不可营造。','ev'); return; }
+  const def=BUILDINGS[p.type];
+  const s=active();
+  if(def.uniq && s.buildings.find(b=>b.type===p.type)){ log(def.name+' 限建一座。','ev'); return; }
+  if(def.limit && s.buildings.filter(b=>b.type===p.type).length>=def.limit){ log(def.name+' 已达上限。','ev'); return; }
+  for(const k in def.cost){ if((s.res[k]||0)<def.cost[k]){ log('物料不足。','ev'); return; } }
+  for(const k in def.cost) s.res[k]-=def.cost[k];
+  spawnBuilding(s,p.type,p.x,p.y);
+  log('营造：'+def.name,'pos');
+  state.placement=null;
+  document.querySelectorAll('.build-item.selected').forEach(el=>el.classList.remove('selected'));
+  renderStage(); renderTopBar(); renderRightPanel();
+});
+window.addEventListener('keydown',(e)=>{
+  if(e.key==='Escape'){
+    state.placement=null;
+    if(state.view==='set') renderStage();
+    document.querySelectorAll('.build-item.selected').forEach(el=>el.classList.remove('selected'));
+  }
+  if(/^[1234]$/.test(e.key)){ setSpeed(+e.key); }
+});
+
+function renderBuildList(){
+  let html='';
+  for(const cat of BLD_CATS){
+    html+=`<div class="build-cat"><div class="label">${cat}</div>`;
+    for(const id in BUILDINGS){
+      const def=BUILDINGS[id];
+      if(def.cat!==cat) continue;
+      const cs=Object.entries(def.cost||{}).map(([k,v])=>`${({food:'粮',wood:'木',stone:'石',cloth:'布',coin:'钱'})[k]||k}${v}`).join(' ')||'—';
+      html+=`<div class="build-item" data-bld="${id}">
+        <svg class="ic" viewBox="0 0 ${def.w} ${def.h}"><use href="#sym-${def.icon}" x="0" y="0" width="${def.w}" height="${def.h}"/></svg>
+        <div style="flex:1"><div class="nm">${def.name}</div><div class="cs">${cs}</div></div>
+      </div>`;
+    }
+    html+=`</div>`;
+  }
+  $('#buildList').innerHTML=html;
+  $('#buildList').querySelectorAll('.build-item').forEach(el=>{
+    el.onclick=()=>{
+      document.querySelectorAll('.build-item.selected').forEach(x=>x.classList.remove('selected'));
+      el.classList.add('selected');
+      state.placement={type:el.dataset.bld,x:0,y:0};
+    };
+  });
+}
+
+/* 模态 */
+const modalRoot=$('#modalRoot');
+let modalStack=[],speedRestore=null;
+function openModal(html,onClose){
+  if(modalStack.length===0){ speedRestore=state.speed; setSpeed(0); }
+  const bg=document.createElement('div');
+  bg.className='modal-bg';
+  bg.innerHTML=html;
+  modalRoot.appendChild(bg);
+  modalStack.push({el:bg,onClose});
+  bg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeModal());
+  bg.addEventListener('click',(e)=>{ if(e.target===bg) closeModal(); });
+}
+function closeModal(){
+  const top=modalStack.pop();
+  if(!top) return;
+  if(top.onClose) top.onClose();
+  modalRoot.removeChild(top.el);
+  if(modalStack.length===0 && speedRestore!=null){ setSpeed(speedRestore); speedRestore=null; }
+}
+
+function showDecisionModal(id){
+  const ev=DECISION_EVENTS.find(x=>x.id===id);
+  if(!ev) return;
+  const q=state.world.decisionQueue.find(q=>q.id===id);
+  const days=q?q.daysLeft:'—';
+  let opts='';
+  ev.options.forEach((opt,i)=>{
+    const ok=opt.enabled?opt.enabled():true;
+    opts+=`<div class="opt ${ok?'':'dis'}" data-oi="${i}">
+      <div><div class="lbl">${opt.label}</div><div class="hint">${opt.hint||''}</div></div>
+    </div>`;
+  });
+  openModal(`<div class="modal">
+    <div class="mh">朝议 · ${ev.title} <button data-close>关闭</button></div>
+    <div class="mb">
+      <div class="mt">${ev.desc}<br/><br/><b>剩余：${days} 日</b>　逾期则朝政自决。</div>
+      <div class="opts">${opts}</div>
+    </div>
+  </div>`);
+  modalStack[modalStack.length-1].el.querySelectorAll('.opt').forEach(el=>{
+    if(el.classList.contains('dis')) return;
+    el.onclick=()=>{
+      const i=+el.dataset.oi;
+      const opt=ev.options[i];
+      opt.apply();
+      const idx=state.world.decisionQueue.findIndex(q=>q.id===id);
+      if(idx>=0) state.world.decisionQueue.splice(idx,1);
+      state.world.flags['done_'+id]=true;
+      log('朝议「'+ev.title+'」议定：'+opt.label,'pos');
+      closeModal();
+      renderTopBar(); renderRightPanel();
+    };
+  });
+}
+
+function showEdictModal(){
+  let opts='';
+  for(const ed of EDICTS){
+    if(!ed.potential()) continue;
+    const ok=ed.allow();
+    const has=state.world.activeEdicts[ed.id];
+    const cs=Object.entries(ed.cost).map(([k,v])=>`${({food:'粮',wood:'木',stone:'石',cloth:'布',coin:'钱'})[k]}${v}`).join(' ');
+    const tag=has?`<span class="right">行中 · ${has.daysLeft}日</span>`:`<span class="right">${cs}</span>`;
+    opts+=`<div class="opt ${ok&&!has?'':'dis'}" data-eid="${ed.id}">
+      <div><div class="lbl">${ed.icon} ${ed.name}</div><div class="hint">${ed.desc}</div></div>
+      ${tag}
+    </div>`;
+  }
+  openModal(`<div class="modal">
+    <div class="mh">朝令 · 颁诏 <button data-close>关闭</button></div>
+    <div class="mb"><div class="mt">朝令为君主主动颁诏，付出物料以驱动一段时期内的政情变化。</div>
+      <div class="opts">${opts}</div></div>
+  </div>`);
+  modalStack[modalStack.length-1].el.querySelectorAll('.opt').forEach(el=>{
+    if(el.classList.contains('dis')) return;
+    el.onclick=()=>{
+      const ed=EDICTS.find(x=>x.id===el.dataset.eid);
+      const s=active();
+      for(const k in ed.cost){ s.res[k]-=ed.cost[k]; }
+      addModifier('edict_'+ed.id,ed.modifier,ed.days_remove,'edict',ed.name);
+      state.world.activeEdicts[ed.id]={daysLeft:ed.days_remove};
+      if(ed.on_apply) ed.on_apply();
+      closeModal();
+      renderTopBar(); renderRightPanel();
+    };
+  });
+}
+
+function showFocusModal(){
+  const branches=['农桑','工坊','礼制','保甲'];
+  let curBranch=branches[0];
+  const w=state.world;
+  const render=()=>{
+    let tabs=branches.map(b=>`<button class="${b===curBranch?'on':''}" data-tab="${b}">${b}</button>`).join('');
+    const total=Object.values(FOCUS_CARDS).filter(c=>c.branch===curBranch).length;
+    const done=Object.entries(FOCUS_CARDS).filter(([id,c])=>c.branch===curBranch && w.focus.done.includes(id)).length;
+    tabs+=`<span class="progress">${done}/${total}</span>`;
+    const cardEntries=Object.entries(FOCUS_CARDS).filter(([id,c])=>c.branch===curBranch);
+    const W=520,H=320;
+    const cellW=120,cellH=90,offX=60,offY=40;
+    let svg='';
+    for(const [id,c] of cardEntries){
+      for(const pre of c.prereq){
+        const p=FOCUS_CARDS[pre];
+        if(!p) continue;
+        const x1=offX+p.x*cellW+50, y1=offY+p.y*cellH+50;
+        const x2=offX+c.x*cellW+50, y2=offY+c.y*cellH+10;
+        const cls=w.focus.done.includes(pre)&&w.focus.done.includes(id)?'focus-link done':'focus-link';
+        svg+=`<path class="${cls}" d="M${x1},${y1} C${x1},${(y1+y2)/2} ${x2},${(y1+y2)/2} ${x2},${y2}"/>`;
+      }
+    }
+    for(const [id,c] of cardEntries){
+      const x=offX+c.x*cellW, y=offY+c.y*cellH;
+      const isDone=w.focus.done.includes(id);
+      const isCur=w.focus.cur===id;
+      const prereqOk=c.prereq.every(p=>w.focus.done.includes(p));
+      const cls='focus-node '+(isDone?'done':isCur?'cur':!prereqOk?'lock':'');
+      svg+=`<g class="${cls}" data-fid="${id}" style="cursor:pointer">
+        <rect x="${x}" y="${y}" width="100" height="60" rx="6" ry="6"/>
+        <text class="ic" x="${x+50}" y="${y+22}">${c.icon||'·'}</text>
+        <text x="${x+50}" y="${y+44}">${c.name}</text>
+      </g>`;
+    }
+    let curHtml='';
+    if(w.focus.cur){
+      const d=FOCUS_CARDS[w.focus.cur];
+      curHtml=`<div class="focus-detail"><b>研习中：</b>${d.name}（${Math.round(w.focus.progress)}/${d.cost} 日）<br/>${d.desc}</div>`;
+    } else {
+      curHtml=`<div class="focus-detail" style="color:var(--ink-soft)">点击节点择策。研习时一日推进一格，可被学宫与求贤朝令加速。</div>`;
+    }
+    const html=`<div class="modal" style="min-width:600px">
+      <div class="mh">国策树 <button data-close>关闭</button></div>
+      <div class="mb">
+        <div class="focus-tabs">${tabs}</div>
+        <svg id="focusSvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>
+        ${curHtml}
+      </div>
+    </div>`;
+    if(modalStack.length===0){ openModal(html); }
+    else { modalStack[modalStack.length-1].el.innerHTML=html; }
+    const root=modalStack[modalStack.length-1].el;
+    root.querySelector('[data-close]').onclick=closeModal;
+    root.addEventListener('click',(e)=>{ if(e.target===root) closeModal(); });
+    root.querySelectorAll('.focus-tabs button[data-tab]').forEach(b=>b.onclick=()=>{ curBranch=b.dataset.tab; render(); });
+    root.querySelectorAll('.focus-node').forEach(n=>{
+      n.onclick=()=>{
+        const id=n.dataset.fid;
+        const c=FOCUS_CARDS[id];
+        if(w.focus.done.includes(id)){ log('「'+c.name+'」已成。'); return; }
+        if(!c.prereq.every(p=>w.focus.done.includes(p))){ log('前策未成。','ev'); return; }
+        if(w.focus.cur===id) return;
+        if(w.focus.cur){ log('已有研习中之策。'); return; }
+        w.focus.cur=id; w.focus.progress=0;
+        log('择策：'+c.name,'pos');
+        render();
+      };
+    });
+  };
+  render();
+}
+
+function bindUI(){
+  document.querySelectorAll('#topbar .speed button').forEach(b=>{
+    b.onclick=()=>setSpeed(+b.dataset.s);
+  });
+  $('#vt-set').onclick=()=>{ state.view='set'; $('#vt-set').classList.add('on'); $('#vt-world').classList.remove('on'); renderStage(); };
+  $('#vt-world').onclick=()=>{ state.view='world'; $('#vt-world').classList.add('on'); $('#vt-set').classList.remove('on'); renderStage(); };
+  $('#zin').onclick=()=>{ state.zoom=Math.min(2,state.zoom*1.2); renderStage(); };
+  $('#zout').onclick=()=>{ state.zoom=Math.max(0.5,state.zoom/1.2); renderStage(); };
+  $('#zrst').onclick=()=>{ state.zoom=1; state.panX=0; state.panY=0; renderStage(); };
+  $('#pill-tree').onclick=showFocusModal;
+  $('#pill-edict').onclick=showEdictModal;
+  $('#pill-focus').onclick=showFocusModal;
+  $('#pill-trade').onclick=()=>{ $('#vt-world').click(); };
+}
+
+function boot(){
+  createInitialState();
+  log('天命既新，邦号「卫」立。','pos');
+  log('左栏择物营造；中部「国策树」择策；右栏出朝议时点击议定；上方「朝令」可主动颁诏。');
+  bindUI();
+  renderBuildList();
+  renderStage();
+  renderTopBar();
+  renderRightPanel();
+  renderLog();
+  setSpeed(1);
+}
+window.addEventListener('load',boot);
+</script>
+</body>
+</html>
