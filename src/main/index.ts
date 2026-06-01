@@ -102,6 +102,10 @@ function createWindow(): void {
     // 且这是已知能稳定工作的静态状态，绕开会爆的切换。窗口尺寸已是最大化，Phaser 启动即按此尺寸 boot。
     mainWindow?.maximize();
     mainWindow?.show();
+    // DeepSeek 复审[critical]：maximize 的 IPC 可能早于渲染层订阅 onWindowResized 而丢失。
+    // 虽然 Phaser boot 时会读到已最大化的 parent 尺寸（通常没事），仍补一次延迟重推，
+    // 确保渲染层订阅就绪后拿到一次权威尺寸。
+    setTimeout(() => sendCleanSize('initial-resync'), 500);
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

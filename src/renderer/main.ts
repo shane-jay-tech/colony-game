@@ -101,6 +101,10 @@ function setupElectronDrivenResize(): void {
     // 对策：① 停掉 Phaser 自动监听；② 改由 Electron 主进程在 maximize/unmaximize/resize **完成后**
     // 推来的"干净最终尺寸"，手动 game.scale.resize()（不是 refresh()——resize 直接定 game size，
     // 不读可能过时的 parent bounds）。这样 ScaleManager 永远只见到稳定尺寸，杜绝中间帧污染。
+    // DeepSeek 复审[design]：stopListeners 会一并移除 Phaser 的 visibilitychange/fullscreenchange/
+    // orientationchange 监听。本作 fullscreen 已禁、桌面无 orientation；仅"窗口隐藏时自动暂停"
+    // (visibilitychange) 失去——但 webPreferences.backgroundThrottling=false + 游戏自带暂停，
+    // 影响仅为最小化时仍空转，可接受。换取的是彻底切断那条会拿退化帧的自动 resize 路径。
     game.scale.stopListeners();
 
     const api = (window as unknown as {

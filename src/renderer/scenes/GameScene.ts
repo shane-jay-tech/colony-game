@@ -404,8 +404,11 @@ export class GameScene extends Phaser.Scene {
       this.mapRenderer?.rebuildAfterResize();
       this.invalidateHoverCache();
       this.resizeDebounce = null;
+      // DeepSeek 复审[perf]：debounce 正常触发即已 rebuild 到终态，取消冗余的安全网，
+      // 避免一次 resize 重烘焙两遍（80ms + 280ms）。真有更晚的 resize 会再 arm 一次。
+      if (this.resizeSafetyNet !== null) { window.clearTimeout(this.resizeSafetyNet); this.resizeSafetyNet = null; }
     }, 80);
-    // 280ms 安全网：maximize 动画结束后再 rebuild 一次，确保停在正确终态
+    // 280ms 安全网：仅当 debounce 因故未触发时兜底（正常路径会被上面清掉）
     if (this.resizeSafetyNet !== null) window.clearTimeout(this.resizeSafetyNet);
     this.resizeSafetyNet = window.setTimeout(() => {
       this.mapRenderer?.rebuildAfterResize();
