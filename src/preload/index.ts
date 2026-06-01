@@ -8,6 +8,16 @@ const api = {
     ipcRenderer.invoke('load-game', slot),
   listSaves: (): Promise<string[]> =>
     ipcRenderer.invoke('list-saves'),
+  /** 主进程在窗口 maximize/unmaximize/resize 完成后推送"干净"的内容尺寸；
+   *  渲染层据此手动 game.scale.resize()，绕开 Phaser RESIZE 自动监听拿到的退化中间帧。
+   *  返回取消订阅函数。 */
+  onWindowResized: (
+    cb: (size: { w: number; h: number; cause: string }) => void,
+  ): (() => void) => {
+    const listener = (_e: unknown, data: { w: number; h: number; cause: string }): void => cb(data);
+    ipcRenderer.on('window-resized', listener);
+    return () => ipcRenderer.removeListener('window-resized', listener);
+  },
 };
 
 if (process.contextIsolated) {

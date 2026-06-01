@@ -71,6 +71,8 @@ export class MapRenderer {
   private readonly width: number;
   private readonly height: number;
   private readonly scene: Phaser.Scene;
+  /** 持有 accessor 以便窗口 resize 后重烘焙 RT（清掉可能被 renderer resize 污染的 framebuffer） */
+  private readonly accessor: WorldMapAccessor;
   private destroyed = false;
   /** v0.9：可见视口 mask graphic（不渲染，仅作为 GeometryMask 形状源）。所有地图层 + sigil + pulse 走它。 */
   private viewportMaskGfx: Phaser.GameObjects.Graphics | null = null;
@@ -236,11 +238,25 @@ export class MapRenderer {
     this.recenter();
   }
 
+  /**
+   * 窗口画布尺寸切换（maximize↔窗口化）后调：重新居中 + **重烘焙地貌/散布/资源点**。
+   * renderer.resize() 理论上不毁 RT 的独立 framebuffer，但 Windows ANGLE 上切换瞬间可能留下
+   * 损坏状态——重烘焙是廉价且确定的"复位"（仅真实 resize 时调，不在面板折叠时调）。
+   */
+  rebuildAfterResize(): void {
+    if (this.destroyed) return;
+    this.recenter();
+    this.bakeTerrain(this.accessor);
+    this.bakeScatter(this.accessor);
+    this.bakeResourceNodes(this.accessor);
+  }
+
   constructor(scene: Phaser.Scene, accessor: WorldMapAccessor) {
     const dim = accessor.getDimensions();
     this.width = dim.width;
     this.height = dim.height;
     this.scene = scene;
+    this.accessor = accessor;
 
     // 居中：地图放在"可用区域"（扣 HUD + 左右面板）中央，避免视觉黑边
     const cam = scene.cameras.main;

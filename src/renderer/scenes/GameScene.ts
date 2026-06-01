@@ -400,14 +400,15 @@ export class GameScene extends Phaser.Scene {
     // recenter 走 80ms debounce —— rapid resize 期间不反复重画 mask
     if (this.resizeDebounce !== null) window.clearTimeout(this.resizeDebounce);
     this.resizeDebounce = window.setTimeout(() => {
-      this.mapRenderer?.recenter();
+      // 真实画布 resize：重居中 + 重烘焙地貌/散布 RT（清掉切换可能污染的 framebuffer）
+      this.mapRenderer?.rebuildAfterResize();
       this.invalidateHoverCache();
       this.resizeDebounce = null;
     }, 80);
-    // 280ms 安全网：maximize 动画结束后再 recenter 一次
+    // 280ms 安全网：maximize 动画结束后再 rebuild 一次，确保停在正确终态
     if (this.resizeSafetyNet !== null) window.clearTimeout(this.resizeSafetyNet);
     this.resizeSafetyNet = window.setTimeout(() => {
-      this.mapRenderer?.recenter();
+      this.mapRenderer?.rebuildAfterResize();
       this.invalidateHoverCache();
       this.resizeSafetyNet = null;
     }, 280);

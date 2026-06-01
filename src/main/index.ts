@@ -84,6 +84,18 @@ function createWindow(): void {
     }
   });
 
+  // 窗口尺寸变化（含 maximize/unmaximize 切换）后，把**最终稳定**的内容尺寸推给渲染层。
+  // 渲染层据此手动 scale.resize()，绕开 Phaser RESIZE 自动监听在切换瞬间拿到的退化中间帧
+  // （那正是"切换瞬间画面畸变 + 卡死不可恢复"的根因）。用 getContentSize（不含边框）。
+  const sendCleanSize = (cause: string): void => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const [w, h] = mainWindow.getContentSize();
+    if (w > 0 && h > 0) mainWindow.webContents.send('window-resized', { w, h, cause });
+  };
+  mainWindow.on('maximize', () => sendCleanSize('maximize'));
+  mainWindow.on('unmaximize', () => sendCleanSize('unmaximize'));
+  mainWindow.on('resize', () => sendCleanSize('resize'));
+
   mainWindow.on('ready-to-show', () => {
     // 实测：静态最大化渲染正常，只有"最大化↔窗口化切换的瞬间"会因 Phaser RESIZE 拿到
     // 退化中间帧导致画布缓冲与显示尺寸脱钩、画面畸变卡死。故默认开就最大化——直接给大视野，

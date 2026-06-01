@@ -93,33 +93,52 @@ setupGlobalTextResolution();
  * 缩放路径都能触发），强制 game.scale.refresh() 让 Phaser 重新读 parent 尺寸 +
  * 重发 'resize' 事件给所有 scene。绕开 Phaser/Chromium 内部事件链不可靠性。
  */
-function setupBulletproofResize(): void {
+function setupElectronDrivenResize(): void {
   game.events.once(Phaser.Core.Events.READY, () => {
-    const container = document.getElementById('game-container');
-    if (!container || typeof ResizeObserver === 'undefined') return;
-    // v1.0 hotfix：maximize/restore 时 Windows 动画会喷一连串 resize 事件（含 0×0 / 中间尺寸的
-    // 退化帧），RESIZE 模式逐帧 refresh 会拿到退化帧触发 layout 抖动甚至卡死。改成**尾随防抖**：
-    // 等缩放活动停下 120ms 再一次性 refresh，且跳过 0×0 / 尺寸未变的帧——把动画风暴塌缩成一次干净刷新。
-    let timer = 0;
-    let lastW = 0;
-    let lastH = 0;
-    const ro = new ResizeObserver(() => {
-      if (timer) window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        timer = 0;
-        const w = container.clientWidth;
-        const h = container.clientHeight;
-        if (w <= 0 || h <= 0) return;          // 退化中间帧：忽略
-        if (w === lastW && h === lastH) return; // 尺寸没变：不刷
-        lastW = w;
-        lastH = h;
-        if (game.scale) game.scale.refresh();
-      }, 120);
-    });
-    ro.observe(container);
+    // 关键修复（2026-06-02）：Phaser RESIZE 模式自带的 window.resize 监听，在 Electron
+    // maximize↔窗口化"切换瞬间"会拿到退化中间帧（0×0/旧尺寸/DPR 抖动），污染 ScaleManager
+    // 内部状态导致画布与显示尺寸脱钩、画面畸变且不自愈（刷新也救不回）。
+    // 对策：① 停掉 Phaser 自动监听；② 改由 Electron 主进程在 maximize/unmaximize/resize **完成后**
+    // 推来的"干净最终尺寸"，手动 game.scale.resize()（不是 refresh()——resize 直接定 game size，
+    // 不读可能过时的 parent bounds）。这样 ScaleManager 永远只见到稳定尺寸，杜绝中间帧污染。
+    game.scale.stopListeners();
+
+    const api = (window as unknown as {
+      colonyApi?: { onWindowResized?: (cb: (s: { w: number; h: number; cause: string }) => void) => () => void };
+    }).colonyApi;
+
+    const applySize = (w: number, h: number): void => {
+      if (!game.scale || w <= 0 || h <= 0) return;
+      game.scale.resize(w, h); // 触发 'resize' 事件 → 各 scene 重排 + MapRenderer 重建 mask/RT
+    };
+
+    if (api?.onWindowResized) {
+      // 主进程驱动（首选）：尾随防抖，切换动画停下再用最终尺寸 resize 一次。
+      let timer = 0;
+      let pendW = 0;
+      let pendH = 0;
+      api.onWindowResized(({ w, h }) => {
+        pendW = w; pendH = h;
+        if (timer) window.clearTimeout(timer);
+        timer = window.setTimeout(() => { timer = 0; applySize(pendW, pendH); }, 80);
+      });
+    } else if (typeof ResizeObserver !== 'undefined') {
+      // 回退（非 Electron / preload 缺失）：用 ResizeObserver 尾随防抖驱动 resize。
+      const container = document.getElementById('game-container');
+      if (!container) return;
+      let timer = 0;
+      const ro = new ResizeObserver(() => {
+        if (timer) window.clearTimeout(timer);
+        timer = window.setTimeout(() => {
+          timer = 0;
+          applySize(container.clientWidth, container.clientHeight);
+        }, 120);
+      });
+      ro.observe(container);
+    }
   });
 }
-setupBulletproofResize();
+setupElectronDrivenResize();
 
 // Slice F：启动期一次性校验静态数据（policies/events/decrees DSL 字符串等）
 validateStaticData();
