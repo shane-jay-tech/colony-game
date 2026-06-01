@@ -116,6 +116,7 @@ function makeFakeImage() {
     setVisible: vi.fn().mockImplementation(function (this: typeof im, v: boolean) { this.visible = v; return this; }),
     setAlpha: vi.fn().mockImplementation(function (this: typeof im, a: number) { this.alpha = a; return this; }),
     setDisplaySize: vi.fn().mockImplementation(function (this: typeof im) { return this; }),
+    setFlipX: vi.fn().mockImplementation(function (this: typeof im) { return this; }),
     setTexture: vi.fn().mockImplementation(function (this: typeof im, k: string) { this.key = k; return this; }),
     setMask: vi.fn().mockImplementation(function (this: typeof im) { return this; }),
     clearMask: vi.fn().mockImplementation(function (this: typeof im) { return this; }),
@@ -723,6 +724,7 @@ describe('MapRenderer 手绘地貌烘焙 (W3)', () => {
       beginDraw: vi.fn().mockReturnThis(),
       endDraw: vi.fn().mockReturnThis(),
       batchDrawFrame: vi.fn(() => { counter.n++; }),
+      draw: vi.fn(() => { counter.n++; }),
       destroy: vi.fn(),
     };
     return rt;
@@ -758,5 +760,54 @@ describe('MapRenderer 手绘地貌烘焙 (W3)', () => {
     const renderer = new MapRenderer(scene as never, acc);
     expect((scene as unknown as { add: { renderTexture: ReturnType<typeof vi.fn> } }).add.renderTexture).not.toHaveBeenCalled();
     renderer.destroy();
+  });
+});
+
+describe('MapRenderer 散布层烘焙 (W4)', () => {
+  function makeRTd() {
+    const counter = { n: 0 };
+    const rt = {
+      counter,
+      setOrigin: vi.fn().mockReturnThis(), setDepth: vi.fn().mockReturnThis(),
+      setMask: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(),
+      setVisible: vi.fn().mockReturnThis(), clear: vi.fn().mockReturnThis(),
+      beginDraw: vi.fn().mockReturnThis(), endDraw: vi.fn().mockReturnThis(),
+      batchDrawFrame: vi.fn(), draw: vi.fn(() => { counter.n++; }), destroy: vi.fn(),
+      width: 0, height: 0,
+    };
+    return rt;
+  }
+  // 仅散布素材存在(地貌缺→回退色块)，隔离出散布 draw 计数
+  function sceneScatterOnly() {
+    const base = makeFakeScene() as Record<string, unknown> & { add: Record<string, unknown> };
+    const rt = makeRTd();
+    base.textures = { exists: vi.fn((k: string) => k.startsWith('scatter_')), get: vi.fn() };
+    base.add.renderTexture = vi.fn(() => rt);
+    base._rt = rt;
+    return base;
+  }
+
+  it('散布素材齐备 → 建 scatterRT 并 draw 若干次；同 seed 两次结果一致(确定性)', () => {
+    const acc1 = new WorldMapAccessor(makeMap(10, 10));
+    const s1 = sceneScatterOnly();
+    new MapRenderer(s1 as never, acc1);
+    const n1 = (s1 as unknown as { _rt: ReturnType<typeof makeRTd> })._rt.counter.n;
+    expect(n1).toBeGreaterThan(0);
+
+    const acc2 = new WorldMapAccessor(makeMap(10, 10));
+    const s2 = sceneScatterOnly();
+    new MapRenderer(s2 as never, acc2);
+    const n2 = (s2 as unknown as { _rt: ReturnType<typeof makeRTd> })._rt.counter.n;
+    expect(n2).toBe(n1); // 确定性：同图同布局
+  });
+
+  it('无散布素材 → 不建 scatterRT（优雅降级）', () => {
+    const acc = new WorldMapAccessor(makeMap(8, 8));
+    const base = makeFakeScene() as Record<string, unknown> & { add: Record<string, unknown> };
+    const rt = makeRTd();
+    base.textures = { exists: vi.fn(() => false), get: vi.fn() };
+    base.add.renderTexture = vi.fn(() => rt);
+    new MapRenderer(base as never, acc);
+    expect((base.add as { renderTexture: ReturnType<typeof vi.fn> }).renderTexture).not.toHaveBeenCalled();
   });
 });

@@ -5,7 +5,8 @@ import { getBuildingDef } from '../data/buildingRegistry';
 import { COLORS, COLORS_HEX, UI } from '../ui/palette';
 import { terrainColor, resourceNodeColor, TILE_SIZE, NODE_MARKER_INSET } from './mapColors';
 import { getBuildingSigil } from './buildingSigils';
-import { drawTerrainHatching } from './terrainTextures';
+import { drawTerrainHatching, makeTilePrng } from './terrainTextures';
+import { SCATTER_BY_TERRAIN, RIVER_EDGE, SCATTER_KEY_PREFIX, ALL_SCATTER_IDS, type ScatterSlot } from '../data/scatterConfig';
 
 /** v0.9：左右面板折叠时只露 28px 竖条；recompute 视口要靠它 */
 export const PANEL_COLLAPSED_WIDTH = 28;
@@ -38,6 +39,8 @@ export class MapRenderer {
   /** 每张贴图的 frame 网格边长（贴图边 / TILE_SIZE），用于 tile 取模采样 */
   private terrainGrid = new Map<string, number>();
   private static readonly TERRAIN_KEY_PREFIX = 'terrain_';
+  /** W4：散布层（树/石/芦苇）。素材齐备时确定性 bake 进此 RT（深度 -5，介于地貌与建筑之间）。 */
+  private scatterRT: Phaser.GameObjects.RenderTexture | null = null;
   private nodesGfx: Phaser.GameObjects.Graphics | null;
   private buildingsGfx: Phaser.GameObjects.Graphics | null;
   private hoverGfx: Phaser.GameObjects.Graphics | null;
@@ -263,6 +266,7 @@ export class MapRenderer {
     this.refreshViewportMask();
 
     this.bakeTerrain(accessor);
+    this.bakeScatter(accessor);
     this.bakeResourceNodes(accessor);
   }
 
@@ -361,6 +365,70 @@ export class MapRenderer {
     }
     this.terrainRT.endDraw();
     return true;
+  }
+
+  /**
+   * W4：散布层烘焙。把一棵棵树/石/芦苇（与建筑同 2.5D 角）确定性散布进 scatterRT，
+   * 营造《法老》式有机大地 + 用立体物盖过"地面正俯视 vs 建筑斜视"的违和。
+   * 缺素材（无任何 scatter_* 贴图）→ 跳过、不建 RT（优雅降级，回到无散布）。
+   * 确定性：同 seed+tile → 同布局（makeTilePrng），存档重载不变。建筑层(depth0)自然盖住其下散布。
+   */
+  private bakeScatter(accessor: WorldMapAccessor): void {
+    if (this.destroyed) return;
+    const haveAny = ALL_SCATTER_IDS.some(id => this.scene.textures.exists(SCATTER_KEY_PREFIX + id));
+    if (!haveAny) return; // 素材未就位 → 无散布
+    const map = accessor.toRaw();
+    const seed = map.seed;
+    const mapW = this.width * TILE_SIZE;
+    const mapH = this.height * TILE_SIZE;
+    if (!this.scatterRT) {
+      this.scatterRT = this.scene.add.renderTexture(this.originX, this.originY, mapW, mapH).setOrigin(0, 0);
+      this.scatterRT.setDepth(-5); // 地貌(-10) 之上、建筑(0) 之下
+      if (this.viewportMask) this.scatterRT.setMask(this.viewportMask);
+    }
+    this.scatterRT.clear();
+
+    // 复用一个临时 Image 做逐个 draw（用完即毁，不进显示列表渲染帧）
+    const firstKey = SCATTER_KEY_PREFIX + (ALL_SCATTER_IDS.find(id => this.scene.textures.exists(SCATTER_KEY_PREFIX + id)) ?? '');
+    const tmp = this.scene.add.image(0, 0, firstKey).setOrigin(0.5, 1);
+    tmp.setVisible(false);
+
+    const placeOne = (slot: ScatterSlot, prng: () => number, gx: number, gy: number): void => {
+      const id = slot.pool[Math.floor(prng() * slot.pool.length) % slot.pool.length]!;
+      const key = SCATTER_KEY_PREFIX + id;
+      if (!this.scene.textures.exists(key)) return; // 该素材缺 → 跳过这个
+      const scaleTiles = slot.minScale + prng() * (slot.maxScale - slot.minScale);
+      const px = gx * TILE_SIZE + TILE_SIZE / 2 + (prng() - 0.5) * TILE_SIZE * 0.6;
+      const py = gy * TILE_SIZE + TILE_SIZE * 0.88 + (prng() - 0.5) * TILE_SIZE * 0.3;
+      tmp.setTexture(key);
+      tmp.setDisplaySize(scaleTiles * TILE_SIZE, scaleTiles * TILE_SIZE);
+      tmp.setFlipX(prng() < 0.5);
+      tmp.setPosition(px, py);
+      this.scatterRT!.draw(tmp);
+    };
+
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const tile = accessor.getTile(x, y);
+        if (!tile) continue;
+        const prng = makeTilePrng(seed, x, y, this.width);
+        if (tile.terrain === 'river') {
+          // 河岸：仅与非水相邻的边缘 tile 放芦苇
+          const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+            const n = accessor.getTile(x + dx!, y + dy!);
+            return n != null && n.terrain !== 'river';
+          });
+          if (edge && prng() < RIVER_EDGE.prob) placeOne(RIVER_EDGE, prng, x, y);
+          continue;
+        }
+        const cfg = SCATTER_BY_TERRAIN[tile.terrain];
+        if (!cfg) continue;
+        for (const slot of cfg.slots) {
+          if (prng() < slot.prob) placeOne(slot, prng, x, y);
+        }
+      }
+    }
+    tmp.destroy();
   }
 
   private bakeResourceNodes(accessor: WorldMapAccessor): void {
@@ -675,6 +743,7 @@ export class MapRenderer {
     this.originY = newOriginY;
     this.terrainGfx?.setPosition(this.originX, this.originY);
     this.terrainRT?.setPosition(this.originX, this.originY);
+    this.scatterRT?.setPosition(this.originX, this.originY);
     this.nodesGfx?.setPosition(this.originX, this.originY);
     this.buildingsGfx?.setPosition(this.originX, this.originY);
     this.hoverGfx?.setPosition(this.originX, this.originY);
@@ -721,6 +790,8 @@ export class MapRenderer {
     this.terrainGfx?.destroy();
     this.terrainRT?.destroy();
     this.terrainRT = null;
+    this.scatterRT?.destroy();
+    this.scatterRT = null;
     this.nodesGfx?.destroy();
     this.buildingsGfx?.destroy();
     this.hoverGfx?.destroy();

@@ -22,7 +22,7 @@ import { COLORS } from '../ui/palette';
  * mulberry32：32-bit seeded PRNG，纯函数。Slice C mapGen 之外的渲染层
  * 不需要 RNGState，重新实现一份简版避免 import 循环。
  */
-function makeTilePrng(mapSeed: number, x: number, y: number, mapWidth: number): () => number {
+export function makeTilePrng(mapSeed: number, x: number, y: number, mapWidth: number): () => number {
   // 把 (mapSeed, x, y) 折进 32-bit state；low-bits 互掺，避免 (0,0) (1,0) 几乎相邻。
   // DeepSeek 二审 nit：(x=0,y=0) 时 idxMix=0，state 直接 = mapSeed，对小 seed 几乎无熵。
   // 多一步 splitmix64-style 折叠，让 (0,0) 也有完整 mix。

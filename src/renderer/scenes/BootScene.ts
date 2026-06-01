@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { validateStaticData, BUILDINGS } from '@/data';
 import { ALL_BGM_KEYS, SFX_KEYS } from '../state/audioDirector';
+import { ALL_SCATTER_IDS as SCATTER_IDS } from '../data/scatterConfig';
 
 /**
  * BootScene：
@@ -38,6 +39,10 @@ export class BootScene extends Phaser.Scene {
     // W3：手绘地貌贴图（缺图 loaderror 静默 → MapRenderer 回退色块）。
     for (const terr of ['plain', 'hills', 'forest', 'river', 'mountain']) {
       this.load.image(`terrain_${terr}`, `art/terrain/${terr}.png`);
+    }
+    // W4：2.5D 散布素材（树/石/灌木/芦苇；缺则 MapRenderer 跳过散布）。
+    for (const id of SCATTER_IDS) {
+      this.load.image(`scatter_${id}`, `art/scatter/${id}.png`);
     }
 
     // Phase4 音频：试加载 BGM + 音效。同 sprite——缺文件 loaderror 静默，
