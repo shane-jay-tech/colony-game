@@ -109,6 +109,8 @@ export interface GameState {
   pendingEventId: string | null;
   /** pendingEventId 被设上时的 currentDay；用于计算 timeout */
   pendingEventDayStart: number | null;
+  /** 上一次朝堂事件结算的 currentDay；事件冷却（balanceConfig.event.minDaysBetween）据此计算 */
+  lastEventDay: number;
   tutorialStepId: string | null;
   /** Phase4 新手引导：已弹过的 JIT 即时提示 trigger（持久化，永不重复） */
   seenJitHints: string[];
@@ -189,6 +191,7 @@ function makeDefaultState(): GameState {
     eventHistory: [],
     pendingEventId: null,
     pendingEventDayStart: null,
+    lastEventDay: 0,
     // Slice G 教程：新建游戏默认显示欢迎引导；存档读回的 state 会覆盖此值
     tutorialStepId: 'tut_welcome',
     seenJitHints: [],
@@ -684,6 +687,9 @@ export class GameStore {
       return;
     }
     if (this.events.length === 0) return;
+    // 事件冷却：上次事件结算后至少隔 minDaysBetween 天才采样新事件（纪元式呼吸感，防接二连三）
+    const minGap = getBalanceConfig(this.state.mode).event.minDaysBetween;
+    if (this.state.currentDay - this.state.lastEventDay < minGap) return;
     const metrics = this.computeMetrics();
     const id = sampleEventTrigger(this.events, this.state.eventHistory, metrics);
     if (id === null) return;
@@ -727,6 +733,8 @@ export class GameStore {
     const def = this.events.find(e => e.id === id);
     this.state.pendingEventId = null;
     this.state.pendingEventDayStart = null;
+    // 事件冷却起点：本次结算日（含找不到 def 的清理路径，避免坏 id 绕过冷却）
+    this.state.lastEventDay = this.state.currentDay;
     if (!def) {
       // 静态数据找不到：仅清理状态
       this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, { eventId: id, choiceIdx, applied: false });

@@ -19,6 +19,8 @@ import type { ResourceId } from './resourceRegistry';
 export interface BalanceConfig {
   startingResources: Partial<Record<ResourceId, number>>;
   time: { msPerDay: Record<1 | 2 | 3, number> };
+  /** 事件节奏：两次朝堂事件之间至少间隔多少游戏日（纪元式沉稳，给经营留呼吸） */
+  event: { minDaysBetween: number };
   population: {
     baseHousingCap: number;
     growthRatePerDay: number;
@@ -36,10 +38,12 @@ export const BALANCE: BalanceConfig = {
     grain: 50,
   },
   /** 时间尺度：每"游戏日"对应多少真实毫秒。仅影响 wall-clock 播放快慢，不改任何按"天"计的平衡。
-   *  1x=250ms（4 天/秒；1 年=120 天=30 秒；8h≈960 年）——配人口增长，前 10-20 分钟逐级晋阶、8h 可登顶。 */
+   *  1x≈1400ms（约 1.4 秒/天；纪元式沉稳，看着小城慢慢长）——比旧值放慢约 5.6×。 */
   time: {
-    msPerDay: { 1: 250, 2: 125, 3: 83 },
+    msPerDay: { 1: 1400, 2: 700, 3: 350 },
   },
+  /** 事件冷却：约一季（50 天）内不弹新朝堂事件，避免接二连三。 */
+  event: { minDaysBetween: 50 },
   /** 人口增长（state/population.ts 消费）。people 是核心资源，有余粮且未满住房上限时自然增长。 */
   population: {
     baseHousingCap: 15,
@@ -56,7 +60,8 @@ export const BALANCE: BalanceConfig = {
  */
 export const STORY_BALANCE: BalanceConfig = {
   startingResources: { wood: 100, stone: 40, people: 30, grain: 80 },
-  time: { msPerDay: { 1: 250, 2: 125, 3: 83 } },
+  time: { msPerDay: { 1: 1400, 2: 700, 3: 350 } },
+  event: { minDaysBetween: 40 },
   population: {
     baseHousingCap: 18,
     growthRatePerDay: 0.004,

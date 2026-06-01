@@ -456,6 +456,7 @@ describe('GameStore.replaceState / setLastSeenNow', () => {
       pendingEventDayStart: null,
       tutorialStepId: null,
       seenJitHints: [],
+      lastEventDay: 0,
       lastSeenTimestamp: 0,
       paused: false,
       speed: 2 as const,
@@ -650,7 +651,8 @@ describe('GameStore Slice F integration', () => {
 
   it('event triggered when condition met; resolveEvent applies choice and writes history', () => {
     const ee = makeEmitter();
-    const store = new GameStore(ee, undefined, {
+    // lastEventDay 设很早，避开新的事件冷却（本用例只验事件触发/结算机制，非冷却）
+    const store = new GameStore(ee, { lastEventDay: -1000 }, {
       events: [{
         id: 'evt_low_grain',
         tags: ['抉择'],
@@ -679,7 +681,7 @@ describe('GameStore Slice F integration', () => {
 
   it('event timeout auto-picks choice 0 after defaultTimeoutDays', () => {
     const ee = makeEmitter();
-    const store = new GameStore(ee, undefined, {
+    const store = new GameStore(ee, { lastEventDay: -1000 }, {
       events: [{
         id: 'evt_t',
         tags: ['抉择'],
@@ -701,6 +703,26 @@ describe('GameStore Slice F integration', () => {
     store.tickDay(); // 3 days elapsed → auto-pick0
     expect(store.getPendingEventId()).toBeNull();
     expect(store.getActiveModifiers().some(m => m.id.includes('evt_t'))).toBe(true);
+  });
+
+  it('event cooldown: 冷却期内不触发，满 minDaysBetween 后才触发', () => {
+    const ee = makeEmitter();
+    // lastEventDay=0，沙盒冷却 50 天；事件条件永真（grain<50）
+    const store = new GameStore(ee, { lastEventDay: 0 }, {
+      events: [{
+        id: 'evt_cd',
+        tags: ['抉择'],
+        triggers: [{ condition: 'country_grain < 50' }],
+        contexts: [{ condition: 'default', title: 'CD', desc: '', descPlain: '' }],
+        choices: [{ text: 'A', textPlain: 'A', effects: [], removeEffects: [] }],
+        defaultTimeoutDays: 999,
+      }],
+    });
+    store.addResource('grain', 10);
+    store.tickDay(); // day1：1-0=1 < 50 → 冷却中，不触发
+    expect(store.getPendingEventId()).toBeNull();
+    for (let i = 0; i < 49; i++) store.tickDay(); // 推进到 day50：50-0=50 ≥ 50 → 可触发
+    expect(store.getPendingEventId()).toBe('evt_cd');
   });
 
   it('production tick runs in tickDay: working farm gives grain', () => {
