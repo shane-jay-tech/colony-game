@@ -23,13 +23,16 @@ TERRAIN_STYLE = (
     "EVEN flat overhead lighting with NO strong directional cast shadows (so the tile repeats cleanly), "
     "organic natural irregular variation across the whole frame, no single focal point, "
     "fills the entire square edge to edge, ultra-detailed 8k, ArtStation. "
+    "CRITICAL — must tile SEAMLESSLY with NO visible repeating pattern: completely random organic scatter, "
+    "NO rows, NO furrows, NO stripes, NO lines, NO grid, NO directional structure, NO regular spacing, "
+    "NO obvious motif that would look repetitive when tiled; uniform random density edge to edge. "
     "ABSOLUTELY NOT: anime, cartoon, cel shading, flat vector, saturated colors, isometric angle, "
-    "perspective view, any building, any path, any grid lines, text, watermark, border, vignette, frame."
+    "perspective view, any building, any path, any grid lines, planted crop rows, text, watermark, border, vignette, frame."
 )
 
 TERRAINS: list[tuple[str, str]] = [
-    ("plain", "Lush but earthy temperate grassland meadow with patches of cultivated millet field furrows and bare tilled soil, scattered wild grass tufts, small stones, dry and green mixed."),
-    ("hills", "Dry rolling loess hill ground, ochre and tan packed earth with sparse dry yellow grass, subtle undulating contours, eroded soil, a few scattered rocks."),
+    ("plain", "Earthy temperate wild grassland ground: mixed green and dry-tan wild grass over bare brown soil, randomly scattered small pebbles and a few weed clumps, completely irregular natural meadow with NO crop rows and NO furrows."),
+    ("hills", "Dry rolling loess hill ground, ochre and tan packed earth with randomly sparse dry yellow grass and scattered small rocks, eroded soil, completely irregular, no rows or lines."),
     ("forest", "Shaded forest floor ground under a tree canopy: dark rich brown leaf-litter soil with fallen leaves and twigs, patches of moss and undergrowth fern, a few tree roots and small stones, dappled shade. NO tree tops, NO canopy from above — just the forest GROUND (trees are placed separately as sprites)."),
     ("river", "Calm shallow river and stream water surface seen from above, gentle ripples and eddies, muddy green-brown water with subtle reflections, a few wet pebbles and reed patches at the edges."),
     ("mountain", "Bare rugged grey mountain rock ground from above, weathered fractured stone, cracks and scree, patches of moss and a little sparse alpine grass in crevices, cold grey and slate tones."),
