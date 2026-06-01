@@ -35,6 +35,11 @@ export class BootScene extends Phaser.Scene {
       this.load.image(def.assetKey, `art/buildings/${def.id}.png`);
     }
 
+    // W3：手绘地貌贴图（缺图 loaderror 静默 → MapRenderer 回退色块）。
+    for (const terr of ['plain', 'hills', 'forest', 'river', 'mountain']) {
+      this.load.image(`terrain_${terr}`, `art/terrain/${terr}.png`);
+    }
+
     // Phase4 音频：试加载 BGM + 音效。同 sprite——缺文件 loaderror 静默，
     // AudioManager 通过 cache.audio.exists(key) 自动静音降级。资产（Mureka 生成的 mp3）
     // 落在 public/audio/<key>.mp3；尚未生成的 key 直接跳过、无声。

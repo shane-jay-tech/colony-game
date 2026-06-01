@@ -32,6 +32,14 @@ export interface PanelLayoutSource {
  */
 export class MapRenderer {
   private terrainGfx: Phaser.GameObjects.Graphics | null;
+  /** W3：手绘地貌烘焙层。地貌贴图齐备时 bake 进此 RT（单 GameObject，整图一次烘焙），
+   *  缺贴图则为 null、回退 terrainGfx 的 fillRect 色块。 */
+  private terrainRT: Phaser.GameObjects.RenderTexture | null = null;
+  /** 已切过 frame 网格的贴图 key（避免重复 add frame） */
+  private terrainSliced = new Set<string>();
+  /** 每张贴图的 frame 网格边长（贴图边 / TILE_SIZE），用于 tile 取模采样 */
+  private terrainGrid = new Map<string, number>();
+  private static readonly TERRAIN_KEY_PREFIX = 'terrain_';
   private nodesGfx: Phaser.GameObjects.Graphics | null;
   private buildingsGfx: Phaser.GameObjects.Graphics | null;
   private hoverGfx: Phaser.GameObjects.Graphics | null;
@@ -264,6 +272,9 @@ export class MapRenderer {
     const g = this.terrainGfx;
     if (!g) return;
     g.clear();
+    // W3：地貌贴图齐备 → 烘焙手绘地貌进 RT（terrainGfx 留空）；否则回退色块+墨点。
+    if (this.tryBakeTerrainTextures(accessor)) return;
+
     const map = accessor.toRaw();
     // 第一遍：solid color fill
     for (let y = 0; y < this.height; y++) {
@@ -283,6 +294,66 @@ export class MapRenderer {
       }
     }
     // 不画网格线 — 视觉路线对齐 Anno 1800：底层逻辑可方格但渲染层无任何格线
+  }
+
+  /** W3：把贴图切成 GRID×GRID 个 TILE_SIZE 的 frame（连续采样平铺用），只切一次。 */
+  private sliceTerrainFrames(key: string): number {
+    const cached = this.terrainGrid.get(key);
+    if (cached !== undefined) return cached;
+    const tex = this.scene.textures.get(key);
+    const src = tex.getSourceImage() as { width: number; height: number };
+    const grid = Math.max(1, Math.floor(Math.min(src.width, src.height) / TILE_SIZE));
+    for (let r = 0; r < grid; r++) {
+      for (let c = 0; c < grid; c++) {
+        const fn = `t_${c}_${r}`;
+        if (!tex.has(fn)) tex.add(fn, 0, c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      }
+    }
+    this.terrainGrid.set(key, grid);
+    this.terrainSliced.add(key);
+    return grid;
+  }
+
+  /**
+   * W3：手绘地貌烘焙。仅当地图用到的每种地形都已加载贴图时才走（全有或全无，
+   * 否则回退色块保持现观感）。逐 tile 用连续采样的 frame（tile%grid）batchDrawFrame 进单个 RT，
+   * 同型相邻 tile 取相邻 cell → 纹理连续流动，每 grid(≈42) tile 重复一次。
+   * @returns true=已烘焙进 RT；false=贴图不全，调用方走色块回退
+   */
+  private tryBakeTerrainTextures(accessor: WorldMapAccessor): boolean {
+    // 收集地图实际用到的地形类型
+    const used = new Set<string>();
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const t = accessor.getTile(x, y);
+        if (t) used.add(t.terrain);
+      }
+    }
+    // 任一类型缺贴图 → 放弃，回退色块
+    for (const terr of used) {
+      if (!this.scene.textures.exists(MapRenderer.TERRAIN_KEY_PREFIX + terr)) return false;
+    }
+    const mapW = this.width * TILE_SIZE;
+    const mapH = this.height * TILE_SIZE;
+    if (!this.terrainRT) {
+      this.terrainRT = this.scene.add.renderTexture(this.originX, this.originY, mapW, mapH).setOrigin(0, 0);
+      this.terrainRT.setDepth(-10); // 在 nodes/buildings 之下
+      if (this.viewportMask) this.terrainRT.setMask(this.viewportMask);
+    }
+    this.terrainRT.clear();
+    this.terrainRT.beginDraw();
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const tile = accessor.getTile(x, y);
+        if (!tile) continue;
+        const key = MapRenderer.TERRAIN_KEY_PREFIX + tile.terrain;
+        const grid = this.sliceTerrainFrames(key);
+        const fn = `t_${x % grid}_${y % grid}`;
+        this.terrainRT.batchDrawFrame(key, fn, x * TILE_SIZE, y * TILE_SIZE);
+      }
+    }
+    this.terrainRT.endDraw();
+    return true;
   }
 
   private bakeResourceNodes(accessor: WorldMapAccessor): void {
@@ -596,6 +667,7 @@ export class MapRenderer {
     this.originX = newOriginX;
     this.originY = newOriginY;
     this.terrainGfx?.setPosition(this.originX, this.originY);
+    this.terrainRT?.setPosition(this.originX, this.originY);
     this.nodesGfx?.setPosition(this.originX, this.originY);
     this.buildingsGfx?.setPosition(this.originX, this.originY);
     this.hoverGfx?.setPosition(this.originX, this.originY);
@@ -640,6 +712,8 @@ export class MapRenderer {
     if (this.destroyed) return;
     this.destroyed = true;
     this.terrainGfx?.destroy();
+    this.terrainRT?.destroy();
+    this.terrainRT = null;
     this.nodesGfx?.destroy();
     this.buildingsGfx?.destroy();
     this.hoverGfx?.destroy();

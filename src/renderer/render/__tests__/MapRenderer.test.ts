@@ -466,6 +466,7 @@ describe('MapRenderer.recenter (Slice G hardening)', () => {
     const tweenCalls: TweenConfig[] = [];
     const scene = {
       cameras: { main: cam },
+      textures: { exists: vi.fn(() => false) }, // 地貌贴图不存在 → 回退色块路径
       add: {
         graphics: vi.fn(() => {
           const g = { ...makeFakeGraphics(), setPosition: vi.fn().mockReturnThis() };
@@ -704,5 +705,56 @@ describe('MapRenderer.floatTextAtTile (Phase4 Juice)', () => {
     // destroy() 把剩余 6 个也清掉，无泄漏
     renderer.destroy();
     expect(created.every(t => t.destroy.mock.calls.length > 0)).toBe(true);
+  });
+});
+
+describe('MapRenderer 手绘地貌烘焙 (W3)', () => {
+  function makeRT() {
+    const counter = { n: 0 };
+    const rt = {
+      counter,
+      setOrigin: vi.fn().mockReturnThis(),
+      setDepth: vi.fn().mockReturnThis(),
+      setMask: vi.fn().mockReturnThis(),
+      setPosition: vi.fn().mockReturnThis(),
+      clear: vi.fn().mockReturnThis(),
+      beginDraw: vi.fn().mockReturnThis(),
+      endDraw: vi.fn().mockReturnThis(),
+      batchDrawFrame: vi.fn(() => { counter.n++; }),
+      destroy: vi.fn(),
+    };
+    return rt;
+  }
+  function makeSceneWithTerrain(exists: (k: string) => boolean) {
+    const base = makeFakeScene() as Record<string, unknown> & { add: Record<string, unknown> };
+    const rt = makeRT();
+    const tex = { has: vi.fn(() => false), add: vi.fn(), getSourceImage: () => ({ width: 1024, height: 1024 }) };
+    base.textures = { exists: vi.fn(exists), get: vi.fn(() => tex) };
+    base.add.renderTexture = vi.fn(() => rt);
+    base._rt = rt;
+    base._tex = tex;
+    return base;
+  }
+
+  it('地貌贴图齐备时烘焙进 RT：每 tile 一次 batchDrawFrame，且切了 frame 网格', () => {
+    const acc = new WorldMapAccessor(makeMap(8, 8)); // 64 tiles
+    const scene = makeSceneWithTerrain(k => k.startsWith('terrain_'));
+    const renderer = new MapRenderer(scene as never, acc);
+    const rt = (scene as unknown as { _rt: ReturnType<typeof makeRT> })._rt;
+    expect(rt.beginDraw).toHaveBeenCalled();
+    expect(rt.endDraw).toHaveBeenCalled();
+    expect(rt.counter.n).toBe(64); // 8×8 全部 tile 烘焙
+    // frame 网格被切（1024/24=42 → add 被调用多次）
+    expect((scene as unknown as { _tex: { add: ReturnType<typeof vi.fn> } })._tex.add.mock.calls.length).toBeGreaterThan(0);
+    renderer.destroy();
+    expect(rt.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('任一地貌贴图缺失 → 不建 RT，回退色块路径', () => {
+    const acc = new WorldMapAccessor(makeMap(8, 8));
+    const scene = makeSceneWithTerrain(() => false); // 全缺
+    const renderer = new MapRenderer(scene as never, acc);
+    expect((scene as unknown as { add: { renderTexture: ReturnType<typeof vi.fn> } }).add.renderTexture).not.toHaveBeenCalled();
+    renderer.destroy();
   });
 });
