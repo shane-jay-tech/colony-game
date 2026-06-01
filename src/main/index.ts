@@ -85,6 +85,10 @@ function createWindow(): void {
   });
 
   mainWindow.on('ready-to-show', () => {
+    // 实测：静态最大化渲染正常，只有"最大化↔窗口化切换的瞬间"会因 Phaser RESIZE 拿到
+    // 退化中间帧导致画布缓冲与显示尺寸脱钩、画面畸变卡死。故默认开就最大化——直接给大视野，
+    // 且这是已知能稳定工作的静态状态，绕开会爆的切换。窗口尺寸已是最大化，Phaser 启动即按此尺寸 boot。
+    mainWindow?.maximize();
     mainWindow?.show();
   });
 
