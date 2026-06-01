@@ -772,7 +772,8 @@ describe('MapRenderer 散布层烘焙 (W4)', () => {
       setMask: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(),
       setVisible: vi.fn().mockReturnThis(), clear: vi.fn().mockReturnThis(),
       beginDraw: vi.fn().mockReturnThis(), endDraw: vi.fn().mockReturnThis(),
-      batchDrawFrame: vi.fn(), draw: vi.fn(() => { counter.n++; }), destroy: vi.fn(),
+      batchDrawFrame: vi.fn(), draw: vi.fn(() => { counter.n++; }),
+      batchDraw: vi.fn(() => { counter.n++; }), destroy: vi.fn(),
       width: 0, height: 0,
     };
     return rt;

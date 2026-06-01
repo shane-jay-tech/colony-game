@@ -381,6 +381,11 @@ export class MapRenderer {
     const seed = map.seed;
     const mapW = this.width * TILE_SIZE;
     const mapH = this.height * TILE_SIZE;
+    // 尺寸变化（dims 实例内不可变，防御）→ 重建（与 terrainRT 对齐）
+    if (this.scatterRT && (this.scatterRT.width !== mapW || this.scatterRT.height !== mapH)) {
+      this.scatterRT.destroy();
+      this.scatterRT = null;
+    }
     if (!this.scatterRT) {
       this.scatterRT = this.scene.add.renderTexture(this.originX, this.originY, mapW, mapH).setOrigin(0, 0);
       this.scatterRT.setDepth(-5); // 地貌(-10) 之上、建筑(0) 之下
@@ -404,9 +409,11 @@ export class MapRenderer {
       tmp.setDisplaySize(scaleTiles * TILE_SIZE, scaleTiles * TILE_SIZE);
       tmp.setFlipX(prng() < 0.5);
       tmp.setPosition(px, py);
-      this.scatterRT!.draw(tmp);
+      // batchDraw 把当前 tmp 的顶点即时拷进批缓冲（复用 tmp 安全），比逐个 draw() 少几千次 GPU flush
+      this.scatterRT!.batchDraw(tmp);
     };
 
+    this.scatterRT.beginDraw();
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const tile = accessor.getTile(x, y);
@@ -428,6 +435,7 @@ export class MapRenderer {
         }
       }
     }
+    this.scatterRT.endDraw();
     tmp.destroy();
   }
 
