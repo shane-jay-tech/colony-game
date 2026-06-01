@@ -1,0 +1,51 @@
+[
+  {
+    "id": "bld_post_road",
+    "model": "wan2.7-image-pro",
+    "task_id": "be6e9c2a-e6cf-4105-8b41-8bad8de51ab4",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_post_road.png",
+    "error": null
+  },
+  {
+    "id": "bld_water_mill",
+    "model": "wan2.7-image-pro",
+    "task_id": "2e70bc52-e858-4b7a-bce2-804f5d4cfa48",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_water_mill.png",
+    "error": null
+  },
+  {
+    "id": "bld_iron_forge",
+    "model": "wan2.7-image-pro",
+    "task_id": "5551e91e-a6bd-4f65-b970-3ce5cd8d44f5",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_iron_forge.png",
+    "error": null
+  },
+  {
+    "id": "bld_mulberry_grove",
+    "model": "wan2.7-image-pro",
+    "task_id": "7a1d106f-87cc-4c91-adfe-73d8ab117ddb",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_mulberry_grove.png",
+    "error": null
+  },
+  {
+    "id": "bld_stele_yard",
+    "model": "wan2.7-image-pro",
+    "task_id": "54931686-034a-4c83-9f8e-46be29204a8a",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_stele_yard.png",
+    "error": null
+  },
+  {
+    "id": "bld_village_school",
+    "model": "wan2.7-image-pro",
+    "task_id": "c3f22111-658f-4ddb-a6f7-52c2a9e83341",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_village_school.png",
+    "error": null
+  },
+  {
+    "id": "bld_envoy_lodge",
+    "model": "wan2.7-image-pro",
+    "task_id": "203de4eb-64b6-474c-ac67-8c36ab9503aa",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_envoy_lodge.png",
+    "error": null
+  }
+]

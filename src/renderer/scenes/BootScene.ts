@@ -39,10 +39,10 @@ export class BootScene extends Phaser.Scene {
     // AudioManager 通过 cache.audio.exists(key) 自动静音降级。资产（Mureka 生成的 mp3）
     // 落在 public/audio/<key>.mp3；尚未生成的 key 直接跳过、无声。
     for (const key of ALL_BGM_KEYS) {
-      this.load.audio(key, `audio/${key}.mp3`);
+      this.load.audio(key, `audio/${key}.mp3`); // BGM：Mureka 生成的 mp3
     }
     for (const key of SFX_KEYS) {
-      this.load.audio(key, `audio/${key}.mp3`);
+      this.load.audio(key, `audio/${key}.wav`); // 音效：本地合成的短 wav
     }
   }
 
