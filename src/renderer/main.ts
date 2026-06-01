@@ -97,14 +97,24 @@ function setupBulletproofResize(): void {
   game.events.once(Phaser.Core.Events.READY, () => {
     const container = document.getElementById('game-container');
     if (!container || typeof ResizeObserver === 'undefined') return;
-    let pending = 0;
+    // v1.0 hotfix：maximize/restore 时 Windows 动画会喷一连串 resize 事件（含 0×0 / 中间尺寸的
+    // 退化帧），RESIZE 模式逐帧 refresh 会拿到退化帧触发 layout 抖动甚至卡死。改成**尾随防抖**：
+    // 等缩放活动停下 120ms 再一次性 refresh，且跳过 0×0 / 尺寸未变的帧——把动画风暴塌缩成一次干净刷新。
+    let timer = 0;
+    let lastW = 0;
+    let lastH = 0;
     const ro = new ResizeObserver(() => {
-      // 同一帧内多次回调合并：rAF debounce
-      if (pending) return;
-      pending = window.requestAnimationFrame(() => {
-        pending = 0;
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = 0;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (w <= 0 || h <= 0) return;          // 退化中间帧：忽略
+        if (w === lastW && h === lastH) return; // 尺寸没变：不刷
+        lastW = w;
+        lastH = h;
         if (game.scale) game.scale.refresh();
-      });
+      }, 120);
     });
     ro.observe(container);
   });

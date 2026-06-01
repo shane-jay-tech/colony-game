@@ -42,6 +42,7 @@ function makeFakeGraphics() {
     fillTriangle: vi.fn().mockReturnThis(),
     fillCircle: vi.fn().mockReturnThis(),
     strokeCircle: vi.fn().mockReturnThis(),
+    fillPoints: vi.fn().mockReturnThis(),
     beginPath: vi.fn().mockReturnThis(),
     moveTo: vi.fn().mockReturnThis(),
     lineTo: vi.fn().mockReturnThis(),
@@ -307,8 +308,8 @@ describe('MapRenderer.bake (terrain / nodes)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     new MapRenderer(scene, acc);
     const nodesGfx = (scene as unknown as { _graphics: ReturnType<typeof makeFakeGraphics>[] })._graphics[1]!;
-    // only the 1 valid node should be drawn
-    expect(nodesGfx.fillRect).toHaveBeenCalledTimes(1);
+    // only the 1 valid node should be drawn（菱形 pip：每个节点一个高光 fillCircle）
+    expect(nodesGfx.fillCircle).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(2);
     warn.mockRestore();
   });
@@ -331,9 +332,10 @@ describe('MapRenderer.bake (terrain / nodes)', () => {
     const terrainGfx = (scene as unknown as { _graphics: ReturnType<typeof makeFakeGraphics>[] })._graphics[0]!;
     // 至少 16 次（每 tile 一次 solid fill），hatching 会追加额外 fillRect（plain 点、forest 点）
     expect(terrainGfx.fillRect.mock.calls.length).toBeGreaterThanOrEqual(16);
-    // second graphics = nodes (2 nodes)
+    // second graphics = nodes (2 nodes)：菱形 pip 用 fillPoints（每节点 2 个：描边+本体）+ 高光 fillCircle（每节点 1）
     const nodesGfx = (scene as unknown as { _graphics: ReturnType<typeof makeFakeGraphics>[] })._graphics[1]!;
-    expect(nodesGfx.fillRect).toHaveBeenCalledTimes(2);
+    expect(nodesGfx.fillPoints).toHaveBeenCalledTimes(4);
+    expect(nodesGfx.fillCircle).toHaveBeenCalledTimes(2);
   });
 });
 

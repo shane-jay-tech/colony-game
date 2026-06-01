@@ -451,14 +451,27 @@ export class MapRenderer {
         console.warn('[MapRenderer] skipping out-of-bounds resource node:', n);
         continue;
       }
+      // 美术修：从刺眼的实心大方块改为**小而柔的菱形 pip**——半透明、贴在 tile 右上角，
+      // 读作"此处有物产"的标记，不再是程序色块（手绘地貌上不违和）。
       const color = resourceNodeColor(n.kind);
-      const cx = n.position.x * TILE_SIZE + NODE_MARKER_INSET;
-      const cy = n.position.y * TILE_SIZE + NODE_MARKER_INSET;
-      const sz = TILE_SIZE - NODE_MARKER_INSET * 2;
-      g.fillStyle(color, 1);
-      g.fillRect(cx, cy, sz, sz);
-      g.lineStyle(1, COLORS.INK, 0.6);
-      g.strokeRect(cx, cy, sz, sz);
+      const r = TILE_SIZE * 0.18; // 小菱形半径
+      const cx = n.position.x * TILE_SIZE + TILE_SIZE * 0.72;
+      const cy = n.position.y * TILE_SIZE + TILE_SIZE * 0.28;
+      // 暗色描边垫底（提升对比、像枚徽记）
+      g.fillStyle(COLORS.INK, 0.45);
+      g.fillPoints([
+        { x: cx, y: cy - r - 1.2 }, { x: cx + r + 1.2, y: cy },
+        { x: cx, y: cy + r + 1.2 }, { x: cx - r - 1.2, y: cy },
+      ], true);
+      // 物产色菱形（半透明，融进地面）
+      g.fillStyle(color, 0.8);
+      g.fillPoints([
+        { x: cx, y: cy - r }, { x: cx + r, y: cy },
+        { x: cx, y: cy + r }, { x: cx - r, y: cy },
+      ], true);
+      // 高光小点
+      g.fillStyle(COLORS.PAPER, 0.5);
+      g.fillCircle(cx - r * 0.25, cy - r * 0.3, r * 0.22);
     }
   }
 
