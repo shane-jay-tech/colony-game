@@ -294,7 +294,8 @@ export function deserialize(blob: unknown): GameState {
     productionCarry: s.productionCarry ?? {},
     tutorialStepId: s.tutorialStepId ?? null,
     seenJitHints: Array.isArray(s.seenJitHints) ? s.seenJitHints.filter((x): x is string => typeof x === 'string') : [],
-    lastEventDay: typeof s.lastEventDay === 'number' ? s.lastEventDay : 0,
+    // DeepSeek 复审[major]：clamp 到 [0, currentDay]，防损坏存档把 lastEventDay 设超大导致事件永久不触发
+    lastEventDay: typeof s.lastEventDay === 'number' ? Math.max(0, Math.min(s.lastEventDay, s.currentDay ?? 0)) : 0,
     lastSeenTimestamp: s.lastSeenTimestamp ?? 0,
     currentDay: s.currentDay ?? 0,
     rngSeed,

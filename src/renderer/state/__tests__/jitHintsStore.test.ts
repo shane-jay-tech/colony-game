@@ -24,6 +24,15 @@ describe('GameStore JIT 提示去重 + 持久化', () => {
     expect(restored.seenJitHints.sort()).toEqual(['first_crisis', 'first_grade']);
   });
 
+  it('损坏存档 lastEventDay 超大 → clamp 到 currentDay（防事件永久不触发）', () => {
+    const store = newStore();
+    const blob = serialize((store as unknown as { state: Parameters<typeof serialize>[0] }).state);
+    blob.state.currentDay = 100;
+    (blob.state as { lastEventDay?: number }).lastEventDay = 999999;
+    const restored = deserialize(JSON.parse(JSON.stringify(blob)));
+    expect(restored.lastEventDay).toBe(100);
+  });
+
   it('旧存档无 seenJitHints 字段 → 反序列化为空数组（向后兼容）', () => {
     const store = newStore();
     const blob = serialize((store as unknown as { state: Parameters<typeof serialize>[0] }).state);

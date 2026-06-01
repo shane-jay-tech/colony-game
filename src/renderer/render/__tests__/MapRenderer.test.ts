@@ -713,10 +713,12 @@ describe('MapRenderer 手绘地貌烘焙 (W3)', () => {
     const counter = { n: 0 };
     const rt = {
       counter,
+      width: 0, height: 0,
       setOrigin: vi.fn().mockReturnThis(),
       setDepth: vi.fn().mockReturnThis(),
       setMask: vi.fn().mockReturnThis(),
       setPosition: vi.fn().mockReturnThis(),
+      setVisible: vi.fn().mockReturnThis(),
       clear: vi.fn().mockReturnThis(),
       beginDraw: vi.fn().mockReturnThis(),
       endDraw: vi.fn().mockReturnThis(),

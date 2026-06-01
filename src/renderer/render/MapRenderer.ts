@@ -35,8 +35,6 @@ export class MapRenderer {
   /** W3：手绘地貌烘焙层。地貌贴图齐备时 bake 进此 RT（单 GameObject，整图一次烘焙），
    *  缺贴图则为 null、回退 terrainGfx 的 fillRect 色块。 */
   private terrainRT: Phaser.GameObjects.RenderTexture | null = null;
-  /** 已切过 frame 网格的贴图 key（避免重复 add frame） */
-  private terrainSliced = new Set<string>();
   /** 每张贴图的 frame 网格边长（贴图边 / TILE_SIZE），用于 tile 取模采样 */
   private terrainGrid = new Map<string, number>();
   private static readonly TERRAIN_KEY_PREFIX = 'terrain_';
@@ -274,6 +272,8 @@ export class MapRenderer {
     g.clear();
     // W3：地貌贴图齐备 → 烘焙手绘地貌进 RT（terrainGfx 留空）；否则回退色块+墨点。
     if (this.tryBakeTerrainTextures(accessor)) return;
+    // DeepSeek 复审[major]：回退路径——若之前建过 RT，清空并隐藏，避免旧地貌从色块下透出。
+    if (this.terrainRT) { this.terrainRT.clear(); this.terrainRT.setVisible(false); }
 
     const map = accessor.toRaw();
     // 第一遍：solid color fill
@@ -296,11 +296,13 @@ export class MapRenderer {
     // 不画网格线 — 视觉路线对齐 Anno 1800：底层逻辑可方格但渲染层无任何格线
   }
 
-  /** W3：把贴图切成 GRID×GRID 个 TILE_SIZE 的 frame（连续采样平铺用），只切一次。 */
+  /** W3：把贴图切成 GRID×GRID 个 TILE_SIZE 的 frame（连续采样平铺用），只切一次。
+   *  非正方贴图按短边取正方网格（多出的边丢弃，简单可控）。 */
   private sliceTerrainFrames(key: string): number {
-    const cached = this.terrainGrid.get(key);
-    if (cached !== undefined) return cached;
     const tex = this.scene.textures.get(key);
+    const cached = this.terrainGrid.get(key);
+    // DeepSeek 复审[critical]：缓存命中也要确认 frame 仍在（贴图被重建时 frame 会丢）；丢了就重切。
+    if (cached !== undefined && tex.has('t_0_0')) return cached;
     const src = tex.getSourceImage() as { width: number; height: number };
     const grid = Math.max(1, Math.floor(Math.min(src.width, src.height) / TILE_SIZE));
     for (let r = 0; r < grid; r++) {
@@ -310,7 +312,6 @@ export class MapRenderer {
       }
     }
     this.terrainGrid.set(key, grid);
-    this.terrainSliced.add(key);
     return grid;
   }
 
@@ -335,11 +336,17 @@ export class MapRenderer {
     }
     const mapW = this.width * TILE_SIZE;
     const mapH = this.height * TILE_SIZE;
+    // DeepSeek 复审[major]：尺寸变化（理论上 dims 实例内不可变，防御）→ 重建 RT，避免旧尺寸裁切。
+    if (this.terrainRT && (this.terrainRT.width !== mapW || this.terrainRT.height !== mapH)) {
+      this.terrainRT.destroy();
+      this.terrainRT = null;
+    }
     if (!this.terrainRT) {
       this.terrainRT = this.scene.add.renderTexture(this.originX, this.originY, mapW, mapH).setOrigin(0, 0);
       this.terrainRT.setDepth(-10); // 在 nodes/buildings 之下
       if (this.viewportMask) this.terrainRT.setMask(this.viewportMask);
     }
+    this.terrainRT.setVisible(true); // 回退后可能被隐藏过，恢复
     this.terrainRT.clear();
     this.terrainRT.beginDraw();
     for (let y = 0; y < this.height; y++) {
