@@ -1,0 +1,56 @@
+[
+  {
+    "id": "tree_pine",
+    "model": "wan2.7-image-pro",
+    "saved": "D:\\code\\colony-game\\public\\art\\scatter\\tree_pine.png",
+    "error": null
+  },
+  {
+    "id": "tree_mulberry",
+    "model": "wan2.7-image-pro",
+    "saved": "D:\\code\\colony-game\\public\\art\\scatter\\tree_mulberry.png",
+    "error": null
+  },
+  {
+    "id": "tree_willow",
+    "model": "wan2.7-image-pro",
+    "saved": "D:\\code\\colony-game\\public\\art\\scatter\\tree_willow.png",
+    "error": null
+  },
+  {
+    "id": "rock_boulder",
+    "model": "wan2.7-image-pro",
+    "saved": "D:\\code\\colony-game\\public\\art\\scatter\\rock_boulder.png",
+    "error": null
+  },
+  {
+    "id": "rock_cluster",
+    "model": "wan2.7-image-pro",
+    "saved": "D:\\code\\colony-game\\public\\art\\scatter\\rock_cluster.png",
+    "error": null
+  },
+  {
+    "id": "bush_shrub",
+    "model": "wan2.7-image-pro",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '836b"
+  },
+  {
+    "id": "bush_dry",
+    "model": "wan2.7-image-pro",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '596e"
+  },
+  {
+    "id": "reed_clump",
+    "model": "wan2.7-image-pro",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'cbfa"
+  },
+  {
+    "id": "grass_tuft",
+    "model": "wan2.7-image-pro",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '3650"
+  }
+]

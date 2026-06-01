@@ -30,7 +30,7 @@ TERRAIN_STYLE = (
 TERRAINS: list[tuple[str, str]] = [
     ("plain", "Lush but earthy temperate grassland meadow with patches of cultivated millet field furrows and bare tilled soil, scattered wild grass tufts, small stones, dry and green mixed."),
     ("hills", "Dry rolling loess hill ground, ochre and tan packed earth with sparse dry yellow grass, subtle undulating contours, eroded soil, a few scattered rocks."),
-    ("forest", "Dense temperate broadleaf forest canopy seen straight from directly above, tops of pine and locust and mulberry trees, layered green and umber foliage clumps, deep shadow gaps between crowns."),
+    ("forest", "Shaded forest floor ground under a tree canopy: dark rich brown leaf-litter soil with fallen leaves and twigs, patches of moss and undergrowth fern, a few tree roots and small stones, dappled shade. NO tree tops, NO canopy from above — just the forest GROUND (trees are placed separately as sprites)."),
     ("river", "Calm shallow river and stream water surface seen from above, gentle ripples and eddies, muddy green-brown water with subtle reflections, a few wet pebbles and reed patches at the edges."),
     ("mountain", "Bare rugged grey mountain rock ground from above, weathered fractured stone, cracks and scree, patches of moss and a little sparse alpine grass in crevices, cold grey and slate tones."),
 ]
