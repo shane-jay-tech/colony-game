@@ -209,14 +209,25 @@ export class MapRenderer {
     this.refreshViewportMask();
   }
 
-  /** v1.0 #5：重置缩放与平移到默认（zoom=1, scroll=0；此时由 originX/originY 保证地图居中）。 */
+  /** v1.0 #5：重置——居中到地图中心 tile（等距大地图下比 scroll=0 更"对准聚落区"）。 */
   resetView(): void {
     if (this.destroyed) return;
     const cam = this.scene.cameras.main;
     if (typeof cam.setZoom === 'function') cam.setZoom(1);
-    cam.scrollX = 0;
-    cam.scrollY = 0;
+    this.centerOnTile(Math.floor(this.width / 2), Math.floor(this.height / 2));
     this.refreshViewportMask();
+  }
+
+  /** 把相机居中到某格（世界点 origin+isoCenter 落在可用视口中心）。初始 + reset 用。 */
+  centerOnTile(gx: number, gy: number): void {
+    if (this.destroyed) return;
+    const cam = this.scene.cameras.main;
+    const c = this.isoCenter(gx, gy);
+    const z = (cam.zoom as number | undefined) || 1;
+    const vp = this.computeViewportRect(cam.width, cam.height);
+    cam.scrollX = (this.originX + c.x) - (vp.x + vp.w / 2) / z;
+    cam.scrollY = (this.originY + c.y) - (vp.y + vp.h / 2) / z;
+    this.clampScroll();
   }
 
   /**
@@ -313,6 +324,13 @@ export class MapRenderer {
 
     this.bakeTerrain(accessor);
     this.bakeResourceNodes(accessor);
+
+    // 等距大地图：开局把相机居中到地图中心（聚落区），而非几何包围盒中心，避免一进来看着偏。
+    this.centerOnTile(Math.floor(this.width / 2), Math.floor(this.height / 2));
+    // 地图外/菱形空角的底色用暗土色，避免露出刺眼纯黑（比 BG_INK 略暖、低调）。
+    if (typeof scene.cameras.main.setBackgroundColor === 'function') {
+      scene.cameras.main.setBackgroundColor(0x241d14);
+    }
   }
 
   /**
@@ -433,10 +451,11 @@ export class MapRenderer {
           im.setTexture(def.assetKey);
           this.buildingImageLastKey[sigilIdx] = def.assetKey;
         }
-        // bottom-center 锚在 footprint 前下顶点；方形原画按块宽等比（建筑由此前下角向上"立"起）
+        // 等距原画自带菱形 footprint：bottom-center 锚在 tile footprint 的前下顶点，
+        // 宽度=footprint 等距宽 → 原画的菱形地基正好叠在地块菱形上，建筑由此向上"立"起。
         im.setOrigin(0.5, 1);
         im.setPosition(this.originX + cx, this.originY + frontY);
-        im.setDisplaySize(isoW, isoW);
+        im.setDisplaySize(isoW * 1.05, isoW * 1.05);
         im.setAlpha(isWorking ? 1 : 0.55);
         im.setDepth(depth);
         im.setVisible(true);

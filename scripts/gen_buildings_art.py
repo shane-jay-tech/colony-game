@@ -14,7 +14,24 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, "D:/code/scripts")
-import gen_wanxiang_batch as gw  # noqa: E402  复用 make_prompt / submit_one / poll_one / Job / STYLE_TAIL
+import gen_wanxiang_batch as gw  # noqa: E402  复用 submit_one / poll_one / Job
+
+# 2026-06-03：改真等距(2:1 dimetric)建筑精灵——footprint 是菱形、与等距地面网格对齐（用户选 A 重画）。
+ISO_STYLE = (
+    "TRUE ISOMETRIC video-game building sprite, strict 2:1 dimetric projection viewed from the fixed classic "
+    "isometric camera angle (exactly like Age of Empires II, Caesar III, Pharaoh, Nebuchadnezzar isometric "
+    "building sprites). The building stands on a FLAT DIAMOND/RHOMBUS ground footprint that follows the 2:1 "
+    "isometric grid (ground tile edges recede at the isometric angle — NOT a square, NOT a front-on 3/4 view). "
+    "Camera looks down at the isometric angle: you see the roof and two walls in iso. "
+    "Spring and Autumn period (770-476 BC) pre-imperial bronze-age rural China: rammed-earth walls, raw timber, "
+    "weathered grey unglazed tile roofs, low fieldstone base. NO glaze, NO vermilion lacquer, NO flying upturned "
+    "eaves, NO imperial features. Painted in Anno1404 / Nebuchadnezzar concept-art style, heavily desaturated "
+    "earthy tones, thick visible brushwork, ultra-detailed. Pure pitch-black void background (will be cut to "
+    "transparent), the diamond footprint centered in frame, the whole building fully visible with a small margin. "
+    "Cinematic light from the upper-right. "
+    "ABSOLUTELY NOT: front-on elevation, 3/4 perspective, square footprint, anime, manga, cartoon, flat vector, "
+    "cel shading, 3D PBR render, text, watermark, frame, people."
+)
 
 # (bld_id, 建筑描述)——春秋(770-476 BC)写实，材料=夯土/原木/灰陶瓦/毛石，含完整性强制(门/梯/阶)
 BUILDINGS: list[tuple[str, str]] = [
@@ -72,7 +89,7 @@ def main() -> int:
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     only = {x.strip() for x in args.only.split(",") if x.strip()}
-    jobs = [gw.Job(id=bid, desc=d, prompt=gw.make_prompt(d)) for bid, d in BUILDINGS if not only or bid in only]
+    jobs = [gw.Job(id=bid, desc=d, prompt=f"{d} {ISO_STYLE}") for bid, d in BUILDINGS if not only or bid in only]
     if not jobs:
         print(f"[FAIL] no jobs match --only={args.only}")
         return 2

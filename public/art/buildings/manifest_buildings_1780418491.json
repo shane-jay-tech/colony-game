@@ -1,0 +1,121 @@
+[
+  {
+    "id": "bld_farm",
+    "model": "wan2.7-image",
+    "task_id": "14e8411e-4300-48e1-8e51-ebdb00476014",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_farm.png",
+    "error": null
+  },
+  {
+    "id": "bld_well",
+    "model": "wan2.7-image",
+    "task_id": "9c07f107-94dd-4576-818e-70f5ccbf0b63",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_well.png",
+    "error": null
+  },
+  {
+    "id": "bld_market",
+    "model": "wan2.7-image",
+    "task_id": "83a9898c-ae58-417f-a5e2-8685ba2602c7",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_market.png",
+    "error": null
+  },
+  {
+    "id": "bld_woodcutter",
+    "model": "wan2.7-image",
+    "task_id": "b12fb0b4-4915-41a5-a643-1cbd274b241a",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_woodcutter.png",
+    "error": null
+  },
+  {
+    "id": "bld_quarry",
+    "model": "wan2.7-image",
+    "task_id": "66a63f73-9b0c-400e-acf7-e39ad366e2d7",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_quarry.png",
+    "error": null
+  },
+  {
+    "id": "bld_loom_house",
+    "model": "wan2.7-image",
+    "task_id": "a4bc2821-97a4-4a6d-a5bf-156f93026411",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_loom_house.png",
+    "error": null
+  },
+  {
+    "id": "bld_smithy",
+    "model": "wan2.7-image",
+    "task_id": "ca713074-fd19-466d-8f96-fea88e27dd6b",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_smithy.png",
+    "error": null
+  },
+  {
+    "id": "bld_academy",
+    "model": "wan2.7-image",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '1d6e"
+  },
+  {
+    "id": "bld_palace",
+    "model": "wan2.7-image",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'df9c"
+  },
+  {
+    "id": "bld_beacon_tower",
+    "model": "wan2.7-image",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'd292"
+  },
+  {
+    "id": "bld_post_road",
+    "model": "wan2.7-image",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '11b1"
+  },
+  {
+    "id": "bld_water_mill",
+    "model": "wan2.7-image",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'af5f"
+  },
+  {
+    "id": "bld_iron_forge",
+    "model": "wan2.7-image",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'fd15"
+  },
+  {
+    "id": "bld_mulberry_grove",
+    "model": "wan2.7-image",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '0822"
+  },
+  {
+    "id": "bld_stele_yard",
+    "model": "wan2.7-image",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'ef9f"
+  },
+  {
+    "id": "bld_village_school",
+    "model": "wan2.7-image",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '362c"
+  },
+  {
+    "id": "bld_envoy_lodge",
+    "model": "wan2.7-image",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '4c86"
+  }
+]
