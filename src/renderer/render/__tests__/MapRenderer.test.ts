@@ -9,20 +9,6 @@ import type { WorldMap } from '../../data/mapSchema';
 import { TILE_SIZE } from '../mapColors';
 import { UI } from '../../ui/palette';
 
-/** 与 MapRenderer.computeOrigin 同步的 expected origin 算法。 */
-function expectedOrigin(camW: number, camH: number, mapW: number, mapH: number): { x: number; y: number } {
-  const leftInset = 8 + UI.buildPanelWidth + 8;
-  const rightInset = UI.rightPanelWidth + 8 + 8;
-  const topInset = UI.topbarHeight + 8;
-  const bottomInset = 8;
-  const usableW = camW - leftInset - rightInset;
-  const usableH = camH - topInset - bottomInset;
-  return {
-    x: leftInset + Math.floor((usableW - mapW * TILE_SIZE) / 2),
-    y: topInset + Math.floor((usableH - mapH * TILE_SIZE) / 2),
-  };
-}
-
 function makeMap(w = 8, h = 8): WorldMap {
   const tiles = [];
   for (let i = 0; i < w * h; i++) tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
@@ -43,6 +29,7 @@ function makeFakeGraphics() {
     fillCircle: vi.fn().mockReturnThis(),
     strokeCircle: vi.fn().mockReturnThis(),
     fillPoints: vi.fn().mockReturnThis(),
+    strokePoints: vi.fn().mockReturnThis(),
     beginPath: vi.fn().mockReturnThis(),
     moveTo: vi.fn().mockReturnThis(),
     lineTo: vi.fn().mockReturnThis(),
@@ -118,6 +105,7 @@ function makeFakeImage() {
     setAlpha: vi.fn().mockImplementation(function (this: typeof im, a: number) { this.alpha = a; return this; }),
     setDisplaySize: vi.fn().mockImplementation(function (this: typeof im) { return this; }),
     setFlipX: vi.fn().mockImplementation(function (this: typeof im) { return this; }),
+    setDepth: vi.fn().mockImplementation(function (this: typeof im) { return this; }),
     setTexture: vi.fn().mockImplementation(function (this: typeof im, k: string) { this.key = k; return this; }),
     setMask: vi.fn().mockImplementation(function (this: typeof im) { return this; }),
     clearMask: vi.fn().mockImplementation(function (this: typeof im) { return this; }),
@@ -175,53 +163,29 @@ describe('MapRenderer.screenToGrid', () => {
   // origin 居中于"可用视口"——扣 HUD 顶栏 + 左右面板后的中央矩形（与 MapRenderer.computeOrigin 同步）
   const camW = 1366;
   const camH = 800;
-  const _o = expectedOrigin(camW, camH, mapW, mapH);
-  const expectedOriginX = _o.x;
-  const expectedOriginY = _o.y;
 
   beforeEach(() => {
     const acc = new WorldMapAccessor(makeMap(mapW, mapH));
     renderer = new MapRenderer(makeFakeScene(camW, camH), acc);
   });
 
-  it('returns (0,0) at the origin', () => {
-    expect(renderer.screenToGrid(expectedOriginX, expectedOriginY)).toEqual({ x: 0, y: 0 });
+  it('gridToScreen(tile中心) → screenToGrid 往返回原格（等距）', () => {
+    for (const [gx, gy] of [[0, 0], [1, 0], [0, 1], [3, 4], [7, 7], [5, 2]]) {
+      const s = renderer.gridToScreen(gx!, gy!);
+      expect(renderer.screenToGrid(s.x, s.y)).toEqual({ x: gx, y: gy });
+    }
   });
 
-  it('returns (1,0) one tile right of origin', () => {
-    expect(renderer.screenToGrid(expectedOriginX + TILE_SIZE, expectedOriginY)).toEqual({ x: 1, y: 0 });
+  it('地图菱形之外的点返回 null', () => {
+    const s = renderer.gridToScreen(0, 0);
+    expect(renderer.screenToGrid(s.x - 100000, s.y)).toBeNull(); // 远左
+    expect(renderer.screenToGrid(s.x, s.y - 100000)).toBeNull(); // 远上
+    expect(renderer.screenToGrid(s.x + 100000, s.y)).toBeNull(); // 远右
   });
 
-  it('returns (0,1) one tile below origin', () => {
-    expect(renderer.screenToGrid(expectedOriginX, expectedOriginY + TILE_SIZE)).toEqual({ x: 0, y: 1 });
-  });
-
-  it('returns null for points left of origin', () => {
-    expect(renderer.screenToGrid(expectedOriginX - 1, expectedOriginY)).toBeNull();
-  });
-
-  it('returns null for points above origin', () => {
-    expect(renderer.screenToGrid(expectedOriginX, expectedOriginY - 1)).toBeNull();
-  });
-
-  it('returns null for points past right edge', () => {
-    const justPastRight = expectedOriginX + mapW * TILE_SIZE;
-    expect(renderer.screenToGrid(justPastRight, expectedOriginY)).toBeNull();
-  });
-
-  it('returns last tile (mapW-1, mapH-1) at the bottom-right interior pixel', () => {
-    const lastX = expectedOriginX + mapW * TILE_SIZE - 1;
-    const lastY = expectedOriginY + mapH * TILE_SIZE - 1;
-    expect(renderer.screenToGrid(lastX, lastY)).toEqual({ x: mapW - 1, y: mapH - 1 });
-  });
-
-  it('returns null for NaN inputs (guards against uninitialized pointer events)', () => {
-    expect(renderer.screenToGrid(NaN, expectedOriginY)).toBeNull();
-    expect(renderer.screenToGrid(expectedOriginX, NaN)).toBeNull();
-    expect(renderer.screenToGrid(NaN, NaN)).toBeNull();
-  });
-
-  it('returns null for Infinity inputs', () => {
+  it('returns null for NaN / Infinity inputs', () => {
+    expect(renderer.screenToGrid(NaN, 0)).toBeNull();
+    expect(renderer.screenToGrid(0, NaN)).toBeNull();
     expect(renderer.screenToGrid(Infinity, 0)).toBeNull();
     expect(renderer.screenToGrid(0, -Infinity)).toBeNull();
   });
@@ -256,18 +220,18 @@ describe('MapRenderer.setHoverPreview', () => {
     const hoverGfx = (scene as unknown as { _graphics: ReturnType<typeof makeFakeGraphics>[] })._graphics[3]!;
     renderer.setHoverPreview(null);
     expect(hoverGfx.clear).toHaveBeenCalled();
-    expect(hoverGfx.fillRect).not.toHaveBeenCalled();
+    expect(hoverGfx.fillPoints).not.toHaveBeenCalled();
   });
 
-  it('valid preview draws a green box (1 fillRect + 1 strokeRect)', () => {
+  it('valid preview draws a green diamond (1 fillPoints + 1 strokePoints)', () => {
     const acc = new WorldMapAccessor(makeMap(8, 8));
     const scene = makeFakeScene();
     const renderer = new MapRenderer(scene, acc);
     const hoverGfx = (scene as unknown as { _graphics: ReturnType<typeof makeFakeGraphics>[] })._graphics[3]!;
     renderer.setHoverPreview({ gridX: 2, gridY: 3, w: 2, h: 2, valid: true });
     expect(hoverGfx.clear).toHaveBeenCalledTimes(1);
-    expect(hoverGfx.fillRect).toHaveBeenCalledTimes(1);
-    expect(hoverGfx.strokeRect).toHaveBeenCalledTimes(1);
+    expect(hoverGfx.fillPoints).toHaveBeenCalledTimes(1);
+    expect(hoverGfx.strokePoints).toHaveBeenCalledTimes(1);
   });
 
   it('invalid preview also draws (red) — same call shape', () => {
@@ -276,8 +240,8 @@ describe('MapRenderer.setHoverPreview', () => {
     const renderer = new MapRenderer(scene, acc);
     const hoverGfx = (scene as unknown as { _graphics: ReturnType<typeof makeFakeGraphics>[] })._graphics[3]!;
     renderer.setHoverPreview({ gridX: 0, gridY: 0, w: 1, h: 1, valid: false });
-    expect(hoverGfx.fillRect).toHaveBeenCalledTimes(1);
-    expect(hoverGfx.strokeRect).toHaveBeenCalledTimes(1);
+    expect(hoverGfx.fillPoints).toHaveBeenCalledTimes(1);
+    expect(hoverGfx.strokePoints).toHaveBeenCalledTimes(1);
   });
 
   it('NaN gridX / non-positive size silently clears (no throw)', () => {
@@ -287,7 +251,7 @@ describe('MapRenderer.setHoverPreview', () => {
     const hoverGfx = (scene as unknown as { _graphics: ReturnType<typeof makeFakeGraphics>[] })._graphics[3]!;
     renderer.setHoverPreview({ gridX: NaN, gridY: 0, w: 1, h: 1, valid: true });
     renderer.setHoverPreview({ gridX: 0, gridY: 0, w: 0, h: 1, valid: true });
-    expect(hoverGfx.fillRect).not.toHaveBeenCalled();
+    expect(hoverGfx.fillPoints).not.toHaveBeenCalled();
   });
 });
 
@@ -328,10 +292,9 @@ describe('MapRenderer.bake (terrain / nodes)', () => {
     const acc = new WorldMapAccessor(map);
     const scene = makeFakeScene();
     new MapRenderer(scene, acc);
-    // first graphics = terrain (16 tiles + grid lines + Slice H hatching dots/forest/etc)
+    // first graphics = terrain：等距每 tile 画一个菱形 fillPoints（4×4=16 个）
     const terrainGfx = (scene as unknown as { _graphics: ReturnType<typeof makeFakeGraphics>[] })._graphics[0]!;
-    // 至少 16 次（每 tile 一次 solid fill），hatching 会追加额外 fillRect（plain 点、forest 点）
-    expect(terrainGfx.fillRect.mock.calls.length).toBeGreaterThanOrEqual(16);
+    expect(terrainGfx.fillPoints.mock.calls.length).toBe(16);
     // second graphics = nodes (2 nodes)：菱形 pip 用 fillPoints（每节点 2 个：描边+本体）+ 高光 fillCircle（每节点 1）
     const nodesGfx = (scene as unknown as { _graphics: ReturnType<typeof makeFakeGraphics>[] })._graphics[1]!;
     expect(nodesGfx.fillPoints).toHaveBeenCalledTimes(4);
@@ -546,8 +509,8 @@ describe('MapRenderer.pulseBuildingCompleted (Slice H)', () => {
     // 4 paint layers (terrain/nodes/buildings/hover) + 1 viewport mask + 1 pulse graphics
     expect(gfx).toHaveLength(6);
     const pulseGfx = gfx[5]!;
-    // 双层金边：3px 主框 + 1px 外光晕
-    expect(pulseGfx.strokeRect).toHaveBeenCalledTimes(2);
+    // 等距：金边菱形脉冲（strokePoints 一次，tier1）
+    expect(pulseGfx.strokePoints).toHaveBeenCalledTimes(1);
     // 一个 800ms alpha:0 tween
     const tweens = (scene as unknown as { _tweens: TweenConfig[] })._tweens;
     expect(tweens).toHaveLength(1);
@@ -708,124 +671,5 @@ describe('MapRenderer.floatTextAtTile (Phase4 Juice)', () => {
     // destroy() 把剩余 6 个也清掉，无泄漏
     renderer.destroy();
     expect(created.every(t => t.destroy.mock.calls.length > 0)).toBe(true);
-  });
-});
-
-describe('MapRenderer 手绘地貌烘焙 (W3)', () => {
-  function makeRT() {
-    const counter = { n: 0 };
-    const rt = {
-      counter,
-      width: 0, height: 0,
-      setOrigin: vi.fn().mockReturnThis(),
-      setDepth: vi.fn().mockReturnThis(),
-      setMask: vi.fn().mockReturnThis(),
-      setPosition: vi.fn().mockReturnThis(),
-      setVisible: vi.fn().mockReturnThis(),
-      clear: vi.fn().mockReturnThis(),
-      beginDraw: vi.fn().mockReturnThis(),
-      endDraw: vi.fn().mockReturnThis(),
-      batchDrawFrame: vi.fn(() => { counter.n++; }),
-      draw: vi.fn(() => { counter.n++; }),
-      destroy: vi.fn(),
-    };
-    return rt;
-  }
-  function makeSceneWithTerrain(exists: (k: string) => boolean) {
-    const base = makeFakeScene() as Record<string, unknown> & { add: Record<string, unknown> };
-    const rt = makeRT();
-    const tex = { has: vi.fn(() => false), add: vi.fn(), getSourceImage: () => ({ width: 1024, height: 1024 }) };
-    base.textures = { exists: vi.fn(exists), get: vi.fn(() => tex) };
-    base.add.renderTexture = vi.fn(() => rt);
-    base._rt = rt;
-    base._tex = tex;
-    return base;
-  }
-
-  it('地貌贴图齐备时烘焙进 RT：每 tile 一次 batchDrawFrame，且切了 frame 网格', () => {
-    const acc = new WorldMapAccessor(makeMap(8, 8)); // 64 tiles
-    const scene = makeSceneWithTerrain(k => k.startsWith('terrain_'));
-    const renderer = new MapRenderer(scene as never, acc);
-    const rt = (scene as unknown as { _rt: ReturnType<typeof makeRT> })._rt;
-    expect(rt.beginDraw).toHaveBeenCalled();
-    expect(rt.endDraw).toHaveBeenCalled();
-    expect(rt.counter.n).toBe(64); // 8×8 全部 tile 烘焙
-    // frame 网格被切（1024/24=42 → add 被调用多次）
-    expect((scene as unknown as { _tex: { add: ReturnType<typeof vi.fn> } })._tex.add.mock.calls.length).toBeGreaterThan(0);
-    renderer.destroy();
-    expect(rt.destroy).toHaveBeenCalledTimes(1);
-  });
-
-  it('任一地貌贴图缺失 → 不建 RT，回退色块路径', () => {
-    const acc = new WorldMapAccessor(makeMap(8, 8));
-    const scene = makeSceneWithTerrain(() => false); // 全缺
-    const renderer = new MapRenderer(scene as never, acc);
-    expect((scene as unknown as { add: { renderTexture: ReturnType<typeof vi.fn> } }).add.renderTexture).not.toHaveBeenCalled();
-    renderer.destroy();
-  });
-
-  it('rebuildAfterResize 销毁并重建 RT（全新 framebuffer，修 resize 畸变）', () => {
-    const acc = new WorldMapAccessor(makeMap(8, 8));
-    const scene = makeSceneWithTerrain(k => k.startsWith('terrain_'));
-    const renderer = new MapRenderer(scene as never, acc);
-    const rt = (scene as unknown as { _rt: ReturnType<typeof makeRT> })._rt;
-    const rtFactory = (scene as unknown as { add: { renderTexture: ReturnType<typeof vi.fn> } }).add.renderTexture;
-    const createsAfterCtor = rtFactory.mock.calls.length; // 构造时建了 terrainRT
-    expect(createsAfterCtor).toBeGreaterThanOrEqual(1);
-    renderer.rebuildAfterResize();
-    // 旧 RT 被 destroy；又 add 了新的 RT（次数增加）
-    expect(rt.destroy).toHaveBeenCalled();
-    expect(rtFactory.mock.calls.length).toBeGreaterThan(createsAfterCtor);
-    renderer.destroy();
-  });
-});
-
-describe('MapRenderer 散布层烘焙 (W4)', () => {
-  function makeRTd() {
-    const counter = { n: 0 };
-    const rt = {
-      counter,
-      setOrigin: vi.fn().mockReturnThis(), setDepth: vi.fn().mockReturnThis(),
-      setMask: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(),
-      setVisible: vi.fn().mockReturnThis(), clear: vi.fn().mockReturnThis(),
-      beginDraw: vi.fn().mockReturnThis(), endDraw: vi.fn().mockReturnThis(),
-      batchDrawFrame: vi.fn(), draw: vi.fn(() => { counter.n++; }),
-      batchDraw: vi.fn(() => { counter.n++; }), destroy: vi.fn(),
-      width: 0, height: 0,
-    };
-    return rt;
-  }
-  // 仅散布素材存在(地貌缺→回退色块)，隔离出散布 draw 计数
-  function sceneScatterOnly() {
-    const base = makeFakeScene() as Record<string, unknown> & { add: Record<string, unknown> };
-    const rt = makeRTd();
-    base.textures = { exists: vi.fn((k: string) => k.startsWith('scatter_')), get: vi.fn() };
-    base.add.renderTexture = vi.fn(() => rt);
-    base._rt = rt;
-    return base;
-  }
-
-  it('散布素材齐备 → 建 scatterRT 并 draw 若干次；同 seed 两次结果一致(确定性)', () => {
-    const acc1 = new WorldMapAccessor(makeMap(10, 10));
-    const s1 = sceneScatterOnly();
-    new MapRenderer(s1 as never, acc1);
-    const n1 = (s1 as unknown as { _rt: ReturnType<typeof makeRTd> })._rt.counter.n;
-    expect(n1).toBeGreaterThan(0);
-
-    const acc2 = new WorldMapAccessor(makeMap(10, 10));
-    const s2 = sceneScatterOnly();
-    new MapRenderer(s2 as never, acc2);
-    const n2 = (s2 as unknown as { _rt: ReturnType<typeof makeRTd> })._rt.counter.n;
-    expect(n2).toBe(n1); // 确定性：同图同布局
-  });
-
-  it('无散布素材 → 不建 scatterRT（优雅降级）', () => {
-    const acc = new WorldMapAccessor(makeMap(8, 8));
-    const base = makeFakeScene() as Record<string, unknown> & { add: Record<string, unknown> };
-    const rt = makeRTd();
-    base.textures = { exists: vi.fn(() => false), get: vi.fn() };
-    base.add.renderTexture = vi.fn(() => rt);
-    new MapRenderer(base as never, acc);
-    expect((base.add as { renderTexture: ReturnType<typeof vi.fn> }).renderTexture).not.toHaveBeenCalled();
   });
 });

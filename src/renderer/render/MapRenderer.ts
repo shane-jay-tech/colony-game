@@ -5,8 +5,7 @@ import { getBuildingDef } from '../data/buildingRegistry';
 import { COLORS, COLORS_HEX, UI } from '../ui/palette';
 import { terrainColor, resourceNodeColor, TILE_SIZE, NODE_MARKER_INSET } from './mapColors';
 import { getBuildingSigil } from './buildingSigils';
-import { drawTerrainHatching, makeTilePrng } from './terrainTextures';
-import { SCATTER_BY_TERRAIN, RIVER_EDGE, SCATTER_KEY_PREFIX, ALL_SCATTER_IDS, type ScatterSlot } from '../data/scatterConfig';
+import { ISO_TILE_W, ISO_TILE_H } from './iso';
 
 /** v0.9：左右面板折叠时只露 28px 竖条；recompute 视口要靠它 */
 export const PANEL_COLLAPSED_WIDTH = 28;
@@ -33,14 +32,11 @@ export interface PanelLayoutSource {
  */
 export class MapRenderer {
   private terrainGfx: Phaser.GameObjects.Graphics | null;
-  /** W3：手绘地貌烘焙层。地貌贴图齐备时 bake 进此 RT（单 GameObject，整图一次烘焙），
-   *  缺贴图则为 null、回退 terrainGfx 的 fillRect 色块。 */
-  private terrainRT: Phaser.GameObjects.RenderTexture | null = null;
-  /** 每张贴图的 frame 网格边长（贴图边 / TILE_SIZE），用于 tile 取模采样 */
-  private terrainGrid = new Map<string, number>();
-  private static readonly TERRAIN_KEY_PREFIX = 'terrain_';
-  /** W4：散布层（树/石/芦苇）。素材齐备时确定性 bake 进此 RT（深度 -5，介于地貌与建筑之间）。 */
-  private scatterRT: Phaser.GameObjects.RenderTexture | null = null;
+  /** 等距投影：让最左 tile 的 local x = 0（最左点出现在 gy=height-1 行）。constructor 算定。 */
+  private isoOffsetX = 0;
+  /** 等距地图在屏幕上的菱形包围盒像素尺寸（相机居中/clamp 用）。constructor 算定。 */
+  private mapPxW = 0;
+  private mapPxH = 0;
   private nodesGfx: Phaser.GameObjects.Graphics | null;
   private buildingsGfx: Phaser.GameObjects.Graphics | null;
   private hoverGfx: Phaser.GameObjects.Graphics | null;
@@ -101,18 +97,48 @@ export class MapRenderer {
     };
   }
 
+  private static readonly ISO_HW = ISO_TILE_W / 2;
+  private static readonly ISO_HH = ISO_TILE_H / 2;
+
+  /** 等距：格子顶点 → 图层局部坐标（含 isoOffsetX，保证 local x ≥ 0）。 */
+  private isoVert(gx: number, gy: number): { x: number; y: number } {
+    return { x: (gx - gy) * MapRenderer.ISO_HW + this.isoOffsetX, y: (gx + gy) * MapRenderer.ISO_HH };
+  }
+
+  /** 等距：格子中心 → 图层局部坐标（菱形中心，比顶点低半个 tile 高，便于精灵 bottom-center 落位）。 */
+  private isoCenter(gx: number, gy: number): { x: number; y: number } {
+    return {
+      x: (gx - gy) * MapRenderer.ISO_HW + this.isoOffsetX,
+      y: (gx + gy) * MapRenderer.ISO_HH + MapRenderer.ISO_HH,
+    };
+  }
+
+  /** footprint(wT×hT 格) 块的菱形：中心局部坐标 cx/cy + 相对中心的 4 顶点 rel（脉冲缩放用）。 */
+  private footprintDiamond(gx: number, gy: number, wT: number, hT: number):
+    { cx: number; cy: number; rel: { x: number; y: number }[] } {
+    const top = this.isoVert(gx, gy);
+    const right = this.isoVert(gx + wT, gy);
+    const bot = this.isoVert(gx + wT, gy + hT);
+    const left = this.isoVert(gx, gy + hT);
+    const cx = (top.x + bot.x) / 2;
+    const cy = (top.y + bot.y) / 2;
+    return {
+      cx, cy, rel: [
+        { x: top.x - cx, y: top.y - cy }, { x: right.x - cx, y: right.y - cy },
+        { x: bot.x - cx, y: bot.y - cy }, { x: left.x - cx, y: left.y - cy },
+      ],
+    };
+  }
+
   /**
-   * 计算地图 origin，使其居中于"可用视口"——扣除 HUD 顶栏 + 左 BuildPanel + 右 CourtPanel 后的中央矩形。
-   * 这样地图在小屏 / 大屏 / 缩放后都不会被左右面板压出视觉黑边，对称性正确。
-   * v0.9：地图大于视口时会被 mask 裁剪到视口内，绝对不会渗到 HUD/面板后面。
+   * 计算地图 origin，使等距菱形地图（mapPxW×mapPxH）居中于"可用视口"
+   * （扣除 HUD 顶栏 + 左 BuildPanel + 右 CourtPanel 后的中央矩形）。
    */
   private computeOrigin(camWidth: number, camHeight: number): { x: number; y: number } {
     const vp = this.computeViewportRect(camWidth, camHeight);
-    const mapW = this.width * TILE_SIZE;
-    const mapH = this.height * TILE_SIZE;
     return {
-      x: vp.x + Math.floor((vp.w - mapW) / 2),
-      y: vp.y + Math.floor((vp.h - mapH) / 2),
+      x: vp.x + Math.floor((vp.w - this.mapPxW) / 2),
+      y: vp.y + Math.floor((vp.h - this.mapPxH) / 2),
     };
   }
 
@@ -202,12 +228,10 @@ export class MapRenderer {
     const cam = this.scene.cameras.main;
     const vp = this.computeViewportRect(cam.width, cam.height);
     const z = (cam.zoom as number | undefined) || 1;
-    const mapW = this.width * TILE_SIZE;
-    const mapH = this.height * TILE_SIZE;
     const mapLeft = this.originX;
-    const mapRight = this.originX + mapW;
+    const mapRight = this.originX + this.mapPxW;
     const mapTop = this.originY;
-    const mapBottom = this.originY + mapH;
+    const mapBottom = this.originY + this.mapPxH;
     // X
     const minScrollX = mapLeft - vp.x / z;
     const maxScrollX = mapRight - (vp.x + vp.w) / z;
@@ -245,14 +269,10 @@ export class MapRenderer {
    */
   rebuildAfterResize(): void {
     if (this.destroyed) return;
-    // 关键（2026-06-02）：切换窗口时 renderer.resize 会让 RenderTexture 的 framebuffer 失效，
-    // 只 clear+重画**同一个** RT 仍是坏 framebuffer（画面畸变且不可恢复的真凶）。
-    // 必须 destroy+null，让 bake* 重新 add 一个**全新** RenderTexture（全新 framebuffer）。
-    if (this.terrainRT) { this.terrainRT.destroy(); this.terrainRT = null; }
-    if (this.scatterRT) { this.scatterRT.destroy(); this.scatterRT = null; }
+    // 等距重写后地面是 Graphics 菱形（无 RenderTexture）→ resize 不再有 RT framebuffer 失效问题。
+    // 只需重居中 + 重画各 Graphics 层。
     this.recenter();
     this.bakeTerrain(this.accessor);
-    this.bakeScatter(this.accessor);
     this.bakeResourceNodes(this.accessor);
   }
 
@@ -262,6 +282,11 @@ export class MapRenderer {
     this.height = dim.height;
     this.scene = scene;
     this.accessor = accessor;
+
+    // 等距投影几何：最左点在 gy=height-1 处 x = -(height-1)*HW；右移 isoOffsetX 让 local x≥0。
+    this.isoOffsetX = (this.height - 1) * MapRenderer.ISO_HW;
+    this.mapPxW = (this.width + this.height) * MapRenderer.ISO_HW;
+    this.mapPxH = (this.width + this.height) * MapRenderer.ISO_HH;
 
     // 居中：地图放在"可用区域"（扣 HUD + 左右面板）中央，避免视觉黑边
     const cam = scene.cameras.main;
@@ -287,177 +312,32 @@ export class MapRenderer {
     this.refreshViewportMask();
 
     this.bakeTerrain(accessor);
-    this.bakeScatter(accessor);
     this.bakeResourceNodes(accessor);
   }
 
+  /**
+   * 等距地面烘焙：每个 tile 画成一个菱形（四个格点 (x,y)(x+1,y)(x+1,y+1)(x,y+1) 投影成顶/右/底/左），
+   * 按地形上色。无 RenderTexture（故 resize 不再畸变）、无网格线（同型相邻菱形融成大色块，Anno 风）。
+   * 手绘地貌贴图留 Phase 2；本阶段先用纯色菱形验证投影/对位。
+   */
   private bakeTerrain(accessor: WorldMapAccessor): void {
     const g = this.terrainGfx;
     if (!g) return;
     g.clear();
-    // W3：地貌贴图齐备 → 烘焙手绘地貌进 RT（terrainGfx 留空）；否则回退色块+墨点。
-    if (this.tryBakeTerrainTextures(accessor)) return;
-    // DeepSeek 复审[major]：回退路径——若之前建过 RT，清空并隐藏，避免旧地貌从色块下透出。
-    if (this.terrainRT) { this.terrainRT.clear(); this.terrainRT.setVisible(false); }
-
-    const map = accessor.toRaw();
-    // 第一遍：solid color fill
+    // 从后往前（x+y 递增）画，保证视觉叠压顺序自然
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const tile = accessor.getTile(x, y);
         if (!tile) continue;
+        const top = this.isoVert(x, y);
+        const right = this.isoVert(x + 1, y);
+        const bottom = this.isoVert(x + 1, y + 1);
+        const left = this.isoVert(x, y + 1);
         g.fillStyle(terrainColor(tile.terrain), 1);
-        g.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        // 轻微外扩 0.5px 消相邻菱形抗锯齿缝
+        g.fillPoints([top, right, bottom, left], true);
       }
     }
-    // 第二遍：terrain hatching（Slice H 古纸纹理叠层）
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        const tile = accessor.getTile(x, y);
-        if (!tile) continue;
-        drawTerrainHatching(g, tile.terrain, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, map.seed, x, y, this.width);
-      }
-    }
-    // 不画网格线 — 视觉路线对齐 Anno 1800：底层逻辑可方格但渲染层无任何格线
-  }
-
-  /** W3：把贴图切成 GRID×GRID 个 TILE_SIZE 的 frame（连续采样平铺用），只切一次。
-   *  非正方贴图按短边取正方网格（多出的边丢弃，简单可控）。 */
-  private sliceTerrainFrames(key: string): number {
-    const tex = this.scene.textures.get(key);
-    const cached = this.terrainGrid.get(key);
-    // DeepSeek 复审[critical]：缓存命中也要确认 frame 仍在（贴图被重建时 frame 会丢）；丢了就重切。
-    if (cached !== undefined && tex.has('t_0_0')) return cached;
-    const src = tex.getSourceImage() as { width: number; height: number };
-    const grid = Math.max(1, Math.floor(Math.min(src.width, src.height) / TILE_SIZE));
-    for (let r = 0; r < grid; r++) {
-      for (let c = 0; c < grid; c++) {
-        const fn = `t_${c}_${r}`;
-        if (!tex.has(fn)) tex.add(fn, 0, c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-      }
-    }
-    this.terrainGrid.set(key, grid);
-    return grid;
-  }
-
-  /**
-   * W3：手绘地貌烘焙。仅当地图用到的每种地形都已加载贴图时才走（全有或全无，
-   * 否则回退色块保持现观感）。逐 tile 用连续采样的 frame（tile%grid）batchDrawFrame 进单个 RT，
-   * 同型相邻 tile 取相邻 cell → 纹理连续流动，每 grid(≈42) tile 重复一次。
-   * @returns true=已烘焙进 RT；false=贴图不全，调用方走色块回退
-   */
-  private tryBakeTerrainTextures(accessor: WorldMapAccessor): boolean {
-    // 收集地图实际用到的地形类型
-    const used = new Set<string>();
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        const t = accessor.getTile(x, y);
-        if (t) used.add(t.terrain);
-      }
-    }
-    // 任一类型缺贴图 → 放弃，回退色块
-    for (const terr of used) {
-      if (!this.scene.textures.exists(MapRenderer.TERRAIN_KEY_PREFIX + terr)) return false;
-    }
-    const mapW = this.width * TILE_SIZE;
-    const mapH = this.height * TILE_SIZE;
-    // DeepSeek 复审[major]：尺寸变化（理论上 dims 实例内不可变，防御）→ 重建 RT，避免旧尺寸裁切。
-    if (this.terrainRT && (this.terrainRT.width !== mapW || this.terrainRT.height !== mapH)) {
-      this.terrainRT.destroy();
-      this.terrainRT = null;
-    }
-    if (!this.terrainRT) {
-      this.terrainRT = this.scene.add.renderTexture(this.originX, this.originY, mapW, mapH).setOrigin(0, 0);
-      this.terrainRT.setDepth(-10); // 在 nodes/buildings 之下
-      if (this.viewportMask) this.terrainRT.setMask(this.viewportMask);
-    }
-    this.terrainRT.setVisible(true); // 回退后可能被隐藏过，恢复
-    this.terrainRT.clear();
-    this.terrainRT.beginDraw();
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        const tile = accessor.getTile(x, y);
-        if (!tile) continue;
-        const key = MapRenderer.TERRAIN_KEY_PREFIX + tile.terrain;
-        const grid = this.sliceTerrainFrames(key);
-        const fn = `t_${x % grid}_${y % grid}`;
-        this.terrainRT.batchDrawFrame(key, fn, x * TILE_SIZE, y * TILE_SIZE);
-      }
-    }
-    this.terrainRT.endDraw();
-    return true;
-  }
-
-  /**
-   * W4：散布层烘焙。把一棵棵树/石/芦苇（与建筑同 2.5D 角）确定性散布进 scatterRT，
-   * 营造《法老》式有机大地 + 用立体物盖过"地面正俯视 vs 建筑斜视"的违和。
-   * 缺素材（无任何 scatter_* 贴图）→ 跳过、不建 RT（优雅降级，回到无散布）。
-   * 确定性：同 seed+tile → 同布局（makeTilePrng），存档重载不变。建筑层(depth0)自然盖住其下散布。
-   */
-  private bakeScatter(accessor: WorldMapAccessor): void {
-    if (this.destroyed) return;
-    const haveAny = ALL_SCATTER_IDS.some(id => this.scene.textures.exists(SCATTER_KEY_PREFIX + id));
-    if (!haveAny) return; // 素材未就位 → 无散布
-    const map = accessor.toRaw();
-    const seed = map.seed;
-    const mapW = this.width * TILE_SIZE;
-    const mapH = this.height * TILE_SIZE;
-    // 尺寸变化（dims 实例内不可变，防御）→ 重建（与 terrainRT 对齐）
-    if (this.scatterRT && (this.scatterRT.width !== mapW || this.scatterRT.height !== mapH)) {
-      this.scatterRT.destroy();
-      this.scatterRT = null;
-    }
-    if (!this.scatterRT) {
-      this.scatterRT = this.scene.add.renderTexture(this.originX, this.originY, mapW, mapH).setOrigin(0, 0);
-      this.scatterRT.setDepth(-5); // 地貌(-10) 之上、建筑(0) 之下
-      if (this.viewportMask) this.scatterRT.setMask(this.viewportMask);
-    }
-    this.scatterRT.clear();
-
-    // 复用一个临时 Image 做逐个 draw（用完即毁，不进显示列表渲染帧）
-    const firstKey = SCATTER_KEY_PREFIX + (ALL_SCATTER_IDS.find(id => this.scene.textures.exists(SCATTER_KEY_PREFIX + id)) ?? '');
-    const tmp = this.scene.add.image(0, 0, firstKey).setOrigin(0.5, 1);
-    tmp.setVisible(false);
-
-    const placeOne = (slot: ScatterSlot, prng: () => number, gx: number, gy: number): void => {
-      const id = slot.pool[Math.floor(prng() * slot.pool.length) % slot.pool.length]!;
-      const key = SCATTER_KEY_PREFIX + id;
-      if (!this.scene.textures.exists(key)) return; // 该素材缺 → 跳过这个
-      const scaleTiles = slot.minScale + prng() * (slot.maxScale - slot.minScale);
-      const px = gx * TILE_SIZE + TILE_SIZE / 2 + (prng() - 0.5) * TILE_SIZE * 0.6;
-      const py = gy * TILE_SIZE + TILE_SIZE * 0.88 + (prng() - 0.5) * TILE_SIZE * 0.3;
-      tmp.setTexture(key);
-      tmp.setDisplaySize(scaleTiles * TILE_SIZE, scaleTiles * TILE_SIZE);
-      tmp.setFlipX(prng() < 0.5);
-      tmp.setPosition(px, py);
-      // batchDraw 把当前 tmp 的顶点即时拷进批缓冲（复用 tmp 安全），比逐个 draw() 少几千次 GPU flush
-      this.scatterRT!.batchDraw(tmp);
-    };
-
-    this.scatterRT.beginDraw();
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        const tile = accessor.getTile(x, y);
-        if (!tile) continue;
-        const prng = makeTilePrng(seed, x, y, this.width);
-        if (tile.terrain === 'river') {
-          // 河岸：仅与非水相邻的边缘 tile 放芦苇
-          const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
-            const n = accessor.getTile(x + dx!, y + dy!);
-            return n != null && n.terrain !== 'river';
-          });
-          if (edge && prng() < RIVER_EDGE.prob) placeOne(RIVER_EDGE, prng, x, y);
-          continue;
-        }
-        const cfg = SCATTER_BY_TERRAIN[tile.terrain];
-        if (!cfg) continue;
-        for (const slot of cfg.slots) {
-          if (prng() < slot.prob) placeOne(slot, prng, x, y);
-        }
-      }
-    }
-    this.scatterRT.endDraw();
-    tmp.destroy();
   }
 
   private bakeResourceNodes(accessor: WorldMapAccessor): void {
@@ -475,9 +355,10 @@ export class MapRenderer {
       // 美术修：从刺眼的实心大方块改为**小而柔的菱形 pip**——半透明、贴在 tile 右上角，
       // 读作"此处有物产"的标记，不再是程序色块（手绘地貌上不违和）。
       const color = resourceNodeColor(n.kind);
-      const r = TILE_SIZE * 0.18; // 小菱形半径
-      const cx = n.position.x * TILE_SIZE + TILE_SIZE * 0.72;
-      const cy = n.position.y * TILE_SIZE + TILE_SIZE * 0.28;
+      const r = ISO_TILE_H * 0.32; // pip 半径（相对 tile 高）
+      const c = this.isoCenter(n.position.x, n.position.y);
+      const cx = c.x;
+      const cy = c.y - ISO_TILE_H * 0.25; // 稍微上移，浮在菱形上方
       // 暗色描边垫底（提升对比、像枚徽记）
       g.fillStyle(COLORS.INK, 0.45);
       g.fillPoints([
@@ -510,42 +391,41 @@ export class MapRenderer {
     for (const b of buildings) {
       const def = getBuildingDef(b.defId);
       if (!def) continue;
-      const w = def.size.width * TILE_SIZE;
-      const h = def.size.height * TILE_SIZE;
-      const px = b.position.x * TILE_SIZE;
-      const py = b.position.y * TILE_SIZE;
+      const wT = def.size.width;
+      const hT = def.size.height;
+      // 等距：footprint 块的四个角（格点投影）→ 菱形；水平中心 cx、最低点 frontY、等距宽 isoW
+      const topV = this.isoVert(b.position.x, b.position.y);
+      const rightV = this.isoVert(b.position.x + wT, b.position.y);
+      const botV = this.isoVert(b.position.x + wT, b.position.y + hT);
+      const leftV = this.isoVert(b.position.x, b.position.y + hT);
+      const cx = (topV.x + botV.x) / 2;
+      const frontY = botV.y;
+      const isoW = rightV.x - leftV.x;
+      const diamond = [topV, rightV, botV, leftV];
+      // 深度：按屏幕 y（块最低点）排序，越靠下越前，遮挡正确
+      const depth = frontY;
 
       const isWorking = b.status === 'working';
-      // v0.9 Pillar 3.2：sprite 命中检测——已加载就走 image 路径，否则回退 fillRect+沙印
       const hasSprite = !!textures && typeof textures.exists === 'function' && textures.exists(def.assetKey);
 
-      // v1.0 #4：tier 视觉差异化——T1 单线、T2 双线（外金内金）、T3 三线（外金 + 内金 + 中央 GOLD 高亮）
-      const tier = def.tier;
       if (!hasSprite) {
         const fill = isWorking ? COLORS.WOOD : COLORS.WOOD_LIGHT;
-        const alpha = isWorking ? 1 : 0.6;
-        g.fillStyle(fill, alpha);
-        g.fillRect(px + 1, py + 1, w - 2, h - 2);
+        g.fillStyle(fill, isWorking ? 1 : 0.6);
+        g.fillPoints(diamond, true);
       }
-      // 外金边：所有 tier 都有
+      // 金边 footprint 菱形（所有 tier）；高阶 tier 再叠一层提示
       g.lineStyle(2, COLORS.GOLD_DIM, 1);
-      g.strokeRect(px + 1, py + 1, w - 2, h - 2);
-      // T2/T3：内嵌金线（双重边框，让高阶建筑一眼看出）
-      if (tier >= 2) {
-        g.lineStyle(1, COLORS.GOLD_DIM, 0.7);
-        g.strokeRect(px + 4, py + 4, w - 8, h - 8);
-      }
-      // T3：再加一圈醒目 GOLD（最里），象征鼎盛
-      if (tier >= 3) {
+      g.strokePoints(diamond, true);
+      if (def.tier >= 3) {
         g.lineStyle(1, COLORS.GOLD, 0.9);
-        g.strokeRect(px + 7, py + 7, w - 14, h - 14);
+        g.strokePoints(diamond, true);
       }
 
-      // 取/建当前 idx 的 sprite 槽
+      // sprite：bottom-center 锚在 footprint 前下角，宽度≈等距块宽（方形原画，等比）
       let im = this.buildingImages[sigilIdx];
       if (hasSprite) {
         if (!im) {
-          im = this.scene.add.image(0, 0, def.assetKey).setOrigin(0.5, 0.5);
+          im = this.scene.add.image(0, 0, def.assetKey).setOrigin(0.5, 1);
           if (this.viewportMask) im.setMask(this.viewportMask);
           this.buildingImages.push(im);
           this.buildingImageLastKey.push(def.assetKey);
@@ -553,16 +433,19 @@ export class MapRenderer {
           im.setTexture(def.assetKey);
           this.buildingImageLastKey[sigilIdx] = def.assetKey;
         }
-        im.setPosition(this.originX + px + w / 2, this.originY + py + h / 2);
-        im.setDisplaySize(w - 2, h - 2);
+        im.setOrigin(0.5, 1);
+        im.setPosition(this.originX + cx, this.originY + frontY + ISO_TILE_H * 0.5);
+        const dispW = isoW * 1.15;
+        im.setDisplaySize(dispW, dispW); // 方形原画等比
         im.setAlpha(isWorking ? 1 : 0.55);
+        im.setDepth(depth);
         im.setVisible(true);
       }
 
-      // 取/建当前 idx 的沙印槽（fallback 时用；sprite 路径下隐藏）
+      // 沙印 fallback（缺图时）：footprint 中心
+      const center = this.isoCenter(b.position.x + (wT - 1) / 2, b.position.y + (hT - 1) / 2);
       const sigil = getBuildingSigil(b.defId, def.name);
-      const minSide = Math.min(w, h);
-      const fontPx = Math.max(12, Math.floor(minSide * 0.6));
+      const fontPx = Math.max(12, Math.floor(Math.min(isoW, ISO_TILE_H * (wT + hT)) * 0.4));
       const wantColor = isWorking ? COLORS_HEX.GOLD : COLORS_HEX.PAPER_DIM;
       let t = this.sigilTexts[sigilIdx];
       if (!t) {
@@ -572,7 +455,6 @@ export class MapRenderer {
           color: wantColor,
           fontStyle: 'bold',
         }).setOrigin(0.5, 0.5);
-        t.setPosition(this.originX + px + w / 2, this.originY + py + h / 2);
         if (this.viewportMask) t.setMask(this.viewportMask);
         this.sigilTexts.push(t);
         this.sigilLastFontPx.push(fontPx);
@@ -586,11 +468,11 @@ export class MapRenderer {
           t.setColor(wantColor);
           this.sigilLastColor[sigilIdx] = wantColor;
         }
-        t.setPosition(this.originX + px + w / 2, this.originY + py + h / 2);
       }
+      t.setPosition(this.originX + center.x, this.originY + center.y);
       t.setText(sigil);
       t.setAlpha(isWorking ? 1 : 0.7);
-      // sprite 命中时沙印整体隐藏（避免字浮在 sprite 上）；缺图时显示
+      t.setDepth(depth);
       t.setVisible(!hasSprite);
       sigilIdx++;
     }
@@ -609,20 +491,21 @@ export class MapRenderer {
   /** Slice E hooks: convert screen → grid coords. Useful for click-to-place. */
   screenToGrid(screenX: number, screenY: number): { x: number; y: number } | null {
     if (!Number.isFinite(screenX) || !Number.isFinite(screenY)) return null;
-    const lx = screenX - this.originX;
+    // 世界 → 图层局部 → 去 isoOffsetX → 等距逆投影 → floor 取格
+    const lx = screenX - this.originX - this.isoOffsetX;
     const ly = screenY - this.originY;
-    const x = Math.floor(lx / TILE_SIZE);
-    const y = Math.floor(ly / TILE_SIZE);
+    const a = lx / MapRenderer.ISO_HW;
+    const bb = ly / MapRenderer.ISO_HH;
+    const x = Math.floor((a + bb) / 2);
+    const y = Math.floor((bb - a) / 2);
     if (x < 0 || y < 0 || x >= this.width || y >= this.height) return null;
     return { x, y };
   }
 
-  /** 把 grid 坐标 → 屏幕像素（左上角）。Slice E 给 hover preview 等共享 origin 时用。 */
+  /** grid 坐标 → 屏幕像素（该 tile 菱形中心）。 */
   gridToScreen(gridX: number, gridY: number): { x: number; y: number } {
-    return {
-      x: this.originX + gridX * TILE_SIZE,
-      y: this.originY + gridY * TILE_SIZE,
-    };
+    const c = this.isoCenter(gridX, gridY);
+    return { x: this.originX + c.x, y: this.originY + c.y };
   }
 
   /** 单 tile 像素尺寸（DOM overlay 用同样的 TILE_SIZE）。 */
@@ -649,20 +532,12 @@ export class MapRenderer {
     if (this.destroyed) return;
     const def = getBuildingDef(b.defId);
     if (!def) return;
-    const w = def.size.width * TILE_SIZE;
-    const h = def.size.height * TILE_SIZE;
-    const px = b.position.x * TILE_SIZE;
-    const py = b.position.y * TILE_SIZE;
-
-    // 用建筑中心做缩放原点：graphics x/y 设到中心 + 在本地坐标里画 -w/2 .. +w/2
-    const g = this.scene.add.graphics({
-      x: this.originX + px + w / 2,
-      y: this.originY + py + h / 2,
-    });
+    const d = this.footprintDiamond(b.position.x, b.position.y, def.size.width, def.size.height);
+    const g = this.scene.add.graphics({ x: this.originX + d.cx, y: this.originY + d.cy });
     g.fillStyle(COLORS.GOLD, 0.55);
-    g.fillRect(-w / 2, -h / 2, w, h);
+    g.fillPoints(d.rel, true);
     g.lineStyle(2, COLORS.GOLD, 0.9);
-    g.strokeRect(-w / 2, -h / 2, w, h);
+    g.strokePoints(d.rel, true);
     g.setScale(1.5);
     g.setAlpha(0.85);
     // v0.9：脉冲也走视口 mask，避免脉冲在 HUD/面板上闪
@@ -693,17 +568,11 @@ export class MapRenderer {
     if (this.destroyed) return;
     const def = getBuildingDef(b.defId);
     if (!def) return;
-    const w = def.size.width * TILE_SIZE;
-    const h = def.size.height * TILE_SIZE;
-    const px = b.position.x * TILE_SIZE;
-    const py = b.position.y * TILE_SIZE;
-
-    const g = this.scene.add.graphics({ x: this.originX, y: this.originY });
-    // 双层金边：3px 内框 + 1px 外光晕（4px 偏移）
+    const d = this.footprintDiamond(b.position.x, b.position.y, def.size.width, def.size.height);
+    const g = this.scene.add.graphics({ x: this.originX + d.cx, y: this.originY + d.cy });
+    // 金边菱形脉冲
     g.lineStyle(3, COLORS.GOLD, 1);
-    g.strokeRect(px, py, w, h);
-    g.lineStyle(1, COLORS.GOLD, 0.7);
-    g.strokeRect(px - 3, py - 3, w + 6, h + 6);
+    g.strokePoints(d.rel, true);
     // v0.9：完成脉冲也走视口 mask
     if (this.viewportMask) g.setMask(this.viewportMask);
 
@@ -737,8 +606,9 @@ export class MapRenderer {
       const oldest = this.floatLabels.shift();
       if (oldest) { oldest.tween.stop(); oldest.t.destroy(); }
     }
-    const cx = this.originX + gridX * TILE_SIZE + TILE_SIZE / 2;
-    const cy = this.originY + gridY * TILE_SIZE;
+    const c = this.isoCenter(gridX, gridY);
+    const cx = this.originX + c.x;
+    const cy = this.originY + c.y - ISO_TILE_H * 0.5;
     const t = this.scene.add.text(cx, cy, text, {
       fontFamily: 'serif',
       fontSize: '15px',
@@ -784,8 +654,6 @@ export class MapRenderer {
     this.originX = newOriginX;
     this.originY = newOriginY;
     this.terrainGfx?.setPosition(this.originX, this.originY);
-    this.terrainRT?.setPosition(this.originX, this.originY);
-    this.scatterRT?.setPosition(this.originX, this.originY);
     this.nodesGfx?.setPosition(this.originX, this.originY);
     this.buildingsGfx?.setPosition(this.originX, this.originY);
     this.hoverGfx?.setPosition(this.originX, this.originY);
@@ -815,25 +683,23 @@ export class MapRenderer {
     if (!preview) return;
     const { gridX, gridY, w, h, valid } = preview;
     if (!Number.isFinite(gridX) || !Number.isFinite(gridY) || w <= 0 || h <= 0) return;
-    const px = gridX * TILE_SIZE;
-    const py = gridY * TILE_SIZE;
-    const pw = w * TILE_SIZE;
-    const ph = h * TILE_SIZE;
+    // 等距：footprint 块菱形高亮（绿=可放 / 红=不可放）
+    const top = this.isoVert(gridX, gridY);
+    const right = this.isoVert(gridX + w, gridY);
+    const bot = this.isoVert(gridX + w, gridY + h);
+    const left = this.isoVert(gridX, gridY + h);
+    const pts = [top, right, bot, left];
     const fill = valid ? COLORS.STONE_GREEN : COLORS.CINNABAR;
     g.fillStyle(fill, 0.35);
-    g.fillRect(px, py, pw, ph);
+    g.fillPoints(pts, true);
     g.lineStyle(2, fill, 1);
-    g.strokeRect(px, py, pw, ph);
+    g.strokePoints(pts, true);
   }
 
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
     this.terrainGfx?.destroy();
-    this.terrainRT?.destroy();
-    this.terrainRT = null;
-    this.scatterRT?.destroy();
-    this.scatterRT = null;
     this.nodesGfx?.destroy();
     this.buildingsGfx?.destroy();
     this.hoverGfx?.destroy();
