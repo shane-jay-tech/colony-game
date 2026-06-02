@@ -55,6 +55,49 @@ const config: Phaser.Types.Core.GameConfig = {
 const game = new Phaser.Game(config);
 
 /**
+ * 崩溃捕捉器（2026-06-02 诊断）：resize 切换崩溃三次 targeted 修复均未中，需拿到**真正的报错**。
+ * 在屏幕弹红色覆盖层显示 JS 错误 / Promise 拒绝 / **WebGL 上下文丢失**（最可能的真凶之一），
+ * 用户截图即可，无需开 DevTools。覆盖层 z-index 极高、可点掉。
+ */
+function setupCrashDiagnostics(): void {
+  const show = (title: string, detail: string): void => {
+    try {
+      console.error(`[CRASH] ${title}: ${detail}`);
+      let el = document.getElementById('crash-overlay');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'crash-overlay';
+        el.style.cssText =
+          'position:fixed;left:0;right:0;top:0;z-index:999999;background:rgba(140,10,10,0.96);' +
+          'color:#fff;font:13px/1.5 monospace;padding:10px 14px;white-space:pre-wrap;max-height:45vh;' +
+          'overflow:auto;border-bottom:2px solid #ff0;cursor:pointer';
+        el.title = '点此关闭';
+        el.addEventListener('click', () => el?.remove());
+        document.body.appendChild(el);
+      }
+      el.textContent = `⚠ 崩溃捕捉 ⚠\n${title}\n${detail}\n（截图发给开发；点此关闭）`;
+    } catch { /* 诊断本身别再抛 */ }
+  };
+  window.addEventListener('error', (e) => {
+    show('JS 错误', `${e.message}\n@ ${e.filename}:${e.lineno}:${e.colno}\n${e.error?.stack ?? ''}`.slice(0, 1500));
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    const r = (e as PromiseRejectionEvent).reason;
+    show('Promise 未捕获', String(r?.stack ?? r ?? '').slice(0, 1500));
+  });
+  game.events.once(Phaser.Core.Events.READY, () => {
+    const canvas = game.canvas;
+    if (!canvas) return;
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      show('WebGL 上下文丢失', '画布尺寸切换导致 GPU 上下文丢失——这会让所有纹理/RT 失效、画面畸变且不自愈。这正是 resize 崩溃的根因候选。');
+    });
+    canvas.addEventListener('webglcontextrestored', () => show('WebGL 上下文已恢复', '（若你看到这条，说明上下文恢复了）'));
+  });
+}
+setupCrashDiagnostics();
+
+/**
  * v0.9 hotfix #5：高 DPI 文字清晰度。
  *
  * Windows 缩放 >100% 时，Phaser Text 默认 resolution=1，文字纹理在低分辨率烘焙后
