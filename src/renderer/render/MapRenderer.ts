@@ -245,6 +245,11 @@ export class MapRenderer {
    */
   rebuildAfterResize(): void {
     if (this.destroyed) return;
+    // 关键（2026-06-02）：切换窗口时 renderer.resize 会让 RenderTexture 的 framebuffer 失效，
+    // 只 clear+重画**同一个** RT 仍是坏 framebuffer（画面畸变且不可恢复的真凶）。
+    // 必须 destroy+null，让 bake* 重新 add 一个**全新** RenderTexture（全新 framebuffer）。
+    if (this.terrainRT) { this.terrainRT.destroy(); this.terrainRT = null; }
+    if (this.scatterRT) { this.scatterRT.destroy(); this.scatterRT = null; }
     this.recenter();
     this.bakeTerrain(this.accessor);
     this.bakeScatter(this.accessor);

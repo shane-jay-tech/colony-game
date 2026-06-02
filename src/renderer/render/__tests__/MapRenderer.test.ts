@@ -763,6 +763,21 @@ describe('MapRenderer 手绘地貌烘焙 (W3)', () => {
     expect((scene as unknown as { add: { renderTexture: ReturnType<typeof vi.fn> } }).add.renderTexture).not.toHaveBeenCalled();
     renderer.destroy();
   });
+
+  it('rebuildAfterResize 销毁并重建 RT（全新 framebuffer，修 resize 畸变）', () => {
+    const acc = new WorldMapAccessor(makeMap(8, 8));
+    const scene = makeSceneWithTerrain(k => k.startsWith('terrain_'));
+    const renderer = new MapRenderer(scene as never, acc);
+    const rt = (scene as unknown as { _rt: ReturnType<typeof makeRT> })._rt;
+    const rtFactory = (scene as unknown as { add: { renderTexture: ReturnType<typeof vi.fn> } }).add.renderTexture;
+    const createsAfterCtor = rtFactory.mock.calls.length; // 构造时建了 terrainRT
+    expect(createsAfterCtor).toBeGreaterThanOrEqual(1);
+    renderer.rebuildAfterResize();
+    // 旧 RT 被 destroy；又 add 了新的 RT（次数增加）
+    expect(rt.destroy).toHaveBeenCalled();
+    expect(rtFactory.mock.calls.length).toBeGreaterThan(createsAfterCtor);
+    renderer.destroy();
+  });
 });
 
 describe('MapRenderer 散布层烘焙 (W4)', () => {
