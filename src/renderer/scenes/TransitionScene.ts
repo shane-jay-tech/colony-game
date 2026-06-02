@@ -26,10 +26,17 @@ export class TransitionScene extends Phaser.Scene {
   private idx = 0;
   private onDone: (() => void) | null = null;
   private advancing = false;
+  private layoutTimer: number | null = null;
 
   constructor() {
     super({ key: 'TransitionScene' });
   }
+
+  /** 防抖延后排版：避免 resize 同步 layout→setStyle→Text.updateText 崩溃（见 ModeSelectScene 同注）。 */
+  private scheduleLayout = (): void => {
+    if (this.layoutTimer !== null) window.clearTimeout(this.layoutTimer);
+    this.layoutTimer = window.setTimeout(() => { this.layoutTimer = null; this.layout(); }, 80);
+  };
 
   create(data: TransitionData): void {
     this.lines = data?.lines?.length ? data.lines : ['……'];
@@ -57,7 +64,7 @@ export class TransitionScene extends Phaser.Scene {
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5, 0.5);
 
     this.layout();
-    this.scale.on('resize', this.layout, this);
+    this.scale.on('resize', this.scheduleLayout);
 
     // 全屏点击推进
     this.input.on('pointerdown', () => this.next());
@@ -96,7 +103,8 @@ export class TransitionScene extends Phaser.Scene {
     if (this.advancing) return;
     this.advancing = true;
     const done = this.onDone;
-    this.scale.off('resize', this.layout, this);
+    this.scale.off('resize', this.scheduleLayout);
+    if (this.layoutTimer !== null) { window.clearTimeout(this.layoutTimer); this.layoutTimer = null; }
     this.input.removeAllListeners();
     this.tweens.add({
       targets: [this.lineText, this.hintText], alpha: 0, duration: 400,
@@ -108,6 +116,7 @@ export class TransitionScene extends Phaser.Scene {
   }
 
   shutdown(): void {
-    this.scale.off('resize', this.layout, this);
+    this.scale.off('resize', this.scheduleLayout);
+    if (this.layoutTimer !== null) { window.clearTimeout(this.layoutTimer); this.layoutTimer = null; }
   }
 }

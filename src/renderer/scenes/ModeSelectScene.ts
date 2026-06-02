@@ -41,10 +41,21 @@ export class ModeSelectScene extends Phaser.Scene {
   private footerText!: Phaser.GameObjects.Text;
   private sandboxCard!: ModeCard;
   private storyCard!: ModeCard;
+  private layoutTimer: number | null = null;
 
   constructor() {
     super({ key: 'ModeSelectScene' });
   }
+
+  /**
+   * 关键修复（2026-06-02）：resize 事件里**同步**调 layout()→setStyle()→Text.updateText 会在
+   * 画布缩放中途崩（Cannot read properties of null reading 'drawImage'）。改为**防抖延后**到 resize
+   * 事件之后再排版（GameScene/UIScene 早已这么做、从不崩）。这是 maximize↔窗口切换崩溃的真因。
+   */
+  private scheduleLayout = (): void => {
+    if (this.layoutTimer !== null) window.clearTimeout(this.layoutTimer);
+    this.layoutTimer = window.setTimeout(() => { this.layoutTimer = null; this.layout(); }, 80);
+  };
 
   create(): void {
     this.bgGfx = this.add.graphics();
@@ -102,7 +113,7 @@ export class ModeSelectScene extends Phaser.Scene {
     }
 
     this.layout();
-    this.scale.on('resize', this.layout, this);
+    this.scale.on('resize', this.scheduleLayout);
   }
 
   private makeCard(
@@ -222,6 +233,7 @@ export class ModeSelectScene extends Phaser.Scene {
   }
 
   shutdown(): void {
-    this.scale.off('resize', this.layout, this);
+    this.scale.off('resize', this.scheduleLayout);
+    if (this.layoutTimer !== null) { window.clearTimeout(this.layoutTimer); this.layoutTimer = null; }
   }
 }

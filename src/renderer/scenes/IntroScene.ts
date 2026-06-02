@@ -184,10 +184,17 @@ export class IntroScene extends Phaser.Scene {
   private startBtnZone!: Phaser.GameObjects.Zone;
 
   private inputListener: (() => void) | null = null;
+  private layoutTimer: number | null = null;
 
   constructor() {
     super({ key: 'IntroScene' });
   }
+
+  /** 防抖延后排版：避免在 resize 事件里同步调 layout→setStyle→Text.updateText 崩溃（见 ModeSelectScene 同注）。 */
+  private scheduleLayout = (): void => {
+    if (this.layoutTimer !== null) window.clearTimeout(this.layoutTimer);
+    this.layoutTimer = window.setTimeout(() => { this.layoutTimer = null; this.layout(); }, 80);
+  };
 
   create(): void {
     // 背景
@@ -327,7 +334,7 @@ export class IntroScene extends Phaser.Scene {
     this.startBtnZone = this.add.zone(0, 0, 200, 56).setOrigin(0, 0).setInteractive({ useHandCursor: true });
     this.startBtnZone.on('pointerdown', () => this.tryStart());
 
-    this.scale.on('resize', this.layout, this);
+    this.scale.on('resize', this.scheduleLayout);
     this.layout();
     this.refreshAllVisuals();
   }
@@ -569,7 +576,8 @@ export class IntroScene extends Phaser.Scene {
   }
 
   shutdown(): void {
-    this.scale.off('resize', this.layout, this);
+    this.scale.off('resize', this.scheduleLayout);
+    if (this.layoutTimer !== null) { window.clearTimeout(this.layoutTimer); this.layoutTimer = null; }
     if (this.inputListener && this.countryInputDom?.node) {
       (this.countryInputDom.node as HTMLInputElement).removeEventListener('input', this.inputListener);
       this.inputListener = null;
