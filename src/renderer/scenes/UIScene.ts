@@ -82,6 +82,8 @@ export class UIScene extends Phaser.Scene {
   }
 
   create(): void {
+    // 关键修复(2026-06-02)：Phaser 不自动调 scene.shutdown()，手动绑 SHUTDOWN 事件清理监听/计时器。
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
     const store = this.registry.get('store') as GameStore | undefined;
     const buildMode = this.registry.get('buildMode') as BuildMode | undefined;
     if (!store || !buildMode) {

@@ -58,6 +58,10 @@ export class ModeSelectScene extends Phaser.Scene {
   };
 
   create(): void {
+    // 关键修复(2026-06-02)：Phaser 不自动调用 scene.shutdown() 方法（只自动调 init/preload/create）。
+    // 必须手动把 shutdown 绑到 SHUTDOWN 事件，否则场景切走后 scale 'resize' 监听**永不移除**，
+    // 残留监听在新场景里对**已销毁的文字**跑 layout→Text.updateText→null drawImage 崩溃（resize 崩的真因）。
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
     this.bgGfx = this.add.graphics();
     this.frameGfx = this.add.graphics();
 

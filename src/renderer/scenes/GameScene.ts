@@ -131,6 +131,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    // 关键修复(2026-06-02)：Phaser 不自动调 scene.shutdown()——必须手动绑 SHUTDOWN 事件，
+    // 否则 scene 重启/停止后 store 监听 + scale 'resize' 监听全部残留泄漏。
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
     const store = this.registry.get('store') as GameStore | undefined;
     const buildMode = this.registry.get('buildMode') as BuildMode | undefined;
     if (!store || !buildMode) {

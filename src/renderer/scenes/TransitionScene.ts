@@ -39,6 +39,8 @@ export class TransitionScene extends Phaser.Scene {
   };
 
   create(data: TransitionData): void {
+    // 关键修复(2026-06-02)：Phaser 不自动调 scene.shutdown()，手动绑 SHUTDOWN 事件清理 resize 监听。
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
     this.lines = data?.lines?.length ? data.lines : ['……'];
     this.onDone = data?.onDone ?? null;
     this.idx = 0;

@@ -197,6 +197,9 @@ export class IntroScene extends Phaser.Scene {
   };
 
   create(): void {
+    // 关键修复(2026-06-02)：Phaser 不自动调 scene.shutdown()，必须手动绑 SHUTDOWN 事件，
+    // 否则切场景后 scale 'resize' 监听残留、对已销毁文字跑 layout 崩溃（resize 崩真因）。
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
     // 背景
     this.bgGfx = this.add.graphics();
     this.bgGfx.fillStyle(COLORS.BG_INK, 1);
