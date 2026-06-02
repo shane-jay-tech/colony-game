@@ -433,10 +433,10 @@ export class MapRenderer {
           im.setTexture(def.assetKey);
           this.buildingImageLastKey[sigilIdx] = def.assetKey;
         }
+        // bottom-center 锚在 footprint 前下顶点；方形原画按块宽等比（建筑由此前下角向上"立"起）
         im.setOrigin(0.5, 1);
-        im.setPosition(this.originX + cx, this.originY + frontY + ISO_TILE_H * 0.5);
-        const dispW = isoW * 1.15;
-        im.setDisplaySize(dispW, dispW); // 方形原画等比
+        im.setPosition(this.originX + cx, this.originY + frontY);
+        im.setDisplaySize(isoW, isoW);
         im.setAlpha(isWorking ? 1 : 0.55);
         im.setDepth(depth);
         im.setVisible(true);

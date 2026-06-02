@@ -136,56 +136,26 @@ setupGlobalTextResolution();
  * 缩放路径都能触发），强制 game.scale.refresh() 让 Phaser 重新读 parent 尺寸 +
  * 重发 'resize' 事件给所有 scene。绕开 Phaser/Chromium 内部事件链不可靠性。
  */
-function setupElectronDrivenResize(): void {
+function setupBulletproofResize(): void {
   game.events.once(Phaser.Core.Events.READY, () => {
-    // 关键修复（2026-06-02）：Phaser RESIZE 模式自带的 window.resize 监听，在 Electron
-    // maximize↔窗口化"切换瞬间"会拿到退化中间帧（0×0/旧尺寸/DPR 抖动），污染 ScaleManager
-    // 内部状态导致画布与显示尺寸脱钩、画面畸变且不自愈（刷新也救不回）。
-    // 对策：① 停掉 Phaser 自动监听；② 改由 Electron 主进程在 maximize/unmaximize/resize **完成后**
-    // 推来的"干净最终尺寸"，手动 game.scale.resize()（不是 refresh()——resize 直接定 game size，
-    // 不读可能过时的 parent bounds）。这样 ScaleManager 永远只见到稳定尺寸，杜绝中间帧污染。
-    // DeepSeek 复审[design]：stopListeners 会一并移除 Phaser 的 visibilitychange/fullscreenchange/
-    // orientationchange 监听。本作 fullscreen 已禁、桌面无 orientation；仅"窗口隐藏时自动暂停"
-    // (visibilitychange) 失去——但 webPreferences.backgroundThrottling=false + 游戏自带暂停，
-    // 影响仅为最小化时仍空转，可接受。换取的是彻底切断那条会拿退化帧的自动 resize 路径。
-    game.scale.stopListeners();
-
-    const api = (window as unknown as {
-      colonyApi?: { onWindowResized?: (cb: (s: { w: number; h: number; cause: string }) => void) => () => void };
-    }).colonyApi;
-
-    const applySize = (w: number, h: number): void => {
-      if (!game.scale || w <= 0 || h <= 0) return;
-      game.scale.resize(w, h); // 触发 'resize' 事件 → 各 scene 重排 + MapRenderer 重建 mask/RT
-    };
-
-    if (api?.onWindowResized) {
-      // 主进程驱动（首选）：尾随防抖，切换动画停下再用最终尺寸 resize 一次。
-      let timer = 0;
-      let pendW = 0;
-      let pendH = 0;
-      api.onWindowResized(({ w, h }) => {
-        pendW = w; pendH = h;
-        if (timer) window.clearTimeout(timer);
-        timer = window.setTimeout(() => { timer = 0; applySize(pendW, pendH); }, 80);
-      });
-    } else if (typeof ResizeObserver !== 'undefined') {
-      // 回退（非 Electron / preload 缺失）：用 ResizeObserver 尾随防抖驱动 resize。
-      const container = document.getElementById('game-container');
-      if (!container) return;
-      let timer = 0;
-      const ro = new ResizeObserver(() => {
-        if (timer) window.clearTimeout(timer);
-        timer = window.setTimeout(() => {
-          timer = 0;
-          applySize(container.clientWidth, container.clientHeight);
-        }, 120);
-      });
-      ro.observe(container);
-    }
+    // 回归 Phaser 原生 RESIZE（保留其 window 监听 + visibilitychange 等）。崩溃真因是
+    // scene.shutdown 未注册导致监听泄漏（已在各 scene create 里绑 SHUTDOWN 修复），
+    // 与 resize 机制无关。此前的 stopListeners + 手动 scale.resize(getContentSize) 是错判，
+    // 反而可能让画布与显示尺寸脱钩 → 缩放/最大化时画面形变；故移除，改回轻量 refresh。
+    const container = document.getElementById('game-container');
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    let timer = 0;
+    const ro = new ResizeObserver(() => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = 0;
+        if (game.scale) game.scale.refresh(); // 让 Phaser 重读 parent 尺寸，1:1 不拉伸
+      }, 100);
+    });
+    ro.observe(container);
   });
 }
-setupElectronDrivenResize();
+setupBulletproofResize();
 
 // Slice F：启动期一次性校验静态数据（policies/events/decrees DSL 字符串等）
 validateStaticData();

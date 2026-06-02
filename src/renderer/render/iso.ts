@@ -14,10 +14,11 @@
  * 渲染层在此基础上再加地图居中偏移(originX/originY)，本模块只管纯投影。
  */
 
-/** 菱形 tile 宽（屏幕像素，菱形左右对角线长）。2:1 → 高是宽的一半。 */
-export const ISO_TILE_W = 64;
+/** 菱形 tile 宽（屏幕像素，菱形左右对角线长）。2:1 → 高是宽的一半。
+ *  96×48：比初版 64×32 大一半，地块/建筑更有存在感、更易辨识（用户反馈"地图太小"）。 */
+export const ISO_TILE_W = 96;
 /** 菱形 tile 高（屏幕像素，上下对角线长）。 */
-export const ISO_TILE_H = 32;
+export const ISO_TILE_H = 48;
 
 export interface IsoPoint { sx: number; sy: number; }
 export interface GridPoint { gx: number; gy: number; }
