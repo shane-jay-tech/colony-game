@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
-import { readFile, writeFile, readdir, mkdir } from 'fs/promises';
+import { readFile, writeFile, readdir, mkdir, stat } from 'fs/promises';
 
 const D_DRIVE_USER_DATA = 'D:/colony-game/user-data';
 const D_DRIVE_TEMP = 'D:/colony-game/user-data/temp';
@@ -165,6 +165,33 @@ ipcMain.handle('list-saves', async (): Promise<string[]> => {
   if (!existsSync(savesDir)) return [];
   const files = await readdir(savesDir);
   return files.filter(f => f.endsWith('.json')).map(f => f.slice(0, -5));
+});
+
+ipcMain.handle('save-meta', async (_event, slot: unknown): Promise<{ slot: string; savedAt: number; currentDay: number | null } | null> => {
+  if (typeof slot !== 'string' || !VALID_SLOT_RE.test(slot)) throw new Error('invalid slot');
+  const fp = join(app.getPath('userData'), 'saves', `${slot}.json`);
+  if (!existsSync(fp)) return null;
+  let mtimeMs = 0;
+  try {
+    mtimeMs = (await stat(fp)).mtimeMs;
+  } catch {
+    // mtime 拿不到就退化为 0，不影响读档。
+  }
+  try {
+    const raw = await readFile(fp, 'utf-8');
+    const data = JSON.parse(raw) as { savedAt?: unknown; state?: { currentDay?: unknown } };
+    return {
+      slot,
+      savedAt: typeof data.savedAt === 'number' ? data.savedAt : mtimeMs,
+      currentDay:
+        data.state !== undefined && typeof data.state.currentDay === 'number'
+          ? data.state.currentDay
+          : null,
+    };
+  } catch {
+    // 存档 JSON 损坏时仍给出文件时间，让面板能显示"此槽有存档（损坏）"由读档流程报错。
+    return { slot, savedAt: mtimeMs, currentDay: null };
+  }
 });
 
 app.whenReady().then(() => {

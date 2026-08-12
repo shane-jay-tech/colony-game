@@ -86,6 +86,9 @@ export class HUD {
   private settingsBg: Phaser.GameObjects.Graphics | null = null;
   private settingsLabel: Phaser.GameObjects.Text | null = null;
   private settingsZone: Phaser.GameObjects.Zone | null = null;
+  private saveBg: Phaser.GameObjects.Graphics | null = null;
+  private saveLabel: Phaser.GameObjects.Text | null = null;
+  private saveZone: Phaser.GameObjects.Zone | null = null;
   // 2026-06-19：主功能工具栏（朝堂/邦交/军务/大业）——顶栏下方独立一排大按钮（参考钢铁雄心）。
   private toolbarBg: Phaser.GameObjects.Graphics | null = null;
   private toolbarBtns: { bg: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone }[] = [];
@@ -277,6 +280,7 @@ export class HUD {
       this.settingsZone = this.scene.add.zone(0, 0, settingsBtnW, btnSize).setOrigin(0, 0)
         .setInteractive({ useHandCursor: true });
       this.settingsZone.on('pointerup', () => {
+        (this.scene.registry.get('saveLoadPanel') as { hide?: () => void } | undefined)?.hide?.();
         const panel = this.scene.registry.get('settingsPanel') as { toggle?: () => void } | undefined;
         panel?.toggle?.();
       });
@@ -290,6 +294,34 @@ export class HUD {
       this.settingsBg.lineStyle(1, COLORS.GOLD_DIM, 1);
       this.settingsBg.strokeRect(settingsBtnX, btnY, settingsBtnW, btnSize);
       this.settingsLabel.setPosition(settingsBtnX + settingsBtnW / 2, btnY + btnSize / 2);
+    }
+
+    // 存档/读档按钮（顶栏右侧，设置按钮左侧，28px）
+    const saveBtnW = 28;
+    const saveBtnX = settingsBtnX - btnGap - saveBtnW;
+    if (!this.saveZone) {
+      this.saveBg = this.scene.add.graphics();
+      this.saveLabel = this.scene.add.text(0, 0, '档', {
+        ...FONTS.body, color: '#F5ECD7', fontStyle: 'bold',
+      } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5, 0.5);
+      this.saveZone = this.scene.add.zone(0, 0, saveBtnW, btnSize).setOrigin(0, 0)
+        .setInteractive({ useHandCursor: true });
+      this.saveZone.on('pointerup', () => {
+        (this.scene.registry.get('audioManager') as { playUi?: (k: string) => void } | undefined)?.playUi?.('sfx_click');
+        (this.scene.registry.get('settingsPanel') as { hide?: () => void } | undefined)?.hide?.();
+        const panel = this.scene.registry.get('saveLoadPanel') as { toggle?: () => void } | undefined;
+        panel?.toggle?.();
+      });
+      this.container.add([this.saveBg, this.saveLabel, this.saveZone]);
+    }
+    if (this.saveZone && this.saveBg && this.saveLabel) {
+      this.saveZone.setPosition(saveBtnX, btnY).setSize(saveBtnW, btnSize);
+      this.saveBg.clear();
+      this.saveBg.fillStyle(COLORS.WOOD, 0.7);
+      this.saveBg.fillRect(saveBtnX, btnY, saveBtnW, btnSize);
+      this.saveBg.lineStyle(1, COLORS.GOLD_DIM, 1);
+      this.saveBg.strokeRect(saveBtnX, btnY, saveBtnW, btnSize);
+      this.saveLabel.setPosition(saveBtnX + saveBtnW / 2, btnY + btnSize / 2);
     }
 
     // 2026-06-19：主功能按钮（朝堂/邦交/军务/大业）移到顶栏下方独立工具栏（见 layoutFunctionToolbar）。

@@ -633,7 +633,14 @@ export function validateSlot(slot: string): void {
 type ColonyApiShape = {
   saveGame(slot: string, json: string): Promise<boolean>;
   loadGame(slot: string): Promise<string | null>;
+  getSaveMeta(slot: string): Promise<SaveMeta | null>;
 };
+
+export interface SaveMeta {
+  slot: string;
+  savedAt: number;
+  currentDay: number | null;
+}
 
 function getColonyApi(): ColonyApiShape {
   return (window as unknown as { colonyApi: ColonyApiShape }).colonyApi;
@@ -650,4 +657,10 @@ export async function loadFromSlot(slot: string): Promise<GameState | null> {
   const raw = await getColonyApi().loadGame(slot);
   if (raw === null) return null;
   return deserialize(JSON.parse(raw) as unknown);
+}
+
+/** 读取单个存档槽的元信息（不反序列化整份状态，供存档面板展示）。 */
+export async function getSaveMeta(slot: string): Promise<SaveMeta | null> {
+  validateSlot(slot);
+  return getColonyApi().getSaveMeta(slot);
 }

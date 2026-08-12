@@ -8,6 +8,8 @@ const api = {
     ipcRenderer.invoke('load-game', slot),
   listSaves: (): Promise<string[]> =>
     ipcRenderer.invoke('list-saves'),
+  getSaveMeta: (slot: string): Promise<{ slot: string; savedAt: number; currentDay: number | null } | null> =>
+    ipcRenderer.invoke('save-meta', slot),
   /** 主进程在窗口 maximize/unmaximize/resize 完成后推送"干净"的内容尺寸；
    *  渲染层据此手动 game.scale.resize()，绕开 Phaser RESIZE 自动监听拿到的退化中间帧。
    *  返回取消订阅函数。 */

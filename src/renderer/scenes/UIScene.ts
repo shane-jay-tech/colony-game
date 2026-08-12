@@ -21,6 +21,7 @@ import { StoryBar } from '../ui/StoryBar';
 import { AudioManager } from '../ui/AudioManager';
 import { JitHintManager } from '../ui/JitHintManager';
 import { SettingsPanel } from '../ui/SettingsPanel';
+import { SaveLoadPanel } from '../ui/SaveLoadPanel';
 import type { MapRenderer } from '../render/MapRenderer';
 
 /**
@@ -56,6 +57,7 @@ export class UIScene extends Phaser.Scene {
   private audioManager: AudioManager | null = null;
   private jitHintManager: JitHintManager | null = null;
   private settingsPanel: SettingsPanel | null = null;
+  private saveLoadPanel: SaveLoadPanel | null = null;
   private store: GameStore | null = null;
   // A-9：暂停遮罩
   private pauseOverlay: Phaser.GameObjects.Graphics | null = null;
@@ -193,6 +195,9 @@ export class UIScene extends Phaser.Scene {
     // Phase A-1：音量设置面板（HUD 设置按钮触发）
     this.settingsPanel = new SettingsPanel(this);
     this.registry.set('settingsPanel', this.settingsPanel);
+    // 存档/读档面板（引擎已有 IPC + saveLoad.ts，这里补玩家可见入口）
+    this.saveLoadPanel = new SaveLoadPanel(this, store);
+    this.registry.set('saveLoadPanel', this.saveLoadPanel);
 
     // Phase1：国格晋阶 / 登顶 → Toast 软认可
     this.store = store;
@@ -267,6 +272,7 @@ export class UIScene extends Phaser.Scene {
     this.tutorialModal?.layout();
     this.diplomacyPanel?.layout();
     this.populationPanel?.layout();
+    this.saveLoadPanel?.layout();
     this.storyBar?.layout();
   }
 
@@ -312,6 +318,7 @@ export class UIScene extends Phaser.Scene {
     this.audioManager?.destroy();
     this.jitHintManager?.destroy();
     this.settingsPanel?.destroy();
+    this.saveLoadPanel?.destroy();
     this.toast?.destroy();
     this.pauseOverlay?.destroy();
     this.pauseText?.destroy();
@@ -324,6 +331,7 @@ export class UIScene extends Phaser.Scene {
     this.registry.set('diplomacyPanel', undefined);
     this.registry.set('populationPanel', undefined);
     this.registry.set('settingsPanel', undefined);
+    this.registry.set('saveLoadPanel', undefined);
     this.registry.set('audioManager', undefined);
     this.hud = null;
     this.buildPanel = null;
