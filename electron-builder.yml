@@ -3,7 +3,7 @@ productName: 邦国录
 copyright: Copyright (c) 2026
 
 directories:
-  output: D:\colony-game\dist-out
+  output: dist-out
   buildResources: resources
 
 files:

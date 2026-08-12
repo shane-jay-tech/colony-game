@@ -26,7 +26,7 @@
   - 两条并入 P2-2 数值校准；模拟本身作为回归闸门，改数值后必须重跑。
 - [ ] **P0-2 存档兼容性回归**：把 schema v1/v2 旧存档 fixture 固化进测试，验证迁移链路长期可读（E-3）。
 - [ ] **P0-3 性能基线**：渲染层 7.4MB 主包分解（vendor 分包 / 按需加载）；Boot 加载清单去重（以 artManifest 为权威来源）；tick 热点抽样。
-- [ ] **P0-4 打包分发链路**：`electron:build:win` 全量跑通一次，确认 icon/7za 补丁/字体随包、`邦国录.exe` 可启动。
+- [x] **P0-4 打包分发链路**：`electron:build:win` 全链路跑通（需显式注入 npmmirror 镜像环境变量），产出 0.9.0 安装版/便携版/win-unpacked 三件套；`electron-builder.yml` 输出目录由旧机器绝对路径改为相对 `dist-out`（可移植性修复）；package.json 补 author。
 
 ## P1 — 架构硬化剩余项（`PLAN.md` 未完成部分）
 
