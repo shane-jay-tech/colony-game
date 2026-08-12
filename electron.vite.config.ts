@@ -49,6 +49,11 @@ export default defineConfig(({ mode }) => {
         assetsInlineLimit: 0,
         rollupOptions: {
           input: resolve(__dirname, 'src/renderer/index.html'),
+          output: {
+            manualChunks: {
+              phaser: ['phaser'],
+            },
+          },
         },
       },
       resolve: {
