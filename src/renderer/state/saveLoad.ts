@@ -15,7 +15,7 @@ import type { ActiveExpedition, DefenseAlert } from '../data/military';
 import { clampSentiment } from './publicSentiment';
 import { WARINESS_BASELINE, clampWariness } from './wariness';
 
-export const SAVE_SCHEMA_VERSION = 5;
+export const SAVE_SCHEMA_VERSION = 6;
 
 export class SaveLoadError extends Error {
   constructor(message: string) {
@@ -60,6 +60,8 @@ export interface SerializedSave {
     /** B1：列国警惕值（0..100, default 20）与最近原因 */
     worldWariness?: number;
     lastWarinessReason?: string | null;
+    /** B2：上次宣传日（7 日冷却用） */
+    lastPropagandaDay?: number | null;
     /** Phase1 国格阶梯（旧存档缺则兜底 0 / false） */
     grade?: number;
     gradeReached?: number;
@@ -145,6 +147,14 @@ const migrations: Partial<Record<number, MigrationFn>> = {
     s['worldWariness'] = WARINESS_BASELINE;
     s['lastWarinessReason'] = null;
     data.schemaVersion = 5;
+    return data;
+  },
+  5: (blob) => {
+    // B2 影响力：新增名望与宣传冷却字段，旧档给 null
+    const data = blob as { schemaVersion: number; state: Record<string, unknown> };
+    const s = data.state;
+    s['lastPropagandaDay'] = null;
+    data.schemaVersion = 6;
     return data;
   },
 };
@@ -284,6 +294,7 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       lastWrathDemandDay: state.lastWrathDemandDay,
       worldWariness: state.worldWariness,
       lastWarinessReason: state.lastWarinessReason,
+      lastPropagandaDay: state.lastPropagandaDay,
       grade: state.grade,
       gradeReached: state.gradeReached,
       tianxiaAcknowledged: state.tianxiaAcknowledged,
@@ -408,6 +419,9 @@ export function deserialize(blob: unknown): GameState {
       : null,
     worldWariness: clampWariness(typeof s.worldWariness === 'number' ? s.worldWariness : WARINESS_BASELINE),
     lastWarinessReason: typeof s.lastWarinessReason === 'string' ? s.lastWarinessReason : null,
+    lastPropagandaDay: typeof s.lastPropagandaDay === 'number' && Number.isFinite(s.lastPropagandaDay)
+      ? Math.max(0, Math.floor(s.lastPropagandaDay))
+      : null,
     playerMilitaryPower: typeof s.playerMilitaryPower === 'number' && Number.isFinite(s.playerMilitaryPower)
       ? Math.max(0, Math.min(500, s.playerMilitaryPower))
       : 30,

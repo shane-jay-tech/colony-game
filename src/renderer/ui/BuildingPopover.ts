@@ -43,6 +43,7 @@ const RES_LABEL: Record<ResourceId, string> = {
   people: '民',
   hemp: '麻',
   tin: '锡',
+  influence: '名望',
 };
 
 /** v1.0 #4：阶段名 fallback——若 def.tierName 缺，回退到「茅屋/瓦房/殿宇」三档 */

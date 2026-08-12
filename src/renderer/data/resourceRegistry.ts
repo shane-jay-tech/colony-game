@@ -24,6 +24,9 @@ export const RESOURCE_IDS = [
   // B3 加工链中间品（Anno 式原料，不在顶栏主 token 行显示）
   'hemp', // 麻（织官原料）
   'tin', // 锡（青铜合金原料）
+
+  // B2 影响力（史官/名望资源，产自国格，花在宣传/斡旋/修史）
+  'influence', // 名望
 ] as const;
 
 export type ResourceId = typeof RESOURCE_IDS[number];

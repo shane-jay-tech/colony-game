@@ -199,6 +199,8 @@ export interface GameState {
   worldWariness: number;
   /** 最近一次警惕值变动原因（邦交面板展示「侧目原因」） */
   lastWarinessReason: string | null;
+  /** B2：上次「宣扬德政」日（7 日内重复使用效果减半；null=从未） */
+  lastPropagandaDay: number | null;
   playerMilitaryPower: number;
   /** Phase1 国格阶梯：当前国格级（0..5，0=聚落） */
   grade: number;
@@ -297,6 +299,7 @@ function makeDefaultState(): GameState {
     lastWrathDemandDay: null,
     worldWariness: WARINESS_BASELINE,
     lastWarinessReason: null,
+    lastPropagandaDay: null,
     playerMilitaryPower: 30,
     grade: 0,
     gradeReached: 0,
@@ -1204,6 +1207,51 @@ export class GameStore {
       reason: this.state.lastWarinessReason,
     };
   }
+  /** B2：名望（影响力）现值与上限（上限随国格涨，逼着玩家花，不然就浪费）。 */
+  getInfluence(): number { return this.state.resources['influence'] ?? 0; }
+  getInfluenceCap(): number { return 40 + this.state.grade * 30; }
+  /** 名望支出：不足返回 false（调用方各自提示）。 */
+  private spendInfluence(cost: number): boolean {
+    if (this.getInfluence() < cost) return false;
+    this.addResource('influence', -cost, 'influence_spend');
+    return true;
+  }
+  /** B2·宣传：短期压民怨、涨民心；7 日内重复使用效果减半（粉饰不能持久）。 */
+  spendPropaganda(): { ok: boolean; reason?: string; diminished?: boolean } {
+    const COST = 20;
+    if (!this.spendInfluence(COST)) return { ok: false, reason: '名望不足' };
+    const recent = this.state.lastPropagandaDay !== null
+      && this.state.currentDay - this.state.lastPropagandaDay < 7;
+    this.adjustWrath(recent ? -6 : -12, 'propaganda');
+    this.adjustMorale(recent ? 3 : 6, 'propaganda');
+    this.state.lastPropagandaDay = this.state.currentDay;
+    return { ok: true, diminished: recent };
+  }
+  /** B2·斡旋：花名望降低列国警惕值。 */
+  spendDiplomacyInfluence(): { ok: boolean; reason?: string } {
+    if (!this.spendInfluence(15)) return { ok: false, reason: '名望不足' };
+    this.adjustWariness(-8, '遣使斡旋');
+    return { ok: true };
+  }
+  /** B2·修史：花名望换来 30 日信誉加成（进行中不可重复）。 */
+  spendChronicle(): { ok: boolean; reason?: string } {
+    if (this.state.activeModifiers.some(m => m.id === 'mod_chronicle_renown')) {
+      return { ok: false, reason: '修史未竟，不可重开' };
+    }
+    if (!this.spendInfluence(25)) return { ok: false, reason: '名望不足' };
+    this.addModifier({
+      id: 'mod_chronicle_renown',
+      name: '修史之誉',
+      category: 'culture',
+      stackable: false,
+      effects: [{ target: 'country_renown', op: 'add', value: 8 }],
+      visualBadge: null,
+      remainingDays: 30,
+      description: '史官秉笔，邦誉渐隆。',
+      descPlain: '史官修史，30 日内信誉 +8。',
+    });
+    return { ok: true };
+  }
   /** 调整怨愤（clamp 0..100），变化时发 WRATH_CHANGED 供 HUD 双米刷新。 */
   private adjustWrath(delta: number, reason: string): void {
     if (!Number.isFinite(delta) || delta === 0) return;
@@ -1922,6 +1970,12 @@ export class GameStore {
 
   /** A1：每日民心/怨愤沉淀——怨愤自然回落、颂声加成可逆、怨愤临界强推阶层诉求。 */
   private runSentimentSettlePhase(): void {
+    // B2：名望每日产出（随国格递增；有上限，逼着玩家花，否则溢出浪费）
+    const influenceCap = this.getInfluenceCap();
+    const influenceCur = this.getInfluence();
+    if (influenceCur < influenceCap) {
+      this.addResource('influence', Math.min(this.state.grade + 1, influenceCap - influenceCur), 'influence');
+    }
     // 怨愤临界 → 强推阶层诉求（复用 factionSystem 诉求模态）+ 可见警示
     // 注意：判定必须在「自然回落」之前，否则 70 阈值当天会先掉到 69 漏判。
     if (shouldForceWrathDemand(this.getPublicWrath(), this.state.lastWrathDemandDay, this.state.currentDay)) {
@@ -2441,6 +2495,8 @@ export class GameStore {
     // B1：警惕值/原因字段（内存/旧测试路径可能缺）
     if (typeof newState.worldWariness !== 'number') newState.worldWariness = WARINESS_BASELINE;
     if (typeof newState.lastWarinessReason !== 'string') newState.lastWarinessReason = null;
+    // B2：宣传冷却字段（内存/旧测试路径可能缺）
+    if (typeof newState.lastPropagandaDay !== 'number') newState.lastPropagandaDay = null;
     // Phase1：国格/低谷/模式字段——内存路径（quick-save/旧测试态）可能缺，兜底
     if (typeof newState.grade !== 'number') newState.grade = 0;
     if (typeof newState.gradeReached !== 'number') newState.gradeReached = newState.grade;

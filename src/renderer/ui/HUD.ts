@@ -32,6 +32,7 @@ const RESOURCE_LABEL: Record<ResourceId, string> = {
   rite: '礼',
   hemp: '麻',
   tin: '锡',
+  influence: '望',
 };
 
 const RESOURCE_COLOR: Record<ResourceId, number> = {
@@ -45,6 +46,7 @@ const RESOURCE_COLOR: Record<ResourceId, number> = {
   rite: COLORS.STONE_GREEN,
   hemp: COLORS.STONE_GREEN,
   tin: COLORS.ASH,
+  influence: COLORS.GOLD,
 };
 
 interface SpeedButton {
@@ -108,7 +110,7 @@ export class HUD {
 
   // 监听器引用（destroy 解绑）
   private onResources = (): void => this.refreshResources();
-  private onDayTick = (): void => this.refreshDate();
+  private onDayTick = (): void => { this.refreshDate(); this.refreshCraftResources(); };
   private onSeasonTick = (): void => this.refreshDate();
   private onYearTick = (): void => this.refreshDate();
   private onPaused = (): void => this.refreshSpeed();
@@ -396,6 +398,7 @@ export class HUD {
       { text: '邦交', reg: 'diplomacyPanel' },
       { text: '军务', reg: 'militaryPanel' },
       { text: '大业', reg: 'megaProjectPanel' },
+      { text: '史官', reg: 'influencePanel' },
     ];
     const tbY = UI.topbarHeight;
     const tbH = UI.toolbarHeight;
@@ -527,7 +530,9 @@ export class HUD {
     if (!this.craftText) return;
     const r = this.store.getResources();
     const parts = INTERMEDIATE_RESOURCE_IDS.map((id) => `${RESOURCE_LABEL[id]} ${r[id] ?? 0}`);
-    this.craftText.setText(`工坊物资　${parts.join(' · ')}`);
+    const inf = r.influence ?? 0;
+    const cap = this.store.getInfluenceCap();
+    this.craftText.setText(`名望 ${inf}/${cap}　工坊物资　${parts.join(' · ')}`);
   }
 
   /** A1：刷新 心/怨 双米（阈值处变红提示）。 */

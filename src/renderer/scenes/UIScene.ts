@@ -22,6 +22,7 @@ import { AudioManager } from '../ui/AudioManager';
 import { JitHintManager } from '../ui/JitHintManager';
 import { SettingsPanel } from '../ui/SettingsPanel';
 import { SaveLoadPanel } from '../ui/SaveLoadPanel';
+import { InfluencePanel } from '../ui/InfluencePanel';
 import type { MapRenderer } from '../render/MapRenderer';
 
 /**
@@ -58,6 +59,7 @@ export class UIScene extends Phaser.Scene {
   private jitHintManager: JitHintManager | null = null;
   private settingsPanel: SettingsPanel | null = null;
   private saveLoadPanel: SaveLoadPanel | null = null;
+  private influencePanel: InfluencePanel | null = null;
   private store: GameStore | null = null;
   // A-9：暂停遮罩
   private pauseOverlay: Phaser.GameObjects.Graphics | null = null;
@@ -203,6 +205,9 @@ export class UIScene extends Phaser.Scene {
     // 存档/读档面板（引擎已有 IPC + saveLoad.ts，这里补玩家可见入口）
     this.saveLoadPanel = new SaveLoadPanel(this, store);
     this.registry.set('saveLoadPanel', this.saveLoadPanel);
+    // B2：史官/名望消费面板（宣传/斡旋/修史）
+    this.influencePanel = new InfluencePanel(this, store);
+    this.registry.set('influencePanel', this.influencePanel);
 
     // Phase1：国格晋阶 / 登顶 → Toast 软认可
     this.store = store;
@@ -279,6 +284,7 @@ export class UIScene extends Phaser.Scene {
     this.diplomacyPanel?.layout();
     this.populationPanel?.layout();
     this.saveLoadPanel?.layout();
+    this.influencePanel?.layout();
     this.storyBar?.layout();
   }
 
@@ -326,6 +332,7 @@ export class UIScene extends Phaser.Scene {
     this.jitHintManager?.destroy();
     this.settingsPanel?.destroy();
     this.saveLoadPanel?.destroy();
+    this.influencePanel?.destroy();
     this.toast?.destroy();
     this.pauseOverlay?.destroy();
     this.pauseText?.destroy();
@@ -339,6 +346,7 @@ export class UIScene extends Phaser.Scene {
     this.registry.set('populationPanel', undefined);
     this.registry.set('settingsPanel', undefined);
     this.registry.set('saveLoadPanel', undefined);
+    this.registry.set('influencePanel', undefined);
     this.registry.set('audioManager', undefined);
     this.hud = null;
     this.buildPanel = null;
