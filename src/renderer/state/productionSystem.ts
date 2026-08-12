@@ -117,6 +117,8 @@ export function computeProductionTick(
   modifiers: readonly ModifierInstance[],
   /** 上一 tick 留下的小数残差；首次调用传 {} */
   prevCarry: Readonly<Partial<Record<ResourceId, number>>> = {},
+  /** A2：按建筑阶层需求满足度给的产出系数（0.5..1）；缺省 1 = 不启用 */
+  buildingFactor: (defId: string) => number = () => 1,
 ): ProductionTickResult {
   // 1) 累加 raw output / upkeep（不含 country modifier，但已应用相邻加成）
   const rawOutput: Partial<Record<ResourceId, number>> = {};
@@ -132,7 +134,7 @@ export function computeProductionTick(
       // v1.0 #3：相邻加成（如农田旁有水井 +30%）
       const adj = computeAdjacencyMul(b, def, r, buildings, defLookup);
       const cur = rawOutput[r] ?? 0;
-      rawOutput[r] = cur + o.perDay * adj.mul;
+      rawOutput[r] = cur + o.perDay * adj.mul * buildingFactor(b.defId);
     }
     for (const id of RESOURCE_IDS) {
       if (id === 'people') continue; // 民=占用制劳力，不作为消耗品 upkeep 扣减（否则人口被持续吃空）

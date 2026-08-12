@@ -50,6 +50,9 @@ import {
   WRATH_PASSIVE_DECAY_PER_DAY, PRAISE_MORALE_THRESHOLD, PRAISE_MORALE_FALLBACK,
   clampSentiment, shouldForceWrathDemand,
 } from './publicSentiment';
+import {
+  computeClassNeedState, populationFulfillment, buildingFulfillmentFactor,
+} from './classNeeds';
 import type { PopulationClasses, PopulationClass, ConversionOrder } from '../data/populationClass';
 import { createDefaultPopulation, totalPopulation, CONVERSION_DAYS, CONVERSION_REQUIRES, POPULATION_CLASSES, DEFAULT_STARVATION } from '../data/populationClass';
 import { computeClassOccupation, getIdleByClass, canAffordClass, tickConversionQueue, applyConversion, applyStarvation, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
@@ -925,11 +928,18 @@ export class GameStore {
 
   /** 当日产出 / 维护开销 → 资源 deltas（grain 等） */
   private runProductionTick(): void {
+    // A2：每栋建筑按自己阶层的需求满足度打折（缺市集的工匠低效）
+    const factorFor = (defId: string): number => buildingFulfillmentFactor(
+      getBuildingDef(defId)?.classType,
+      this.state.buildings,
+      this.state.resources,
+    );
     const result = computeProductionTick(
       this.state.buildings,
       getBuildingDef,
       this.state.activeModifiers,
       this.state.productionCarry,
+      factorFor,
     );
     // 把本 tick 的小数残差留到下一 tick（Slice G hardening 分数累加器）
     this.state.productionCarry = result.fractionalCarry;
@@ -1159,6 +1169,14 @@ export class GameStore {
   }
 
   getPlayerMorale(): number { return this.state.playerMorale; }
+  /** A2：各阶层当前未满足的需求名（供人口面板显示缺口）。 */
+  getClassNeedsGaps(): Record<PopulationClass, string[]> {
+    const out = {} as Record<PopulationClass, string[]>;
+    for (const cls of POPULATION_CLASSES) {
+      out[cls] = computeClassNeedState(cls, this.state.buildings, this.state.resources).unmet;
+    }
+    return out;
+  }
   /** 现行怨愤 = 明文状态 + country_wrath modifier 累加（让朝令/事件能推动米值），clamp 0..100。 */
   getPublicWrath(): number {
     return clampSentiment(
@@ -2086,13 +2104,19 @@ export class GameStore {
     const popCfg = getBalanceConfig(this.state.mode).population;
     // A-3：季节 modifier 影响人口增长率（夏 +50%）
     const growthMul = applyModifiers(1, 'country_population_growth', this.state.activeModifiers);
+    // A2：民足系数（阶层需求满足度加权）影响人口增长——缺安居/市集/营伍会压慢生养
+    const fulfillMul = populationFulfillment(
+      this.state.populationClasses,
+      this.state.buildings,
+      this.state.resources,
+    );
     // 余粮正反馈（2026-06-17）：surplusDays = 存粮 / 当日阶层粮耗；够 1 日 ×1.0、3 日 ×1.2、≥6 日 ×1.5。
     // 缺粮时不起作用（computePopulationGrowth 会判 idle）。给"攒粮"一个正向回报，也加速中后期。
     const grainPerDay = computeClassConsumption(this.state.populationClasses).totalGrain;
     // 无消耗者（grainPerDay=0）按基准、不额外奖励，避免"撤掉所有消耗以刷满加成"（DeepSeek 复审 ID-R3）
     const surplusDays = grainPerDay > 0 ? grainStock / grainPerDay : 1;
     const surplusMul = Math.max(1, Math.min(1.5, 1 + (surplusDays - 1) * 0.1));
-    const totalMul = growthMul * surplusMul;
+    const totalMul = growthMul * surplusMul * fulfillMul;
     const effectiveCfg = totalMul === 1 ? popCfg : {
       ...popCfg,
       // 季节(growthMul) + 余粮(surplusMul) 共同加速"百分比增长"；但保底 minDailyGrowth 只随季节、

@@ -17,7 +17,7 @@ import { drawDecorativePanelFrame } from './panelDecoration';
  * 销毁：UIScene.shutdown 调 .destroy()。
  */
 
-const PANEL_WIDTH = 460;
+const PANEL_WIDTH = 560;
 const PANEL_HEIGHT = 440;
 
 const CLASS_ROWS: { key: 'farmer' | 'worker' | 'soldier' | 'scholar'; name: string; verb: string }[] = [
@@ -199,7 +199,12 @@ export class PopulationPanel {
       const total = s.classes[row.key];
       const occ = s.occupation[row.key];
       const idle = Math.max(0, total - occ);
-      this.rowTexts[i]!.setText(`${row.name}　　${String(total).padStart(3, ' ')}　　${row.verb} ${occ} · 闲 ${idle}`);
+      // A2：阶层需求缺口直显（缺安居/市集/营伍/教化/礼器/足食）
+      const gaps = this.store.getClassNeedsGaps()[row.key];
+      const gapText = gaps.length > 0 ? `　缺：${gaps.join('·')}` : '';
+      this.rowTexts[i]!.setText(
+        `${row.name}　　${String(total).padStart(3, ' ')}　　${row.verb} ${occ} · 闲 ${idle}${gapText}`,
+      );
     }
 
     const room = Math.max(0, s.cap - s.total);
