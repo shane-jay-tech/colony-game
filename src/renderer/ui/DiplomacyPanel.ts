@@ -321,7 +321,11 @@ export class DiplomacyPanel {
       this.refreshCard(card, state, playerMP, playerRenown);
     }
     // subtitle：玩家自身 metric
-    this.subtitleText.setText(`本邦：信誉 ${playerRenown.toFixed(0)} · 军力 ${playerMP} · 士气 ${this.store.getPlayerMorale()}`);
+    const w = this.store.getWarinessInfo();
+    const reason = w.reason ? ` · 因：${w.reason}` : '';
+    this.subtitleText.setText(
+      `本邦：信誉 ${playerRenown.toFixed(0)} · 军力 ${playerMP} · 士气 ${this.store.getPlayerMorale()} · 侧目 ${w.value}（${w.band.text}）${reason}`,
+    );
   }
 
   private refreshCard(card: NpcCard, state: NpcCountryState, playerMP: number, _playerRenown: number): void {

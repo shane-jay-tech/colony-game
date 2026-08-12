@@ -53,6 +53,10 @@ import {
 import {
   computeClassNeedState, populationFulfillment, buildingFulfillmentFactor,
 } from './classNeeds';
+import {
+  WARINESS_BASELINE, WARINESS_DRIFT_PER_DAY, WARINESS_COALITION_THRESHOLD,
+  WARINESS_DELTAS, warinessBand, clampWariness, type WarinessBand,
+} from './wariness';
 import type { PopulationClasses, PopulationClass, ConversionOrder } from '../data/populationClass';
 import { createDefaultPopulation, totalPopulation, CONVERSION_DAYS, CONVERSION_REQUIRES, POPULATION_CLASSES, DEFAULT_STARVATION } from '../data/populationClass';
 import { computeClassOccupation, getIdleByClass, canAffordClass, tickConversionQueue, applyConversion, applyStarvation, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
@@ -137,6 +141,8 @@ export const STATE_EVENTS = {
   MORALE_CHANGED: 'state:moraleChanged',
   WRATH_CHANGED: 'state:wrathChanged',
   WRATH_ALERT: 'state:wrathAlert',
+  // B1：列国警惕值变化（payload { value, reason }）
+  WORLD_WARINESS_CHANGED: 'state:worldWarinessChanged',
   // B-4.1：阶层博弈诉求出现/解决（payload { demand, factionName } / { demandId, accepted }）→ 诉求弹窗
   FACTION_DEMAND_TRIGGERED: 'state:factionDemandTriggered',
   FACTION_DEMAND_RESOLVED: 'state:factionDemandResolved',
@@ -189,6 +195,10 @@ export interface GameState {
   publicWrath: number;
   /** 上次「民怨沸腾」警示日（冷却用；null=从未触发） */
   lastWrathDemandDay: number | null;
+  /** B1：列国警惕值（0..100，基线 20）。宣战/称霸升，通商/出使降，太平日回落。 */
+  worldWariness: number;
+  /** 最近一次警惕值变动原因（邦交面板展示「侧目原因」） */
+  lastWarinessReason: string | null;
   playerMilitaryPower: number;
   /** Phase1 国格阶梯：当前国格级（0..5，0=聚落） */
   grade: number;
@@ -285,6 +295,8 @@ function makeDefaultState(): GameState {
     playerMorale: 50,
     publicWrath: 0,
     lastWrathDemandDay: null,
+    worldWariness: WARINESS_BASELINE,
+    lastWarinessReason: null,
     playerMilitaryPower: 30,
     grade: 0,
     gradeReached: 0,
@@ -1183,6 +1195,15 @@ export class GameStore {
       this.state.publicWrath + aggregateModifiers('country_wrath', this.state.activeModifiers).addSum,
     );
   }
+  getWorldWariness(): number { return this.state.worldWariness; }
+  /** B1：邦交面板用的警惕值快照（值 + 档位文案 + 最近原因）。 */
+  getWarinessInfo(): { value: number; band: WarinessBand; reason: string | null } {
+    return {
+      value: this.state.worldWariness,
+      band: warinessBand(this.state.worldWariness),
+      reason: this.state.lastWarinessReason,
+    };
+  }
   /** 调整怨愤（clamp 0..100），变化时发 WRATH_CHANGED 供 HUD 双米刷新。 */
   private adjustWrath(delta: number, reason: string): void {
     if (!Number.isFinite(delta) || delta === 0) return;
@@ -1199,6 +1220,16 @@ export class GameStore {
     this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + delta));
     if (this.state.playerMorale !== before) {
       this.emitter.emit(STATE_EVENTS.MORALE_CHANGED, { value: this.state.playerMorale, reason });
+    }
+  }
+  /** 调整列国警惕值（clamp 0..100），变化时发 WORLD_WARINESS_CHANGED。 */
+  private adjustWariness(delta: number, reason: string): void {
+    if (!Number.isFinite(delta) || delta === 0) return;
+    const before = this.state.worldWariness;
+    this.state.worldWariness = clampWariness(this.state.worldWariness + delta);
+    if (this.state.worldWariness !== before) {
+      this.state.lastWarinessReason = reason;
+      this.emitter.emit(STATE_EVENTS.WORLD_WARINESS_CHANGED, { value: this.state.worldWariness, reason });
     }
   }
   getPlayerMilitaryPower(): number { return this.state.playerMilitaryPower; }
@@ -1247,6 +1278,9 @@ export class GameStore {
       });
     }
     this.emitter.emit(STATE_EVENTS.DIPLOMACY_ACTION, { npcId, kind, result });
+    // B1：宣战升警惕、通商/出使降警惕（放在结算之后，UI 读终态）
+    if (kind === 'war') this.adjustWariness(WARINESS_DELTAS.declareWar, '兴师宣战');
+    else this.adjustWariness(WARINESS_DELTAS.peaceAction, kind === 'trade' ? '通商睦邻' : '遣使修好');
     return result;
   }
 
@@ -1354,6 +1388,7 @@ export class GameStore {
     this.state.grade = next;
     if (next > this.state.gradeReached) this.state.gradeReached = next;
     this.historianGradeAscended = true;
+    this.adjustWariness(WARINESS_DELTAS.gradeAscend, '国格晋阶');
     this.emitter.emit(STATE_EVENTS.GRADE_CHANGED, {
       from, to: next, def: gradeDefAt(next), reason: 'ascend',
     });
@@ -2006,7 +2041,11 @@ export class GameStore {
     const rng = (): number => rngHandle.next();
 
     // 3) 合纵结盟（玩家 strong 时形成、否则解散）
-    const alliancePatch = computeNpcAlliances(npcs, getNpcDef, tier, rng);
+    // B1：警惕值 ≥ 阈值时即使玩家非强档，列国也同仇敌忾（按强档合纵）——张力提前可读。
+    const warinessTier = tier !== 'strong' && this.state.worldWariness >= WARINESS_COALITION_THRESHOLD
+      ? 'strong'
+      : tier;
+    const alliancePatch = computeNpcAlliances(npcs, getNpcDef, warinessTier, rng);
     for (const s of npcs) {
       const next = alliancePatch[s.id];
       if (next && (next.length !== s.allyIds.length || next.some((id, i) => id !== s.allyIds[i]))) {
@@ -2063,6 +2102,15 @@ export class GameStore {
         ? `「${actorName}」兴兵伐「${targetName}」`
         : `「${actorName}」${act.summary}`;
       this.emitter.emit(STATE_EVENTS.NPC_ACTION, { kind: act.kind, actorName, targetName, text });
+    }
+
+    // B1：太平日子警惕值每日向基线回落（静默漂移，不发事件——面板每天随 DAY_TICK 刷新）
+    if (this.state.worldWariness > WARINESS_BASELINE) {
+      this.state.worldWariness = Math.max(WARINESS_BASELINE, this.state.worldWariness - WARINESS_DRIFT_PER_DAY);
+      changed = true;
+    } else if (this.state.worldWariness < WARINESS_BASELINE) {
+      this.state.worldWariness = Math.min(WARINESS_BASELINE, this.state.worldWariness + WARINESS_DRIFT_PER_DAY);
+      changed = true;
     }
 
     if (changed) this.emitter.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined);
@@ -2390,6 +2438,9 @@ export class GameStore {
     // A1：怨愤与警示冷却字段（内存/旧测试路径可能缺）
     if (typeof newState.publicWrath !== 'number') newState.publicWrath = 0;
     if (typeof newState.lastWrathDemandDay !== 'number') newState.lastWrathDemandDay = null;
+    // B1：警惕值/原因字段（内存/旧测试路径可能缺）
+    if (typeof newState.worldWariness !== 'number') newState.worldWariness = WARINESS_BASELINE;
+    if (typeof newState.lastWarinessReason !== 'string') newState.lastWarinessReason = null;
     // Phase1：国格/低谷/模式字段——内存路径（quick-save/旧测试态）可能缺，兜底
     if (typeof newState.grade !== 'number') newState.grade = 0;
     if (typeof newState.gradeReached !== 'number') newState.gradeReached = newState.grade;

@@ -13,8 +13,9 @@ import type { MegaProjectProgress } from './megaProjectSystem';
 import type { GeneralState } from '../data/generals';
 import type { ActiveExpedition, DefenseAlert } from '../data/military';
 import { clampSentiment } from './publicSentiment';
+import { WARINESS_BASELINE, clampWariness } from './wariness';
 
-export const SAVE_SCHEMA_VERSION = 4;
+export const SAVE_SCHEMA_VERSION = 5;
 
 export class SaveLoadError extends Error {
   constructor(message: string) {
@@ -56,6 +57,9 @@ export interface SerializedSave {
     /** A1：怨愤（0..100, default 0）与上次民怨警示日（null=从未） */
     publicWrath?: number;
     lastWrathDemandDay?: number | null;
+    /** B1：列国警惕值（0..100, default 20）与最近原因 */
+    worldWariness?: number;
+    lastWarinessReason?: string | null;
     /** Phase1 国格阶梯（旧存档缺则兜底 0 / false） */
     grade?: number;
     gradeReached?: number;
@@ -132,6 +136,15 @@ const migrations: Partial<Record<number, MigrationFn>> = {
     s['publicWrath'] = 0;
     s['lastWrathDemandDay'] = null;
     data.schemaVersion = 4;
+    return data;
+  },
+  4: (blob) => {
+    // B1 列国警惕值：旧档给基线 20 / 无原因
+    const data = blob as { schemaVersion: number; state: Record<string, unknown> };
+    const s = data.state;
+    s['worldWariness'] = WARINESS_BASELINE;
+    s['lastWarinessReason'] = null;
+    data.schemaVersion = 5;
     return data;
   },
 };
@@ -269,6 +282,8 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       playerMilitaryPower: state.playerMilitaryPower,
       publicWrath: state.publicWrath,
       lastWrathDemandDay: state.lastWrathDemandDay,
+      worldWariness: state.worldWariness,
+      lastWarinessReason: state.lastWarinessReason,
       grade: state.grade,
       gradeReached: state.gradeReached,
       tianxiaAcknowledged: state.tianxiaAcknowledged,
@@ -391,6 +406,8 @@ export function deserialize(blob: unknown): GameState {
     lastWrathDemandDay: typeof s.lastWrathDemandDay === 'number' && Number.isFinite(s.lastWrathDemandDay)
       ? Math.max(0, Math.floor(s.lastWrathDemandDay))
       : null,
+    worldWariness: clampWariness(typeof s.worldWariness === 'number' ? s.worldWariness : WARINESS_BASELINE),
+    lastWarinessReason: typeof s.lastWarinessReason === 'string' ? s.lastWarinessReason : null,
     playerMilitaryPower: typeof s.playerMilitaryPower === 'number' && Number.isFinite(s.playerMilitaryPower)
       ? Math.max(0, Math.min(500, s.playerMilitaryPower))
       : 30,
