@@ -109,7 +109,7 @@ describe('存档 v3 → v4 迁移', () => {
     const restored = deserialize(blob);
     expect(restored.publicWrath).toBe(0);
     expect(restored.lastWrathDemandDay).toBeNull();
-    expect(SAVE_SCHEMA_VERSION).toBe(6);
+    expect(SAVE_SCHEMA_VERSION).toBe(7);
   });
 
   it('roundtrip 保留怨愤与冷却日', () => {

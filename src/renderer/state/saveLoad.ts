@@ -14,8 +14,9 @@ import type { GeneralState } from '../data/generals';
 import type { ActiveExpedition, DefenseAlert } from '../data/military';
 import { clampSentiment } from './publicSentiment';
 import { WARINESS_BASELINE, clampWariness } from './wariness';
+import type { RelicSite } from './relicSystem';
 
-export const SAVE_SCHEMA_VERSION = 6;
+export const SAVE_SCHEMA_VERSION = 7;
 
 export class SaveLoadError extends Error {
   constructor(message: string) {
@@ -62,6 +63,8 @@ export interface SerializedSave {
     lastWarinessReason?: string | null;
     /** B2：上次宣传日（7 日冷却用） */
     lastPropagandaDay?: number | null;
+    /** C1：古迹点（旧档无此字段 → 空数组） */
+    relicSites?: RelicSite[];
     /** Phase1 国格阶梯（旧存档缺则兜底 0 / false） */
     grade?: number;
     gradeReached?: number;
@@ -155,6 +158,14 @@ const migrations: Partial<Record<number, MigrationFn>> = {
     const s = data.state;
     s['lastPropagandaDay'] = null;
     data.schemaVersion = 6;
+    return data;
+  },
+  6: (blob) => {
+    // C1 古迹链：旧档无古迹点
+    const data = blob as { schemaVersion: number; state: Record<string, unknown> };
+    const s = data.state;
+    s['relicSites'] = [];
+    data.schemaVersion = 7;
     return data;
   },
 };
@@ -295,6 +306,7 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       worldWariness: state.worldWariness,
       lastWarinessReason: state.lastWarinessReason,
       lastPropagandaDay: state.lastPropagandaDay,
+      relicSites: state.relicSites,
       grade: state.grade,
       gradeReached: state.gradeReached,
       tianxiaAcknowledged: state.tianxiaAcknowledged,
@@ -422,6 +434,21 @@ export function deserialize(blob: unknown): GameState {
     lastPropagandaDay: typeof s.lastPropagandaDay === 'number' && Number.isFinite(s.lastPropagandaDay)
       ? Math.max(0, Math.floor(s.lastPropagandaDay))
       : null,
+    relicSites: Array.isArray(s.relicSites)
+      ? (s.relicSites as unknown[]).filter((r): r is RelicSite => {
+        const o = r as Partial<RelicSite>;
+        return !!o && typeof o.id === 'string' && typeof o.chainId === 'string'
+          && typeof o.name === 'string' && typeof o.position?.x === 'number'
+          && typeof o.position?.y === 'number';
+      }).map(r => ({
+        id: r.id,
+        chainId: r.chainId,
+        name: r.name,
+        position: { x: Math.floor(r.position.x), y: Math.floor(r.position.y) },
+        stage: Math.max(0, Math.min(2, Number.isFinite(r.stage) ? Math.floor(r.stage) : 0)),
+        done: r.done === true,
+      }))
+      : [],
     playerMilitaryPower: typeof s.playerMilitaryPower === 'number' && Number.isFinite(s.playerMilitaryPower)
       ? Math.max(0, Math.min(500, s.playerMilitaryPower))
       : 30,

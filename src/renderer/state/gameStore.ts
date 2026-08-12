@@ -57,6 +57,9 @@ import {
   WARINESS_BASELINE, WARINESS_DRIFT_PER_DAY, WARINESS_COALITION_THRESHOLD,
   WARINESS_DELTAS, warinessBand, clampWariness, type WarinessBand,
 } from './wariness';
+import {
+  RELIC_CHAINS, generateRelicSites, advanceRelic, type RelicSite,
+} from './relicSystem';
 import type { PopulationClasses, PopulationClass, ConversionOrder } from '../data/populationClass';
 import { createDefaultPopulation, totalPopulation, CONVERSION_DAYS, CONVERSION_REQUIRES, POPULATION_CLASSES, DEFAULT_STARVATION } from '../data/populationClass';
 import { computeClassOccupation, getIdleByClass, canAffordClass, tickConversionQueue, applyConversion, applyStarvation, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
@@ -143,6 +146,8 @@ export const STATE_EVENTS = {
   WRATH_ALERT: 'state:wrathAlert',
   // B1：列国警惕值变化（payload { value, reason }）
   WORLD_WARINESS_CHANGED: 'state:worldWarinessChanged',
+  // C1：古迹链完整探索结束（payload { name, summary }）
+  RELIC_RESOLVED: 'state:relicResolved',
   // B-4.1：阶层博弈诉求出现/解决（payload { demand, factionName } / { demandId, accepted }）→ 诉求弹窗
   FACTION_DEMAND_TRIGGERED: 'state:factionDemandTriggered',
   FACTION_DEMAND_RESOLVED: 'state:factionDemandResolved',
@@ -201,6 +206,8 @@ export interface GameState {
   lastWarinessReason: string | null;
   /** B2：上次「宣扬德政」日（7 日内重复使用效果减半；null=从未） */
   lastPropagandaDay: number | null;
+  /** C1：本局古迹点（种子确定性生成 2~4 个） */
+  relicSites: RelicSite[];
   playerMilitaryPower: number;
   /** Phase1 国格阶梯：当前国格级（0..5，0=聚落） */
   grade: number;
@@ -300,6 +307,7 @@ function makeDefaultState(): GameState {
     worldWariness: WARINESS_BASELINE,
     lastWarinessReason: null,
     lastPropagandaDay: null,
+    relicSites: [],
     playerMilitaryPower: 30,
     grade: 0,
     gradeReached: 0,
@@ -336,7 +344,9 @@ export class GameStore {
   private worldMapAccessor: WorldMapAccessor;
   private readonly policies: readonly PolicyNode[];
   private readonly decrees: readonly RoyalDecree[];
-  private readonly events: readonly CourtEvent[];
+  private events: readonly CourtEvent[];
+  /** 内容层事件（不含古迹合成事件；replaceState 重建事件表时以此为基础） */
+  private readonly baseEvents: readonly CourtEvent[];
   /**
    * Slice G UI 暂停 refcount：模态（EventModal / TutorialModal）通过 holder 名注册暂停，
    * 多模态嵌套时不会互相覆盖玩家手动暂停状态。
@@ -364,9 +374,39 @@ export class GameStore {
       this.state.populationClasses = createDefaultPopulation(peoplePassed);
     }
     this.worldMapAccessor = new WorldMapAccessor(this.state.worldMap);
+    // C1：古迹点按种子确定性生成（旧档自带 relicSites 则沿用）
+    if (!Array.isArray(this.state.relicSites) || this.state.relicSites.length === 0) {
+      this.state.relicSites = generateRelicSites(
+        this.state.rngSeed,
+        this.state.worldMap.width,
+        this.state.worldMap.height,
+      );
+    }
     this.policies = content?.policies ?? [];
     this.decrees = content?.decrees ?? [];
-    this.events = content?.events ?? [];
+    this.baseEvents = content?.events ?? [];
+    this.events = [...this.baseEvents, ...this.buildRelicEvents()];
+  }
+
+  /** C1：把古迹链的每一阶段物化为一条合成事件（trigger 概率 0，只由 pendingEventId 显式唤起）。 */
+  private buildRelicEvents(): CourtEvent[] {
+    const out: CourtEvent[] = [];
+    for (const site of this.state.relicSites) {
+      const chain = RELIC_CHAINS.find(c => c.id === site.chainId);
+      if (!chain) continue;
+      chain.stages.forEach((st, i) => {
+        out.push({
+          id: `relic_${site.id}_s${i}`,
+          tags: ['抉择'],
+          triggers: [{ condition: 'random', value: 0 }],
+          contexts: [{ condition: 'default', title: st.title, desc: st.desc, descPlain: st.descPlain }],
+          choices: st.choices.map(c => ({
+            text: c.text, textPlain: c.textPlain, effects: [], removeEffects: [],
+          })),
+        });
+      });
+    }
+    return out;
   }
 
   // full snapshot for UI rendering; per-frame hot paths should use lightweight getters below
@@ -1065,10 +1105,19 @@ export class GameStore {
     if (filteredEvents.length === 0) return;
     const metrics = this.computeMetrics();
     const id = sampleEventTrigger(filteredEvents, this.state.eventHistory, metrics);
-    if (id === null) return;
+    if (id === null) { this.tryTriggerRelic(); return; }
     this.state.pendingEventId = id;
     this.state.pendingEventDayStart = this.state.currentDay;
     this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, { eventId: id });
+  }
+
+  /** C1：普通朝议无戏时，唤起下一个空闲古迹阶段（与朝议共用一条叙事流，互不抢占）。 */
+  private tryTriggerRelic(): void {
+    const readyRelic = this.state.relicSites.find(s => !s.done);
+    if (!readyRelic) return;
+    this.state.pendingEventId = `relic_${readyRelic.id}_s${readyRelic.stage}`;
+    this.state.pendingEventDayStart = this.state.currentDay;
+    this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, { eventId: this.state.pendingEventId });
   }
 
   /** 用当前 state + activeModifiers 算 DSL/事件采样所需的国家级指标快照 */
@@ -1117,6 +1166,12 @@ export class GameStore {
       this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, { eventId: id, choiceIdx, applied: false });
       return;
     }
+    // C1：古迹合成事件走专用结算（一次性资源/民心/怨愤，不经永久 modifier）
+    const relicMatch = /^relic_r(\d+)_s(\d+)$/.exec(id);
+    if (relicMatch) {
+      this.applyRelicChoice(Number(relicMatch[1]), Number(relicMatch[2]), choiceIdx);
+      return;
+    }
     const result = applyEventChoice(def, choiceIdx);
     for (const rid of result.modifiersToRemove) {
       this.removeModifier(rid);
@@ -1131,6 +1186,40 @@ export class GameStore {
       this.state.storyFlags.storyEventsTriggered.push(id);
     }
     this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, { eventId: id, choiceIdx, applied: true });
+  }
+
+  /** C1：结算一次古迹抉择并推进阶段；最后一阶段完成发 RELIC_RESOLVED。 */
+  private applyRelicChoice(siteIdx: number, stageIdx: number, choiceIdx: number): void {
+    const site = this.state.relicSites[siteIdx];
+    if (!site || site.done || site.stage !== stageIdx) return;
+    const adv = advanceRelic(site, choiceIdx);
+    this.state.relicSites[siteIdx] = adv.site;
+    const e = adv.effects;
+    this.adjustWrath(e.wrathDelta, `relic_${site.chainId}`);
+    this.adjustMorale(e.moraleDelta, `relic_${site.chainId}`);
+    for (const [rid, v] of Object.entries(e.resources) as [ResourceId, number][]) {
+      if (v) this.addResource(rid, v, 'relic');
+    }
+    if (e.renownDelta !== 0) {
+      this.addModifier({
+        id: `mod_relic_${site.id}_${stageIdx}`,
+        name: `古迹之誉·${site.name}`,
+        category: 'culture',
+        stackable: true,
+        effects: [{ target: 'country_renown', op: 'add', value: e.renownDelta }],
+        visualBadge: null,
+        remainingDays: -1,
+        description: '探得古迹，邦誉有加。',
+        descPlain: '探得古迹，邦誉有加。',
+      });
+    }
+    this.state.eventHistory.push(`relic_${site.id}_s${stageIdx}`);
+    if (adv.completed) {
+      this.emitter.emit(STATE_EVENTS.RELIC_RESOLVED, { name: site.name, summary: e.summary });
+    }
+    this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, {
+      eventId: `relic_${site.id}_s${stageIdx}`, choiceIdx, applied: true,
+    });
   }
 
   /** 玩家采纳 policy；返回 result 给 UI（成功 / 失败原因） */
@@ -2497,6 +2586,8 @@ export class GameStore {
     if (typeof newState.lastWarinessReason !== 'string') newState.lastWarinessReason = null;
     // B2：宣传冷却字段（内存/旧测试路径可能缺）
     if (typeof newState.lastPropagandaDay !== 'number') newState.lastPropagandaDay = null;
+    // C1：古迹点（旧档/内存路径可能缺 → 空数组，不重新生成以尊重存档）
+    if (!Array.isArray(newState.relicSites)) newState.relicSites = [];
     // Phase1：国格/低谷/模式字段——内存路径（quick-save/旧测试态）可能缺，兜底
     if (typeof newState.grade !== 'number') newState.grade = 0;
     if (typeof newState.gradeReached !== 'number') newState.gradeReached = newState.grade;
@@ -2534,6 +2625,8 @@ export class GameStore {
     }
     this.state = newState;
     this.worldMapAccessor = new WorldMapAccessor(newState.worldMap);
+    // C1：读档后按新 state 的古迹点重建合成事件表（避免旧种子事件残留）
+    this.events = [...this.baseEvents, ...this.buildRelicEvents()];
     // 瞬态字段重置：防止旧会话的暂停/呼吸/史官状态泄漏到新存档
     this.pauseHolders.clear();
     this.storyTransitionPending = false;

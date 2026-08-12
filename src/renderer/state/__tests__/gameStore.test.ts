@@ -647,6 +647,7 @@ describe('GameStore.replaceState / setLastSeenNow', () => {
       worldWariness: 20,
       lastWarinessReason: null,
       lastPropagandaDay: null,
+      relicSites: [],
       grade: 0,
       gradeReached: 0,
       tianxiaAcknowledged: false,
