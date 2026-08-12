@@ -22,7 +22,7 @@ import { computeProductionTick } from './productionSystem';
 import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
 import { tryAdoptDecree, tickActiveDecree, type AdoptDecreeResult } from './decreeSystem';
 import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from './eventEngine';
-import { applyModifiers } from './modifierAggregator';
+import { applyModifiers, aggregateModifiers } from './modifierAggregator';
 import type { CountryMetrics } from './dslEval';
 import { createRng } from './rng';
 import { evaluateGrade, type GradeInput } from './countryGrade';
@@ -45,6 +45,11 @@ import { applySeasonTransition, isSeasonModifier } from './seasonSystem';
 import { createBreathingState, tickBreathingToast, tickBreathingBulletin, type BreathingState, type BreathingContext } from './breathingSystem';
 import { checkHistorian, type HistorianContext } from './historianSystem';
 import { buildDayPipeline, runDayPipeline } from './dayPipeline';
+import {
+  WRATH_CRISIS_DELTA, WRATH_DEMAND_ACCEPTED, WRATH_DEMAND_REJECTED,
+  WRATH_PASSIVE_DECAY_PER_DAY, PRAISE_MORALE_THRESHOLD, PRAISE_MORALE_FALLBACK,
+  clampSentiment, shouldForceWrathDemand,
+} from './publicSentiment';
 import type { PopulationClasses, PopulationClass, ConversionOrder } from '../data/populationClass';
 import { createDefaultPopulation, totalPopulation, CONVERSION_DAYS, CONVERSION_REQUIRES, POPULATION_CLASSES, DEFAULT_STARVATION } from '../data/populationClass';
 import { computeClassOccupation, getIdleByClass, canAffordClass, tickConversionQueue, applyConversion, applyStarvation, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
@@ -125,6 +130,10 @@ export const STATE_EVENTS = {
   BREATHING_TOAST: 'state:breathingToast',
   BREATHING_BULLETIN: 'state:breathingBulletin',
   HISTORIAN_ADVICE: 'state:historianAdvice',
+  // A1：双轴民心——怨愤变化（payload { value, reason }）/ 怨愤临界警示（payload { text }）
+  MORALE_CHANGED: 'state:moraleChanged',
+  WRATH_CHANGED: 'state:wrathChanged',
+  WRATH_ALERT: 'state:wrathAlert',
   // B-4.1：阶层博弈诉求出现/解决（payload { demand, factionName } / { demandId, accepted }）→ 诉求弹窗
   FACTION_DEMAND_TRIGGERED: 'state:factionDemandTriggered',
   FACTION_DEMAND_RESOLVED: 'state:factionDemandResolved',
@@ -173,6 +182,10 @@ export interface GameState {
   npcCountries: NpcCountryState[];
   /** v1.0 #6：玩家国家级 metric（renown 用 modifier 系统聚合，但 morale / militaryPower 由 diplomacy 直接调） */
   playerMorale: number;
+  /** A1 双轴民心：怨愤（0..100）。民心高=颂声，怨愤高=民变诉求。 */
+  publicWrath: number;
+  /** 上次「民怨沸腾」警示日（冷却用；null=从未触发） */
+  lastWrathDemandDay: number | null;
   playerMilitaryPower: number;
   /** Phase1 国格阶梯：当前国格级（0..5，0=聚落） */
   grade: number;
@@ -267,6 +280,8 @@ function makeDefaultState(): GameState {
     completedDecreeIds: [],
     npcCountries: makeInitialNpcStates(),
     playerMorale: 50,
+    publicWrath: 0,
+    lastWrathDemandDay: null,
     playerMilitaryPower: 30,
     grade: 0,
     gradeReached: 0,
@@ -813,6 +828,7 @@ export class GameStore {
       story: () => this.runStoryTick(),
       breathing: () => this.runBreathingTick(),
       historian: () => this.runHistorianTick(),
+      sentimentSettle: () => this.runSentimentSettlePhase(),
     }));
   }
 
@@ -1037,6 +1053,9 @@ export class GameStore {
     // 聚合，后者改作"住房上限"用于人口增长门槛，见 population.ts / runPopulationTick）。
     const population = this.state.resources['people'] ?? 0;
     const morale = applyModifiers(50, 'country_morale', this.state.activeModifiers);
+    const wrath = clampSentiment(
+      this.state.publicWrath + aggregateModifiers('country_wrath', this.state.activeModifiers).addSum,
+    );
     const militaryPower = applyModifiers(0, 'country_military_power', this.state.activeModifiers);
     // RNG：每次 metrics 推进一步 rngSeed，保证 day-to-day 不同。
     // 用箭头包裹以防 createRng 实现被换成需要 this 的形式（DeepSeek 防御）。
@@ -1046,6 +1065,7 @@ export class GameStore {
       resources: this.state.resources,
       population,
       morale,
+      wrath,
       militaryPower,
       year: cal.year,
       season: cal.season,
@@ -1139,6 +1159,30 @@ export class GameStore {
   }
 
   getPlayerMorale(): number { return this.state.playerMorale; }
+  /** 现行怨愤 = 明文状态 + country_wrath modifier 累加（让朝令/事件能推动米值），clamp 0..100。 */
+  getPublicWrath(): number {
+    return clampSentiment(
+      this.state.publicWrath + aggregateModifiers('country_wrath', this.state.activeModifiers).addSum,
+    );
+  }
+  /** 调整怨愤（clamp 0..100），变化时发 WRATH_CHANGED 供 HUD 双米刷新。 */
+  private adjustWrath(delta: number, reason: string): void {
+    if (!Number.isFinite(delta) || delta === 0) return;
+    const before = this.state.publicWrath;
+    this.state.publicWrath = clampSentiment(this.state.publicWrath + delta);
+    if (this.state.publicWrath !== before) {
+      this.emitter.emit(STATE_EVENTS.WRATH_CHANGED, { value: this.state.publicWrath, reason });
+    }
+  }
+  /** 调整民心（clamp 0..100），变化时发 MORALE_CHANGED 供 HUD 米刷新。 */
+  private adjustMorale(delta: number, reason: string): void {
+    if (!Number.isFinite(delta) || delta === 0) return;
+    const before = this.state.playerMorale;
+    this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + delta));
+    if (this.state.playerMorale !== before) {
+      this.emitter.emit(STATE_EVENTS.MORALE_CHANGED, { value: this.state.playerMorale, reason });
+    }
+  }
   getPlayerMilitaryPower(): number { return this.state.playerMilitaryPower; }
   /** 国家级声誉（renown）：聚合 modifier 系统的 country_renown，base = 50 */
   getPlayerRenown(): number {
@@ -1165,7 +1209,7 @@ export class GameStore {
       this.applyDayDeltas(result.resourceDeltas);
     }
     if (result.playerDeltas.morale !== undefined) {
-      this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + result.playerDeltas.morale));
+      this.adjustMorale(result.playerDeltas.morale, 'diplomacy');
     }
     if (result.playerDeltas.militaryPower !== undefined) {
       this.state.playerMilitaryPower = Math.max(0, Math.min(500, this.state.playerMilitaryPower + result.playerDeltas.militaryPower));
@@ -1337,12 +1381,16 @@ export class GameStore {
     } else {
       this.state.factionState.rejectedDemands.push(demandId);
     }
+    this.adjustWrath(
+      accepted ? WRATH_DEMAND_ACCEPTED : WRATH_DEMAND_REJECTED,
+      accepted ? 'demand_accepted' : 'demand_rejected',
+    );
     this.state.factionState.activeDemand = null;
     const fRng = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0xfac8) >>> 0);
     this.state.factionState.nextEventDay = scheduleFactionEvent(this.state.currentDay, fRng, this.factionIntervalFactor());
     const moraleDelta = (effect.morale ?? 0) + (effect.loyaltyDelta ?? 0);
     if (moraleDelta !== 0) {
-      this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + moraleDelta));
+      this.adjustMorale(moraleDelta, 'faction');
     }
     if (effect.axisShift && this.state.storyFlags) {
       if (effect.axisShift.axis === 'power') {
@@ -1819,6 +1867,39 @@ export class GameStore {
     }
   }
 
+  /** A1：每日民心/怨愤沉淀——怨愤自然回落、颂声加成可逆、怨愤临界强推阶层诉求。 */
+  private runSentimentSettlePhase(): void {
+    // 怨愤临界 → 强推阶层诉求（复用 factionSystem 诉求模态）+ 可见警示
+    // 注意：判定必须在「自然回落」之前，否则 70 阈值当天会先掉到 69 漏判。
+    if (shouldForceWrathDemand(this.getPublicWrath(), this.state.lastWrathDemandDay, this.state.currentDay)) {
+      this.state.lastWrathDemandDay = this.state.currentDay;
+      this.state.factionState.nextEventDay = Math.min(this.state.factionState.nextEventDay, this.state.currentDay + 1);
+      this.emitter.emit(STATE_EVENTS.WRATH_ALERT, { text: '民怨沸腾，举国侧目——不日必有诉求上达，速思抚民之策。' });
+    }
+    // 太平日子怨愤每天自然回落（危机期间不回落）
+    if (!this.state.crisisActive && this.state.publicWrath > 0) {
+      this.adjustWrath(-WRATH_PASSIVE_DECAY_PER_DAY, 'settle');
+    }
+    // 民心鼎盛给「颂声」加成（可逆：民心回落即移除）
+    const praiseId = 'mod_praise_of_people';
+    const hasPraise = this.state.activeModifiers.some(m => m.id === praiseId);
+    if (this.state.playerMorale >= PRAISE_MORALE_THRESHOLD && !hasPraise) {
+      this.addModifier({
+        id: praiseId,
+        name: '民心颂声',
+        category: 'culture',
+        stackable: false,
+        effects: [{ target: 'population_happiness', op: 'add', value: 5 }],
+        visualBadge: null,
+        remainingDays: -1,
+        description: '民心鼎盛，百姓颂声载道。',
+        descPlain: '民心鼎盛，百姓颂声载道。',
+      });
+    } else if (this.state.playerMorale < PRAISE_MORALE_FALLBACK && hasPraise) {
+      this.removeModifier(praiseId);
+    }
+  }
+
   /** 推进到指定章节并发 banner 事件（GameScene 跳变过场结束 / runStoryTick 占位推进调用）。 */
   advanceStoryChapter(chapter: number): void {
     if (!this.state.storyFlags) return;
@@ -1947,7 +2028,10 @@ export class GameStore {
         this.state.playerMilitaryPower = Math.max(0, Math.min(500, this.state.playerMilitaryPower + act.playerMilitaryDelta));
       }
       if (act.playerMoraleDelta) {
-        this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + act.playerMoraleDelta));
+        this.adjustMorale(act.playerMoraleDelta, `npc_${act.kind}`);
+      }
+      if (act.playerWrathDelta) {
+        this.adjustWrath(act.playerWrathDelta, `npc_${act.kind}`);
       }
       // NPC 互削
       if (act.kind === 'npc_vs_npc' && act.targetId && act.targetMilitaryDelta) {
@@ -2129,7 +2213,8 @@ export class GameStore {
       this.addResource('people', -result.peopleLost, 'starvation');
     }
     if (result.moralePenalty > 0) {
-      this.state.playerMorale = Math.max(0, this.state.playerMorale - result.moralePenalty);
+      this.adjustMorale(-result.moralePenalty, 'starvation');
+      this.adjustWrath(2, 'starvation');
     }
   }
 
@@ -2193,6 +2278,7 @@ export class GameStore {
       hasStrongHostileNpc: !!strongHostile && this.state.vassalOf === null,
       cedableBuildingCount: cedable.length,
     });
+    this.adjustWrath(WRATH_CRISIS_DELTA[kind], `crisis_${kind}`);
     const n = this.state.crisisCount; // 本次之前的危机数（用于递增）
 
     let summary = '';
@@ -2200,7 +2286,7 @@ export class GameStore {
       // 纳贡附庸：强邻趁火打劫逼为附庸，每季抽成，可赎身
       this.state.vassalOf = strongHostile.id;
       strongHostile.stance = Math.max(-100, Math.min(100, strongHostile.stance + 30)); // 宗主缓和
-      this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale - (10 + n * 5)));
+      this.adjustMorale(-(10 + n * 5), 'crisis_vassalage');
       const lord = getNpcDef(strongHostile.id)?.name ?? '强邻';
       summary = `国弱不能自立，「${lord}」陈兵压境，迫我称臣纳贡。岁输其半，可待来日赎身自主。`;
     } else if (kind === 'cession' && cedable.length > 0) {
@@ -2209,7 +2295,7 @@ export class GameStore {
       lost.status = 'derelict';
       const lostName = getBuildingDef(lost.defId)?.name ?? '城邑';
       const moraleDrop = planCessionMoraleDrop(n);
-      this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + moraleDrop));
+      this.adjustMorale(moraleDrop, 'crisis_cession');
       this.emitter.emit(STATE_EVENTS.BUILDING_UPGRADED, lost); // 复用刷新建筑视觉
       summary = `国库空、仓廪罄，旷日逾月。无力守土，「${lostName}」就此荒废。励精图治，尚可再起。`;
     } else {
@@ -2217,7 +2303,7 @@ export class GameStore {
       const currentPeople = this.state.resources['people'] ?? 0;
       const eff = planUnrestEffects(currentPeople, n);
       if (eff.peopleDelta !== 0) this.addResource('people', eff.peopleDelta, 'crisis');
-      this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + eff.moraleDelta));
+      this.adjustMorale(eff.moraleDelta, 'crisis_unrest');
       const gradeFrom = this.state.grade;
       let gradeTo = gradeFrom;
       if (this.state.grade > 0) {
@@ -2241,7 +2327,7 @@ export class GameStore {
     if ((this.state.resources['gold'] ?? 0) < VASSAL_REDEEM_GOLD) return { ok: false, reason: 'insufficient_resources' };
     this.addResource('gold', -VASSAL_REDEEM_GOLD, 'redeem_vassalage');
     this.state.vassalOf = null;
-    this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + 10));
+    this.adjustMorale(10, 'redeem_vassalage');
     this.emitter.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined);
     return { ok: true };
   }
@@ -2277,6 +2363,9 @@ export class GameStore {
     }
     if (typeof newState.playerMorale !== 'number') newState.playerMorale = 50;
     if (typeof newState.playerMilitaryPower !== 'number') newState.playerMilitaryPower = 30;
+    // A1：怨愤与警示冷却字段（内存/旧测试路径可能缺）
+    if (typeof newState.publicWrath !== 'number') newState.publicWrath = 0;
+    if (typeof newState.lastWrathDemandDay !== 'number') newState.lastWrathDemandDay = null;
     // Phase1：国格/低谷/模式字段——内存路径（quick-save/旧测试态）可能缺，兜底
     if (typeof newState.grade !== 'number') newState.grade = 0;
     if (typeof newState.gradeReached !== 'number') newState.gradeReached = newState.grade;

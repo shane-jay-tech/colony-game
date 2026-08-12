@@ -7,6 +7,7 @@ function makeCtx(over: Partial<CountryMetrics> = {}): CountryMetrics {
     resources: {},
     population: 0,
     morale: 50,
+    wrath: 0,
     militaryPower: 0,
     year: 0,
     season: 0,

@@ -15,7 +15,7 @@ function ev(over: Partial<CourtEvent> = {}): CourtEvent {
 
 function ctx(over: Partial<CountryMetrics> = {}): CountryMetrics {
   return {
-    resources: {}, population: 0, morale: 50, militaryPower: 0,
+    resources: {}, population: 0, morale: 50, wrath: 0, militaryPower: 0,
     year: 0, season: 0, dayOfYear: 0, rng: () => 0.5, ...over,
   };
 }
@@ -159,7 +159,7 @@ describe('selectContext（OQ-S3 文本变体）', () => {
     ],
   };
   function m(over: Record<string, unknown> = {}) {
-    return { resources: {}, population: 0, morale: 50, militaryPower: 0, year: 0, season: 0 as const, dayOfYear: 0, rng: () => 0, ...over };
+    return { resources: {}, population: 0, morale: 50, wrath: 0, militaryPower: 0, year: 0, season: 0 as const, dayOfYear: 0, rng: () => 0, ...over };
   }
   it('条件命中 → 选变体', () => {
     expect(selectContext(ev2 as never, m({ storyPowerAxis: 50 })).title).toBe('还权变体');
@@ -177,7 +177,7 @@ describe('故事事件章节门控（沙盒零污染）', () => {
     choices: [{ text: 'a', textPlain: 'a', effects: [], removeEffects: [] }],
   };
   function m(over: Record<string, unknown> = {}) {
-    return { resources: {}, population: 0, morale: 50, militaryPower: 0, year: 0, season: 0 as const, dayOfYear: 0, rng: () => 0, ...over };
+    return { resources: {}, population: 0, morale: 50, wrath: 0, militaryPower: 0, year: 0, season: 0 as const, dayOfYear: 0, rng: () => 0, ...over };
   }
   it('沙盒（storyChapter=-1）→ 故事事件不触发', () => {
     expect(sampleEventTrigger([storyEv as never], [], m({ storyChapter: -1 }))).toBeNull();

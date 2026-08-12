@@ -24,14 +24,14 @@ export const DECREES: RoyalDecree[] = [
     name: '徵役令',
     category: '军事',
     description: '广征徭役，以备征伐。',
-    descPlain: '【军事·一】征召民众扩军，2 阶段。短期军力 +8，再加 +20% 倍率。',
+    descPlain: '【军事·一】征召民众扩军，2 阶段。短期军力 +8、民怨 +8；再加 +20% 倍率。',
     unlockCondition: [{ type: 'country_population', value: 50 }],
     stages: [
       {
         order: 1,
         cost: { gold: 50 },
         days: 10,
-        effects: [{ target: 'country_military_power', op: 'add', value: 8 }],
+        effects: [{ target: 'country_military_power', op: 'add', value: 8 }, { target: 'country_wrath', op: 'add', value: 8 }],
         removeEffects: [],
       },
       {
@@ -79,7 +79,7 @@ export const DECREES: RoyalDecree[] = [
     name: '武备称霸',
     category: '军事',
     description: '陈兵列鼎，号令诸邦。',
-    descPlain: '【军事·三】整军经武完成后开放：终极军备线，军力 +20% 永久 mul，外交分量 +5。',
+    descPlain: '【军事·三】整军经武完成后开放：终极军备线，军力 +20% 永久 mul，外交分量 +5，民怨 +10。',
     unlockCondition: [{ type: 'country_population', value: 120 }],
     chainPrev: 'decree_train_levy',
     stages: [
@@ -90,6 +90,7 @@ export const DECREES: RoyalDecree[] = [
         effects: [
           { target: 'country_military_power', op: 'add', value: 15 },
           { target: 'country_diplomacy_weight', op: 'add', value: 3 },
+          { target: 'country_wrath', op: 'add', value: 10 },
         ],
         removeEffects: [],
       },
@@ -271,7 +272,7 @@ export const DECREES: RoyalDecree[] = [
     name: '劝农桑',
     category: '内政',
     description: '务本之教，男耕女织。',
-    descPlain: '【内政·一】下劝农令，粮产 +8% 永久 mul，桑农阶层成长加速。',
+    descPlain: '【内政·一】下劝农令，粮产 +8% 永久 mul，桑农阶层成长加速，民怨 −6。',
     unlockCondition: [{ type: 'country_population', value: 30 }],
     stages: [
       {
@@ -281,6 +282,7 @@ export const DECREES: RoyalDecree[] = [
         effects: [
           { target: 'country_grain_output', op: 'mul', value: 1.05 },
           { target: 'population_class_growth_nong', op: 'add', value: 0.05 },
+          { target: 'country_wrath', op: 'add', value: -6 },
         ],
         removeEffects: [],
       },
@@ -301,7 +303,7 @@ export const DECREES: RoyalDecree[] = [
     name: '屯田积谷',
     category: '内政',
     description: '广开屯田，备凶年之患。',
-    descPlain: '【内政·二】劝农桑完成后开放：边地屯田，粮再 +12% mul，人口上限 +20。',
+    descPlain: '【内政·二】劝农桑完成后开放：边地屯田，粮再 +12% mul，人口上限 +20，民怨 −8。',
     unlockCondition: [{ type: 'country_population', value: 70 }],
     chainPrev: 'decree_promote_agri',
     stages: [
@@ -312,6 +314,7 @@ export const DECREES: RoyalDecree[] = [
         effects: [
           { target: 'country_grain_output', op: 'add', value: 6 },
           { target: 'country_population_cap', op: 'add', value: 12 },
+          { target: 'country_wrath', op: 'add', value: -8 },
         ],
         removeEffects: [],
       },

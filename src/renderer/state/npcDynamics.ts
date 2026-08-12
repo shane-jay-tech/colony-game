@@ -108,6 +108,8 @@ export interface NpcAction {
   playerMilitaryDelta?: number;
   /** 对玩家民心的冲击（负值） */
   playerMoraleDelta?: number;
+  /** A1：对玩家怨愤的冲击（正值 = 民怨积压） */
+  playerWrathDelta?: number;
   /** npc_vs_npc：被打方军力损失（负值，结算时夹 ≥10） */
   targetMilitaryDelta?: number;
   /** 半文半白通告文案（gameStore 拼 actor 名后发 Toast/事件） */
@@ -143,6 +145,7 @@ export function computeNpcActions(
           kind: 'harass_player', actorId: s.id,
           resourceRaid: { grain: -8, gold: -6 },
           playerMilitaryDelta: -3,
+          playerWrathDelta: 6,
           summary: '南下犯边，掠民劫粮',
         });
         hostileCount++;
@@ -155,6 +158,7 @@ export function computeNpcActions(
         actions.push({
           kind: 'assault_player', actorId: s.id,
           playerMilitaryDelta: -10, playerMoraleDelta: -8,
+          playerWrathDelta: 10,
           resourceRaid: { gold: -10 },
           summary: '合纵列邦，兴兵压境',
         });

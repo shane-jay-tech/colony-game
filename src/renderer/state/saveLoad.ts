@@ -12,8 +12,9 @@ import { type FactionState, createFactionState } from './factionSystem';
 import type { MegaProjectProgress } from './megaProjectSystem';
 import type { GeneralState } from '../data/generals';
 import type { ActiveExpedition, DefenseAlert } from '../data/military';
+import { clampSentiment } from './publicSentiment';
 
-export const SAVE_SCHEMA_VERSION = 3;
+export const SAVE_SCHEMA_VERSION = 4;
 
 export class SaveLoadError extends Error {
   constructor(message: string) {
@@ -52,6 +53,9 @@ export interface SerializedSave {
     /** v1.0 #6：玩家 morale (0..100, default 50)、militaryPower (0..500, default 30) */
     playerMorale?: number;
     playerMilitaryPower?: number;
+    /** A1：怨愤（0..100, default 0）与上次民怨警示日（null=从未） */
+    publicWrath?: number;
+    lastWrathDemandDay?: number | null;
     /** Phase1 国格阶梯（旧存档缺则兜底 0 / false） */
     grade?: number;
     gradeReached?: number;
@@ -119,6 +123,15 @@ const migrations: Partial<Record<number, MigrationFn>> = {
     s['megaProjects'] = [];
     s['exclusivePolicies'] = [];
     data.schemaVersion = 3;
+    return data;
+  },
+  3: (blob) => {
+    // A1 双轴民心：新增怨愤与警示冷却字段，旧存档给安全初值
+    const data = blob as { schemaVersion: number; state: Record<string, unknown> };
+    const s = data.state;
+    s['publicWrath'] = 0;
+    s['lastWrathDemandDay'] = null;
+    data.schemaVersion = 4;
     return data;
   },
 };
@@ -254,6 +267,8 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       npcCountries: state.npcCountries,
       playerMorale: state.playerMorale,
       playerMilitaryPower: state.playerMilitaryPower,
+      publicWrath: state.publicWrath,
+      lastWrathDemandDay: state.lastWrathDemandDay,
       grade: state.grade,
       gradeReached: state.gradeReached,
       tianxiaAcknowledged: state.tianxiaAcknowledged,
@@ -372,6 +387,10 @@ export function deserialize(blob: unknown): GameState {
     playerMorale: typeof s.playerMorale === 'number' && Number.isFinite(s.playerMorale)
       ? Math.max(0, Math.min(100, s.playerMorale))
       : 50,
+    publicWrath: clampSentiment(typeof s.publicWrath === 'number' ? s.publicWrath : 0),
+    lastWrathDemandDay: typeof s.lastWrathDemandDay === 'number' && Number.isFinite(s.lastWrathDemandDay)
+      ? Math.max(0, Math.floor(s.lastWrathDemandDay))
+      : null,
     playerMilitaryPower: typeof s.playerMilitaryPower === 'number' && Number.isFinite(s.playerMilitaryPower)
       ? Math.max(0, Math.min(500, s.playerMilitaryPower))
       : 30,

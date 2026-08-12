@@ -29,6 +29,8 @@ export interface CountryMetrics {
   population: number;
   /** 通过 modifier 聚合后的"现行"民心（默认 base 50） */
   morale: number;
+  /** A1：现行怨愤（0..100，明文状态 + country_wrath modifier 叠加） */
+  wrath: number;
   /** 通过 modifier 聚合后的"现行"军力（默认 base 0） */
   militaryPower: number;
   /** 当前年（0-indexed） */
@@ -86,6 +88,7 @@ function resolveLhs(key: string, ctx: CountryMetrics): { kind: 'number' | 'strin
   if (key === 'grade') return { kind: 'number', value: ctx.grade ?? 0 };
   if (key === 'country_population') return { kind: 'number', value: ctx.population };
   if (key === 'country_morale') return { kind: 'number', value: ctx.morale };
+  if (key === 'country_wrath') return { kind: 'number', value: ctx.wrath };
   if (key === 'country_military_power') return { kind: 'number', value: ctx.militaryPower };
   // Phase3 故事维度（沙盒缺省：chapter=-1，双轴=0）
   if (key === 'story_chapter') return { kind: 'number', value: ctx.storyChapter ?? -1 };
@@ -100,7 +103,7 @@ function resolveLhs(key: string, ctx: CountryMetrics): { kind: 'number' | 'strin
     }
   }
 
-  throw new DslSyntaxError(key, `unknown identifier (legal: grade, country_<resource>, country_population, country_morale, country_military_power, year, season, day_of_year, story_chapter, story_power_axis, story_resource_axis)`);
+  throw new DslSyntaxError(key, `unknown identifier (legal: grade, country_<resource>, country_population, country_morale, country_wrath, country_military_power, year, season, day_of_year, story_chapter, story_power_axis, story_resource_axis)`);
 }
 
 function parseRhs(token: string, expectedKind: 'number' | 'string'): number | string {
@@ -171,6 +174,7 @@ export function validateDslExpr(expr: string): void {
     resources: {},
     population: 0,
     morale: 0,
+    wrath: 0,
     militaryPower: 0,
     year: 0,
     season: 0,

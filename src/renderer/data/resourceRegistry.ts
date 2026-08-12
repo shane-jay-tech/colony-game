@@ -56,6 +56,7 @@ export const MODIFIER_TARGETS = [
   'country_population_cap',
   'country_military_power',
   'country_morale',
+  'country_wrath',
   'country_research_speed',
   'country_diplomacy_weight',
 

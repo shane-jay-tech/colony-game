@@ -27,6 +27,7 @@ export const TARGET_LABEL: Record<ModifierTargetKey, string> = {
   country_population_cap: '人口上限',
   country_military_power: '兵力',
   country_morale: '民心',
+  country_wrath: '民怨',
   country_research_speed: '学问进展',
   country_diplomacy_weight: '邦交分量',
   // 建筑级

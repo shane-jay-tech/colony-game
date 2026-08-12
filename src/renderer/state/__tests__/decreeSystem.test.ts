@@ -30,7 +30,7 @@ function decree(over: Partial<RoyalDecree> = {}): RoyalDecree {
 
 function ctx(over: Partial<CountryMetrics> = {}): CountryMetrics {
   return {
-    resources: {}, population: 200, morale: 50, militaryPower: 0,
+    resources: {}, population: 200, morale: 50, wrath: 0, militaryPower: 0,
     year: 0, season: 0, dayOfYear: 0, rng: () => 0.5, ...over,
   };
 }

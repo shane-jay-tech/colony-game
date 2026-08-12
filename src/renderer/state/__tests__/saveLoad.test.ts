@@ -31,6 +31,8 @@ function makeGameState(): GameState {
     npcCountries: [],
     playerMorale: 50,
     playerMilitaryPower: 30,
+    publicWrath: 0,
+    lastWrathDemandDay: null,
     grade: 0,
     gradeReached: 0,
     tianxiaAcknowledged: false,

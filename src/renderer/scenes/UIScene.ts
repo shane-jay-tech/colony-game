@@ -80,6 +80,11 @@ export class UIScene extends Phaser.Scene {
     const hostile = p.kind === 'harass_player' || p.kind === 'assault_player';
     this.toast?.show(p.text, hostile ? 'error' : 'info', hostile ? 3600 : 2600);
   };
+  // A1：怨愤临界警示 → 长 Toast（error 色）
+  private onWrathAlert = (payload: unknown): void => {
+    const p = (payload && typeof payload === 'object') ? payload as { text?: string } : {};
+    if (p.text) this.toast?.show(p.text, 'error', 5000);
+  };
   // Phase2：史官氛围评语（双轴跨档）→ 轻 Toast
   private onStoryNarration = (payload: unknown): void => {
     const p = (payload && typeof payload === 'object') ? payload as { text?: string } : {};
@@ -209,6 +214,7 @@ export class UIScene extends Phaser.Scene {
     store.on(STATE_EVENTS.BREATHING_TOAST, this.onBreathingToast);
     store.on(STATE_EVENTS.BREATHING_BULLETIN, this.onBreathingBulletin);
     store.on(STATE_EVENTS.HISTORIAN_ADVICE, this.onHistorianAdvice);
+    store.on(STATE_EVENTS.WRATH_ALERT, this.onWrathAlert);
     store.on(STATE_EVENTS.DEFENSE_ALERT, this.onDefenseAlert);
     store.on(STATE_EVENTS.EXPEDITION_RESOLVED, this.onExpeditionResolved);
     // v1.0 #5：缩放工具条。MapRenderer 由 GameScene 在 create 时注册到 registry，
@@ -295,6 +301,7 @@ export class UIScene extends Phaser.Scene {
       this.store.off(STATE_EVENTS.BREATHING_TOAST, this.onBreathingToast);
       this.store.off(STATE_EVENTS.BREATHING_BULLETIN, this.onBreathingBulletin);
       this.store.off(STATE_EVENTS.HISTORIAN_ADVICE, this.onHistorianAdvice);
+      this.store.off(STATE_EVENTS.WRATH_ALERT, this.onWrathAlert);
       this.store.off(STATE_EVENTS.DEFENSE_ALERT, this.onDefenseAlert);
       this.store.off(STATE_EVENTS.EXPEDITION_RESOLVED, this.onExpeditionResolved);
       this.store.off(STATE_EVENTS.PAUSED_CHANGED, this.onPausedChanged);

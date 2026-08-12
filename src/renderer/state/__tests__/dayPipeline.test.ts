@@ -36,6 +36,7 @@ const PHASE_METHOD: Record<DayPhaseId, string> = {
   story: 'runStoryTick',
   breathing: 'runBreathingTick',
   historian: 'runHistorianTick',
+  sentimentSettle: 'runSentimentSettlePhase',
 };
 
 function allPlainMap(): WorldMap {

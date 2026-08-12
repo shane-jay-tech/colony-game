@@ -95,6 +95,10 @@ export class HUD {
   // 2026-06-17：点击"民"token 打开人口详情面板
   private populationZone: Phaser.GameObjects.Zone | null = null;
   private peopleTokenX = 0;
+  // A1：双轴民心（心=希望 / 怨=不满），紧贴资源区右侧
+  private moraleText: Phaser.GameObjects.Text | null = null;
+  private wrathText: Phaser.GameObjects.Text | null = null;
+  private sentimentX = 0;
 
   // 监听器引用（destroy 解绑）
   private onResources = (): void => this.refreshResources();
@@ -104,6 +108,8 @@ export class HUD {
   private onPaused = (): void => this.refreshSpeed();
   private onSpeed = (): void => this.refreshSpeed();
   private onGradeChanged = (): void => this.refreshGrade(true);
+  private onMoraleChanged = (): void => this.refreshSentiment();
+  private onWrathChanged = (): void => this.refreshSentiment();
   private onReplaced = (): void => {
     // 读档/重置：数字直接 snap，不要让玩家看到从 0 缓动到几百
     this.snapNextResourceUpdate = true;
@@ -111,6 +117,7 @@ export class HUD {
     this.refreshDate();
     this.refreshSpeed();
     this.refreshGrade(false);
+    this.refreshSentiment();
   };
 
   constructor(scene: Phaser.Scene, store: GameStore) {
@@ -134,11 +141,21 @@ export class HUD {
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0, 0.5);
     this.container.add(this.gradeBadgeText);
 
+    // A1：双轴民心米（心/怨）
+    this.moraleText = scene.add.text(0, 0, '', {
+      ...FONTS.glyph, color: '#4A7C59',
+    } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0, 0.5);
+    this.wrathText = scene.add.text(0, 0, '', {
+      ...FONTS.glyph, color: '#B71C1C',
+    } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0, 0.5);
+    this.container.add([this.moraleText, this.wrathText]);
+
     this.layout();
     this.refreshResources();
     this.refreshDate();
     this.refreshSpeed();
     this.refreshGrade(false);
+    this.refreshSentiment();
 
     store.on(STATE_EVENTS.RESOURCES_CHANGED, this.onResources);
     store.on(STATE_EVENTS.DAY_TICK, this.onDayTick);
@@ -148,6 +165,8 @@ export class HUD {
     store.on(STATE_EVENTS.SPEED_CHANGED, this.onSpeed);
     store.on(STATE_EVENTS.STATE_REPLACED, this.onReplaced);
     store.on(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
+    store.on(STATE_EVENTS.MORALE_CHANGED, this.onMoraleChanged);
+    store.on(STATE_EVENTS.WRATH_CHANGED, this.onWrathChanged);
   }
 
   /** 重排子元素（resize 时调用）。 */
@@ -208,6 +227,13 @@ export class HUD {
       if (id === 'people') { this.peopleTokenX = cursorX; cursorX += peopleTokenW; }
       else cursorX += tokenW;
     }
+
+    // A1：双轴民心（资源区右侧，日期左侧）
+    const sentimentGap = 16;
+    this.sentimentX = cursorX + sentimentGap;
+    this.moraleText?.setPosition(this.sentimentX, tokenY - 9);
+    this.wrathText?.setPosition(this.sentimentX + 92, tokenY - 9);
+    cursorX = this.sentimentX + 184;
 
     // 2026-06-17：覆盖"民"token 的点击区，开关人口详情面板（PopulationPanel）
     if (!this.populationZone) {
@@ -480,6 +506,17 @@ export class HUD {
     }
   }
 
+  /** A1：刷新 心/怨 双米（阈值处变红提示）。 */
+  private refreshSentiment(): void {
+    if (!this.moraleText || !this.wrathText) return;
+    const morale = this.store.getPlayerMorale();
+    const wrath = this.store.getPublicWrath();
+    this.moraleText.setText(`心 ${morale}`);
+    this.moraleText.setColor(morale <= 25 ? '#B71C1C' : '#4A7C59');
+    this.wrathText.setText(`怨 ${wrath}${wrath >= 70 ? '！' : ''}`);
+    this.wrathText.setColor('#B71C1C');
+  }
+
   private spawnResourceFloat(token: ResourceToken, delta: number): void {
     const isPositive = delta > 0;
     const isLarge = Math.abs(delta) > 20;
@@ -618,6 +655,8 @@ export class HUD {
     this.store.off(STATE_EVENTS.SPEED_CHANGED, this.onSpeed);
     this.store.off(STATE_EVENTS.STATE_REPLACED, this.onReplaced);
     this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
+    this.store.off(STATE_EVENTS.MORALE_CHANGED, this.onMoraleChanged);
+    this.store.off(STATE_EVENTS.WRATH_CHANGED, this.onWrathChanged);
     // 先停所有进行中的 tween，避免 destroy 后 onUpdate / onComplete 仍触发 NPE
     for (const tw of this.resourceTweens.values()) tw.stop();
     this.resourceTweens.clear();

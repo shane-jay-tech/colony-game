@@ -26,7 +26,8 @@ export type DayPhaseId =
   | 'megaProjects'
   | 'story'
   | 'breathing'
-  | 'historian';
+  | 'historian'
+  | 'sentimentSettle';
 
 export type DayPhaseDomain =
   | 'time'
@@ -68,6 +69,7 @@ export const DAY_PHASE_DEFS: Record<DayPhaseId, DayPhaseDef> = {
   story: { domain: 'narrative', name: '故事导演' },
   breathing: { domain: 'narrative', name: '世界呼吸' },
   historian: { domain: 'narrative', name: '史官谏言' },
+  sentimentSettle: { domain: 'population', name: '民心沉淀' },
 };
 
 export const DAY_PHASE_ORDER: readonly DayPhaseId[] = [
@@ -91,6 +93,7 @@ export const DAY_PHASE_ORDER: readonly DayPhaseId[] = [
   'story',
   'breathing',
   'historian',
+  'sentimentSettle',
 ];
 
 /** 由 handler 表按 DAY_PHASE_ORDER 组装管道；缺 handler 直接抛错（顺序表与实现不同步即暴露）。 */
