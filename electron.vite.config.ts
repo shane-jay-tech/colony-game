@@ -2,7 +2,7 @@ import { defineConfig } from 'electron-vite';
 import { resolve } from 'path';
 import { loadEnv } from 'vite';
 
-const VITE_DEPS_CACHE = 'D:/colony-game/.vite-deps-cache';
+const VITE_DEPS_CACHE = resolve(__dirname, '.vite-deps-cache');
 
 /**
  * DeepSeek 二审 major F6/F15：原本 main/preload 用 externalizeDepsPlugin 把所有
