@@ -6,8 +6,8 @@ import {
 import { BUILDINGS } from '../buildings';
 
 describe('Phase D art manifest', () => {
-  it('building art entries = 33 (matches BUILDINGS)', () => {
-    expect(BUILDING_ART).toHaveLength(33);
+  it('building art entries = 35 (matches BUILDINGS)', () => {
+    expect(BUILDING_ART).toHaveLength(35);
     expect(BUILDING_ART).toHaveLength(BUILDINGS.length);
   });
 
@@ -27,8 +27,8 @@ describe('Phase D art manifest', () => {
     expect(TERRAIN_ART).toHaveLength(3);
   });
 
-  it('total manifest = 56 assets', () => {
-    expect(ART_MANIFEST).toHaveLength(33 + 5 + 10 + 6 + 3);
+  it('total manifest = 58 assets', () => {
+    expect(ART_MANIFEST).toHaveLength(35 + 5 + 10 + 6 + 3);
   });
 
   it('all keys are unique', () => {
@@ -43,7 +43,7 @@ describe('Phase D art manifest', () => {
   });
 
   it('getArtByCategory filters correctly', () => {
-    expect(getArtByCategory('building')).toHaveLength(33);
+    expect(getArtByCategory('building')).toHaveLength(35);
     expect(getArtByCategory('terrain')).toHaveLength(3);
   });
 

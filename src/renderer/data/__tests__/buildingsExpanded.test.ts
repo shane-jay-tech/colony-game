@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { BUILDINGS } from '../buildings';
 
 describe('B-6 building expansion', () => {
-  it('total buildings = 33', () => {
-    expect(BUILDINGS).toHaveLength(33);
+  it('total buildings = 35', () => {
+    expect(BUILDINGS).toHaveLength(35);
   });
 
   it('all buildings have unique IDs', () => {

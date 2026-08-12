@@ -51,6 +51,10 @@ export const BUILDING_SIGIL: Record<string, string> = {
   bld_observatory: '星',
   bld_relay_station: '邮',
   bld_nine_cauldrons: '鼎',
+
+  // B3 加工链新建筑沙印
+  bld_hemp_field: '绩',
+  bld_tin_mine: '矿',
 };
 
 /** 安全查询：未配 sigil 的兜底用首字（建筑名第一个汉字），不返回 undefined。 */

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, FONTS, UI } from './palette';
-import { RESOURCE_IDS } from '../data/resourceRegistry';
+import { TOP_BAR_RESOURCE_IDS, INTERMEDIATE_RESOURCE_IDS } from '../data/resourceRegistry';
 import type { ResourceId } from '../data/resourceRegistry';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
@@ -30,6 +30,8 @@ const RESOURCE_LABEL: Record<ResourceId, string> = {
   cloth: '布',
   bronze: '铜',
   rite: '礼',
+  hemp: '麻',
+  tin: '锡',
 };
 
 const RESOURCE_COLOR: Record<ResourceId, number> = {
@@ -41,6 +43,8 @@ const RESOURCE_COLOR: Record<ResourceId, number> = {
   cloth: COLORS.CINNABAR,
   bronze: COLORS.GOLD_DIM,
   rite: COLORS.STONE_GREEN,
+  hemp: COLORS.STONE_GREEN,
+  tin: COLORS.ASH,
 };
 
 interface SpeedButton {
@@ -99,6 +103,8 @@ export class HUD {
   private moraleText: Phaser.GameObjects.Text | null = null;
   private wrathText: Phaser.GameObjects.Text | null = null;
   private sentimentX = 0;
+  // B3：工具栏右侧的工坊物资（麻/锡）小字
+  private craftText: Phaser.GameObjects.Text | null = null;
 
   // 监听器引用（destroy 解绑）
   private onResources = (): void => this.refreshResources();
@@ -118,6 +124,7 @@ export class HUD {
     this.refreshSpeed();
     this.refreshGrade(false);
     this.refreshSentiment();
+    this.refreshCraftResources();
   };
 
   constructor(scene: Phaser.Scene, store: GameStore) {
@@ -148,7 +155,10 @@ export class HUD {
     this.wrathText = scene.add.text(0, 0, '', {
       ...FONTS.glyph, color: '#B71C1C',
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0, 0.5);
-    this.container.add([this.moraleText, this.wrathText]);
+    this.craftText = scene.add.text(0, 0, '', {
+      ...FONTS.small, color: '#E6DCC3',
+    } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(1, 0.5);
+    this.container.add([this.moraleText, this.wrathText, this.craftText]);
 
     this.layout();
     this.refreshResources();
@@ -156,6 +166,7 @@ export class HUD {
     this.refreshSpeed();
     this.refreshGrade(false);
     this.refreshSentiment();
+    this.refreshCraftResources();
 
     store.on(STATE_EVENTS.RESOURCES_CHANGED, this.onResources);
     store.on(STATE_EVENTS.DAY_TICK, this.onDayTick);
@@ -196,7 +207,7 @@ export class HUD {
 
     // 重建 / 更新每个资源 token（Slice E High #1：layout 必须重定位 swatch/label/txt 三件套，
     // 否则窗口缩放后色块和资源名会卡在初始坐标，只有数字跟着走）
-    for (const id of RESOURCE_IDS) {
+    for (const id of TOP_BAR_RESOURCE_IDS) {
       let token = this.resourceTokens.get(id);
       if (!token) {
         const swatch = this.scene.add.graphics();
@@ -398,6 +409,10 @@ export class HUD {
     this.toolbarBg.lineStyle(2, COLORS.GOLD_DIM, 1);
     this.toolbarBg.lineBetween(0, tbY + tbH, w, tbY + tbH);
 
+    // B3：工具栏右侧工坊物资（麻/锡），不挤占顶栏 8 资源 token
+    this.craftText?.setPosition(w - 14, tbY + tbH / 2);
+    this.refreshCraftResources();
+
     const btnW = 104, btnH = 30, gap = 8, padLeft = 12;
     const y = tbY + Math.floor((tbH - btnH) / 2);
     defs.forEach((d, i) => {
@@ -504,6 +519,15 @@ export class HUD {
       this.resourceTweens.set(id, tween);
       this.prevResourceValues.set(id, v);
     }
+    this.refreshCraftResources();
+  }
+
+  /** B3：刷新工坊物资小字（麻/锡）。 */
+  private refreshCraftResources(): void {
+    if (!this.craftText) return;
+    const r = this.store.getResources();
+    const parts = INTERMEDIATE_RESOURCE_IDS.map((id) => `${RESOURCE_LABEL[id]} ${r[id] ?? 0}`);
+    this.craftText.setText(`工坊物资　${parts.join(' · ')}`);
   }
 
   /** A1：刷新 心/怨 双米（阈值处变红提示）。 */

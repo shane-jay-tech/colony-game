@@ -48,6 +48,14 @@ describe('computeProductionTick — output basics', () => {
     const result = computeProductionTick([inst('farm'), inst('farm')], lookup([farm]), []);
     expect(result.deltas.grain).toBe(20);
   });
+
+  it('consumes 原料按栋数进净额（麻→布链）', () => {
+    const loom = def('loom', [{ resource: 'cloth', perDay: 4 }]);
+    loom.consumes = { hemp: 2 };
+    const result = computeProductionTick([inst('loom')], lookup([loom]), []);
+    expect(result.deltas.cloth).toBe(4);
+    expect(result.deltas.hemp).toBe(-2);
+  });
 });
 
 describe('computeProductionTick — modifiers', () => {

@@ -143,6 +143,12 @@ export function computeProductionTick(
       const cur = rawUpkeep[id] ?? 0;
       rawUpkeep[id] = cur + u;
     }
+    // B3：原料消耗（consumes）与维护合并进同一净额（麻→布、锡→青铜、铜金→礼器的链条输入）
+    for (const [rid, amount] of Object.entries(def.consumes ?? {}) as [ResourceId, number][]) {
+      if (amount === undefined || amount <= 0) continue;
+      const cur = rawUpkeep[rid] ?? 0;
+      rawUpkeep[rid] = cur + amount;
+    }
   }
 
   // 2) 对每种资源：计算 effective output / upkeep，得到 net delta（带分数累加器）

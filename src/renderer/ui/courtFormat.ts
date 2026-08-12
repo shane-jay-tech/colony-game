@@ -8,6 +8,7 @@ import type { ResourceCost, ResourceId } from '../data/resourceRegistry';
 export const RESOURCE_LABEL: Record<ResourceId, string> = {
   grain: '粮', wood: '木', stone: '石', gold: '钱',
   people: '民', cloth: '布', bronze: '铜', rite: '礼',
+  hemp: '麻', tin: '锡',
 };
 
 /** 把 ResourceCost 拼成「粮20 · 木15」式字符串；全免费显示「免费」。 */

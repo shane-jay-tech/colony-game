@@ -27,9 +27,9 @@ describe('buildingRegistry', () => {
     expect(getBuildingDef('nope')).toBeUndefined();
   });
 
-  // J-3 v0.8 +8 → B-6 +12 + pottery kiln = 33 total
-  it('all 33 buildings registered with unique ids', () => {
-    expect(BUILDING_REGISTRY.size).toBe(33);
+  // 33 → B3 加工链 +2（麻田/锡矿）= 35 total
+  it('all 35 buildings registered with unique ids', () => {
+    expect(BUILDING_REGISTRY.size).toBe(35);
     const ids = new Set(BUILDINGS.map(b => b.id));
     expect(ids.size).toBe(BUILDINGS.length);
   });

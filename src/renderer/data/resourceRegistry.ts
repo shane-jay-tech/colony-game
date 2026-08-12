@@ -20,9 +20,21 @@ export const RESOURCE_IDS = [
   'cloth', // 布（瓦房阶层需求）
   'bronze', // 青铜（殿宇阶层需求）
   'rite', // 礼器（士阶层需求）
+
+  // B3 加工链中间品（Anno 式原料，不在顶栏主 token 行显示）
+  'hemp', // 麻（织官原料）
+  'tin', // 锡（青铜合金原料）
 ] as const;
 
 export type ResourceId = typeof RESOURCE_IDS[number];
+
+/** 顶栏主 token 行展示的基础资源（B3 中间品另放工具栏，避免 1280px 溢出） */
+export const TOP_BAR_RESOURCE_IDS = [
+  'grain', 'wood', 'stone', 'gold', 'people', 'cloth', 'bronze', 'rite',
+] as const;
+
+/** B3 加工链中间品（工具栏右侧小字展示） */
+export const INTERMEDIATE_RESOURCE_IDS = ['hemp', 'tin'] as const;
 
 export type ResourceCost = Partial<Record<ResourceId, number>>;
 export type ResourceBag = Partial<Record<ResourceId, number>>;

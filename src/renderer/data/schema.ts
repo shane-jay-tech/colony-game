@@ -79,6 +79,8 @@ export interface BuildingDef {
   constructionTime: number;
   output: { resource: ResourceId; perDay: number }[];
   upkeep: ResourceCost;
+  /** B3 加工链：每日本建筑消耗的原料（与 output 构成「原料→成品」链；按栋数计，进同一净额结算） */
+  consumes?: ResourceCost;
   size: { width: number; height: number };
   /** spritesheet key in BootScene */
   assetKey: string;

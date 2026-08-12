@@ -18,7 +18,7 @@ export interface ArtAssetDef {
   required: boolean;
 }
 
-// ====================== Buildings (33) =====================================
+// ====================== Buildings (35) =====================================
 
 export const BUILDING_ART: ArtAssetDef[] = [
   'bld_farm', 'bld_well', 'bld_house', 'bld_market', 'bld_woodcutter',
@@ -29,6 +29,7 @@ export const BUILDING_ART: ArtAssetDef[] = [
   'bld_training_ground', 'bld_stable', 'bld_chariot_works', 'bld_city_wall',
   'bld_imperial_guard', 'bld_granary', 'bld_watchtower', 'bld_censor',
   'bld_grand_temple', 'bld_observatory', 'bld_relay_station', 'bld_nine_cauldrons',
+  'bld_hemp_field', 'bld_tin_mine',
 ].map(id => ({
   key: id,
   path: `assets/buildings/${id}.webp`,
