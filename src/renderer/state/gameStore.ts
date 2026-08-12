@@ -44,6 +44,7 @@ import { assessNationState, shouldSampleEvent, filterEventsByState, DEFAULT_TEMP
 import { applySeasonTransition, isSeasonModifier } from './seasonSystem';
 import { createBreathingState, tickBreathingToast, tickBreathingBulletin, type BreathingState, type BreathingContext } from './breathingSystem';
 import { checkHistorian, type HistorianContext } from './historianSystem';
+import { buildDayPipeline, runDayPipeline } from './dayPipeline';
 import type { PopulationClasses, PopulationClass, ConversionOrder } from '../data/populationClass';
 import { createDefaultPopulation, totalPopulation, CONVERSION_DAYS, CONVERSION_REQUIRES, POPULATION_CLASSES, DEFAULT_STARVATION } from '../data/populationClass';
 import { computeClassOccupation, getIdleByClass, canAffordClass, tickConversionQueue, applyConversion, applyStarvation, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
@@ -784,12 +785,38 @@ export class GameStore {
 
   // Advance exactly ONE day. TimeSystem calls this in a loop; emitting per-day ensures
   // multi-season / multi-year boundaries are not silently skipped.
+  // 日历推进是前置步；随后按 dayPipeline.DAY_PHASE_ORDER 依次执行各域阶段。
   tickDay(): void {
     const prevDay = this.state.currentDay;
     const calBefore = dayToCalendar(prevDay);
     this.state.currentDay = prevDay + 1;
     const calAfter = dayToCalendar(this.state.currentDay);
 
+    runDayPipeline(buildDayPipeline({
+      modifierExpiry: () => this.runModifierExpiryPhase(),
+      seasonTransition: () => this.runSeasonTransitionPhase(calBefore, calAfter),
+      construction: () => this.runConstructionPhase(),
+      calendarEvents: () => this.runCalendarEventsPhase(calBefore, calAfter),
+      production: () => this.runProductionTick(),
+      military: () => this.runMilitaryTick(),
+      decrees: () => this.runDecreeTick(),
+      events: () => this.runEventTick(),
+      diplomacy: () => this.runDiplomacyTick(),
+      npcDynamics: () => this.runNpcDynamicsTick(),
+      population: () => this.runPopulationTick(),
+      conversion: () => this.runConversionTick(),
+      starvation: () => this.runStarvationTick(),
+      crisis: () => this.runCrisisTick(),
+      grade: () => this.runGradeTick(),
+      factions: () => this.runFactionTick(),
+      megaProjects: () => this.runMegaProjectTick(),
+      story: () => this.runStoryTick(),
+      breathing: () => this.runBreathingTick(),
+      historian: () => this.runHistorianTick(),
+    }));
+  }
+
+  private runModifierExpiryPhase(): void {
     for (const m of this.state.activeModifiers) {
       if (m.remainingDays > 0) m.remainingDays -= 1;
     }
@@ -800,13 +827,21 @@ export class GameStore {
         this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id: m.id });
       }
     }
+  }
+
+  private runSeasonTransitionPhase(
+    calBefore: ReturnType<typeof dayToCalendar>,
+    calAfter: ReturnType<typeof dayToCalendar>,
+  ): void {
     // A-3：季节切换优先于 construction/production，保证新季节第一天就生效
-    if (calAfter.season !== calBefore.season) {
-      const removed = this.state.activeModifiers.filter(isSeasonModifier);
-      this.state.activeModifiers = applySeasonTransition(this.state.activeModifiers, calAfter.season);
-      for (const m of removed) this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id: m.id });
-      this.emitter.emit(STATE_EVENTS.MODIFIER_ADDED, { id: `season_modifier_${calAfter.season}` });
-    }
+    if (calAfter.season === calBefore.season) return;
+    const removed = this.state.activeModifiers.filter(isSeasonModifier);
+    this.state.activeModifiers = applySeasonTransition(this.state.activeModifiers, calAfter.season);
+    for (const m of removed) this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id: m.id });
+    this.emitter.emit(STATE_EVENTS.MODIFIER_ADDED, { id: `season_modifier_${calAfter.season}` });
+  }
+
+  private runConstructionPhase(): void {
     // A-3：季节影响建筑工期（春 +20% 速度 / 冬 -33% 速度）— 仅有在建时才算
     const hasConstructing = this.state.buildings.some(b => b.status === 'constructing');
     const constructionSpeedMul = hasConstructing
@@ -821,7 +856,6 @@ export class GameStore {
       const time = isUpgrade ? (targetDef.upgradeTime ?? 1) : targetDef.constructionTime;
       const finishUpgrade = (): void => {
         const oldDefId = b.defId;
-        const oldDef = getBuildingDef(oldDefId);
         b.defId = b.upgradingTo!;
         b.tier = targetDef.tier;
         b.upgradingTo = undefined;
@@ -854,9 +888,13 @@ export class GameStore {
         else this.emitter.emit(STATE_EVENTS.BUILDING_COMPLETED, b);
       }
     }
+  }
 
+  private runCalendarEventsPhase(
+    calBefore: ReturnType<typeof dayToCalendar>,
+    calAfter: ReturnType<typeof dayToCalendar>,
+  ): void {
     this.emitter.emit(STATE_EVENTS.DAY_TICK, this.state.currentDay);
-
     if (calAfter.season !== calBefore.season) {
       this.emitter.emit(STATE_EVENTS.SEASON_TICK, {
         season: calAfter.season,
@@ -867,37 +905,6 @@ export class GameStore {
     if (calAfter.year !== calBefore.year) {
       this.emitter.emit(STATE_EVENTS.YEAR_TICK, { year: calAfter.year });
     }
-
-    // Slice F: production / decree / event tick
-    this.runProductionTick();
-    // P4：军事节拍（刷新军力 + 推进出征/来犯）放在 NPC 动态之前，让 NPC 据真实军力决策。
-    this.runMilitaryTick();
-    this.runDecreeTick();
-    this.runEventTick();
-    // v1.0 #6：邦交节拍（通商收入 + stance 漂移）
-    this.runDiplomacyTick();
-    // Phase1：NPC 动态成长（军力增长 / 合纵结盟 / 骚扰围攻）。在 population 前，
-    // 让骚扰劫掠的资源损失计入当日存粮判生养与双零危机判定。
-    this.runNpcDynamicsTick();
-    // Phase1：人口增长（用 production 后的存粮判生养；在 crisis 之前，让损失计入双零判定）
-    this.runPopulationTick();
-    // B-0：阶层转化推进 + 饥饿减员（在 population 后、crisis 前）
-    this.runConversionTick();
-    this.runStarvationTick();
-    // Phase1：低谷危机 → 国格晋阶。顺序固定 crisis→grade：
-    // crisis 可能掉人口/降级，grade 判定要用 crisis 后的终值，避免同 tick 既升又降的矛盾。
-    this.runCrisisTick();
-    this.runGradeTick();
-    // B-4.1：阶层博弈（人口>80 后激活；在 grade 后——faction 事件依据国格门槛）
-    this.runFactionTick();
-    // B-4.2：巨型工程推进（每日 -1 天；完成时发奖励 modifier）
-    this.runMegaProjectTick();
-    // Phase2：故事导演（仅 story 模式；沙盒 early-return 零污染）
-    this.runStoryTick();
-    // A-5：世界呼吸通知
-    this.runBreathingTick();
-    // A-6：史官谏言
-    this.runHistorianTick();
   }
 
   /** 当日产出 / 维护开销 → 资源 deltas（grain 等） */
