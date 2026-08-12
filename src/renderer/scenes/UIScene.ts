@@ -15,6 +15,7 @@ import { FactionDemandModal } from '../ui/FactionDemandModal';
 import { CrisisModal } from '../ui/CrisisModal';
 import { TutorialModal } from '../ui/TutorialModal';
 import { STATE_EVENTS } from '../state/gameStore';
+import type { GameStateEventMap } from '../state/stateEvents';
 import { Legend } from '../ui/Legend';
 import { ZoomControl } from '../ui/ZoomControl';
 import { StoryBar } from '../ui/StoryBar';
@@ -66,36 +67,31 @@ export class UIScene extends Phaser.Scene {
   private pauseText: Phaser.GameObjects.Text | null = null;
 
   // Phase1：国格软认可 / 登顶祝贺（晋阶走 Toast；降格由 CrisisModal 通告，不重复 Toast）
-  private onGradeChanged = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { to?: number; def?: { ascendBlurb?: string }; reason?: string } : {};
-    if (p.reason !== 'ascend') return; // 仅晋阶祝贺；crisis 降格交给 CrisisModal
-    const blurb = p.def?.ascendBlurb ?? '国格晋阶。';
+  private onGradeChanged = (payload: GameStateEventMap['state:gradeChanged']): void => {
+    if (payload.reason !== 'ascend') return; // 仅晋阶祝贺；crisis 降格交给 CrisisModal
+    const blurb = payload.def?.ascendBlurb ?? '国格晋阶。';
     this.toast?.show(`国格晋阶 · ${blurb}`, 'info', 3200);
   };
   private onTianxia = (): void => {
     this.toast?.show('天下共主 · 圆满。山河任君纵横，亦可继续经营，无有尽头。', 'info', 5000);
   };
   // Phase1：NPC 动态行动 → Toast。骚扰/围攻用 error 色（红），内斗用 info（棕）。
-  private onNpcAction = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { kind?: string; text?: string } : {};
-    if (!p.text) return;
-    const hostile = p.kind === 'harass_player' || p.kind === 'assault_player';
-    this.toast?.show(p.text, hostile ? 'error' : 'info', hostile ? 3600 : 2600);
+  private onNpcAction = (payload: GameStateEventMap['state:npcAction']): void => {
+    if (!payload.text) return;
+    const hostile = payload.kind === 'harass_player' || payload.kind === 'assault_player';
+    this.toast?.show(payload.text, hostile ? 'error' : 'info', hostile ? 3600 : 2600);
   };
   // A1：怨愤临界警示 → 长 Toast（error 色）
-  private onWrathAlert = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { text?: string } : {};
-    if (p.text) this.toast?.show(p.text, 'error', 5000);
+  private onWrathAlert = (payload: GameStateEventMap['state:wrathAlert']): void => {
+    if (payload.text) this.toast?.show(payload.text, 'error', 5000);
   };
   // C1：古迹链探索完成 → 长 Toast
-  private onRelicResolved = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { name?: string; summary?: string } : {};
-    if (p.name) this.toast?.show(`[古迹·${p.name}] ${p.summary ?? '探毕，获益匪浅。'}`, 'info', 5000);
+  private onRelicResolved = (payload: GameStateEventMap['state:relicResolved']): void => {
+    if (payload.name) this.toast?.show(`[古迹·${payload.name}] ${payload.summary ?? '探毕，获益匪浅。'}`, 'info', 5000);
   };
   // C2：终局波次 → 长 Toast（error 色，标注烈度）
-  private onEndgameWave = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { kind?: string; severity?: number; text?: string } : {};
-    if (p.text) this.toast?.show(`终局·${p.severity ?? 1} 阶｜${p.text}`, 'error', 6000);
+  private onEndgameWave = (payload: GameStateEventMap['state:endgameWave']): void => {
+    if (payload.text) this.toast?.show(`终局·${payload.severity ?? 1} 阶｜${payload.text}`, 'error', 6000);
   };
   // Phase2：史官氛围评语（双轴跨档）→ 轻 Toast
   private onStoryNarration = (payload: unknown): void => {
