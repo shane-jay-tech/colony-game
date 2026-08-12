@@ -92,6 +92,11 @@ export class UIScene extends Phaser.Scene {
     const p = (payload && typeof payload === 'object') ? payload as { name?: string; summary?: string } : {};
     if (p.name) this.toast?.show(`[古迹·${p.name}] ${p.summary ?? '探毕，获益匪浅。'}`, 'info', 5000);
   };
+  // C2：终局波次 → 长 Toast（error 色，标注烈度）
+  private onEndgameWave = (payload: unknown): void => {
+    const p = (payload && typeof payload === 'object') ? payload as { kind?: string; severity?: number; text?: string } : {};
+    if (p.text) this.toast?.show(`终局·${p.severity ?? 1} 阶｜${p.text}`, 'error', 6000);
+  };
   // Phase2：史官氛围评语（双轴跨档）→ 轻 Toast
   private onStoryNarration = (payload: unknown): void => {
     const p = (payload && typeof payload === 'object') ? payload as { text?: string } : {};
@@ -226,6 +231,7 @@ export class UIScene extends Phaser.Scene {
     store.on(STATE_EVENTS.HISTORIAN_ADVICE, this.onHistorianAdvice);
     store.on(STATE_EVENTS.WRATH_ALERT, this.onWrathAlert);
     store.on(STATE_EVENTS.RELIC_RESOLVED, this.onRelicResolved);
+    store.on(STATE_EVENTS.ENDGAME_WAVE, this.onEndgameWave);
     store.on(STATE_EVENTS.DEFENSE_ALERT, this.onDefenseAlert);
     store.on(STATE_EVENTS.EXPEDITION_RESOLVED, this.onExpeditionResolved);
     // v1.0 #5：缩放工具条。MapRenderer 由 GameScene 在 create 时注册到 registry，
@@ -315,6 +321,7 @@ export class UIScene extends Phaser.Scene {
       this.store.off(STATE_EVENTS.HISTORIAN_ADVICE, this.onHistorianAdvice);
       this.store.off(STATE_EVENTS.WRATH_ALERT, this.onWrathAlert);
       this.store.off(STATE_EVENTS.RELIC_RESOLVED, this.onRelicResolved);
+      this.store.off(STATE_EVENTS.ENDGAME_WAVE, this.onEndgameWave);
       this.store.off(STATE_EVENTS.DEFENSE_ALERT, this.onDefenseAlert);
       this.store.off(STATE_EVENTS.EXPEDITION_RESOLVED, this.onExpeditionResolved);
       this.store.off(STATE_EVENTS.PAUSED_CHANGED, this.onPausedChanged);

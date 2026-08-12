@@ -79,7 +79,7 @@ describe('存档 v5 → v6 迁移', () => {
     delete blob.state['lastPropagandaDay'];
     const restored = deserialize(blob);
     expect(restored.lastPropagandaDay).toBeNull();
-    expect(SAVE_SCHEMA_VERSION).toBe(7);
+    expect(SAVE_SCHEMA_VERSION).toBe(8);
   });
 
   it('roundtrip 保留宣传冷却日', () => {

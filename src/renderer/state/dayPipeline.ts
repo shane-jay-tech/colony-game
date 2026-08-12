@@ -24,6 +24,7 @@ export type DayPhaseId =
   | 'grade'
   | 'factions'
   | 'megaProjects'
+  | 'endgame'
   | 'story'
   | 'breathing'
   | 'historian'
@@ -66,6 +67,7 @@ export const DAY_PHASE_DEFS: Record<DayPhaseId, DayPhaseDef> = {
   grade: { domain: 'progression', name: '国格判定' },
   factions: { domain: 'population', name: '阶层博弈' },
   megaProjects: { domain: 'progression', name: '巨型工程' },
+  endgame: { domain: 'progression', name: '终局波次' },
   story: { domain: 'narrative', name: '故事导演' },
   breathing: { domain: 'narrative', name: '世界呼吸' },
   historian: { domain: 'narrative', name: '史官谏言' },
@@ -90,6 +92,7 @@ export const DAY_PHASE_ORDER: readonly DayPhaseId[] = [
   'grade',
   'factions',
   'megaProjects',
+  'endgame',
   'story',
   'breathing',
   'historian',

@@ -16,7 +16,7 @@ import { clampSentiment } from './publicSentiment';
 import { WARINESS_BASELINE, clampWariness } from './wariness';
 import type { RelicSite } from './relicSystem';
 
-export const SAVE_SCHEMA_VERSION = 7;
+export const SAVE_SCHEMA_VERSION = 8;
 
 export class SaveLoadError extends Error {
   constructor(message: string) {
@@ -65,6 +65,9 @@ export interface SerializedSave {
     lastPropagandaDay?: number | null;
     /** C1：古迹点（旧档无此字段 → 空数组） */
     relicSites?: RelicSite[];
+    /** C2：终局日期字段（旧档 null） */
+    endgameAscendDay?: number | null;
+    endgameLastWaveDay?: number | null;
     /** Phase1 国格阶梯（旧存档缺则兜底 0 / false） */
     grade?: number;
     gradeReached?: number;
@@ -166,6 +169,15 @@ const migrations: Partial<Record<number, MigrationFn>> = {
     const s = data.state;
     s['relicSites'] = [];
     data.schemaVersion = 7;
+    return data;
+  },
+  7: (blob) => {
+    // C2 终局波次：旧档未登顶/未放波
+    const data = blob as { schemaVersion: number; state: Record<string, unknown> };
+    const s = data.state;
+    s['endgameAscendDay'] = null;
+    s['endgameLastWaveDay'] = null;
+    data.schemaVersion = 8;
     return data;
   },
 };
@@ -307,6 +319,8 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       lastWarinessReason: state.lastWarinessReason,
       lastPropagandaDay: state.lastPropagandaDay,
       relicSites: state.relicSites,
+      endgameAscendDay: state.endgameAscendDay,
+      endgameLastWaveDay: state.endgameLastWaveDay,
       grade: state.grade,
       gradeReached: state.gradeReached,
       tianxiaAcknowledged: state.tianxiaAcknowledged,
@@ -449,6 +463,12 @@ export function deserialize(blob: unknown): GameState {
         done: r.done === true,
       }))
       : [],
+    endgameAscendDay: typeof s.endgameAscendDay === 'number' && Number.isFinite(s.endgameAscendDay)
+      ? Math.max(0, Math.floor(s.endgameAscendDay))
+      : null,
+    endgameLastWaveDay: typeof s.endgameLastWaveDay === 'number' && Number.isFinite(s.endgameLastWaveDay)
+      ? Math.max(0, Math.floor(s.endgameLastWaveDay))
+      : null,
     playerMilitaryPower: typeof s.playerMilitaryPower === 'number' && Number.isFinite(s.playerMilitaryPower)
       ? Math.max(0, Math.min(500, s.playerMilitaryPower))
       : 30,

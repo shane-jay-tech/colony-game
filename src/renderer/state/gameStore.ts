@@ -60,6 +60,10 @@ import {
 import {
   RELIC_CHAINS, generateRelicSites, advanceRelic, type RelicSite,
 } from './relicSystem';
+import {
+  ENDGAME_WAVE_INTERVAL_DAYS, ENDGAME_WAVE_KINDS, endgameSeverity,
+  shouldFireEndgameWave, pickEndgameWave,
+} from './endgameEscalation';
 import type { PopulationClasses, PopulationClass, ConversionOrder } from '../data/populationClass';
 import { createDefaultPopulation, totalPopulation, CONVERSION_DAYS, CONVERSION_REQUIRES, POPULATION_CLASSES, DEFAULT_STARVATION } from '../data/populationClass';
 import { computeClassOccupation, getIdleByClass, canAffordClass, tickConversionQueue, applyConversion, applyStarvation, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
@@ -148,6 +152,8 @@ export const STATE_EVENTS = {
   WORLD_WARINESS_CHANGED: 'state:worldWarinessChanged',
   // C1：古迹链完整探索结束（payload { name, summary }）
   RELIC_RESOLVED: 'state:relicResolved',
+  // C2：终局波次（payload { kind, severity, text }）
+  ENDGAME_WAVE: 'state:endgameWave',
   // B-4.1：阶层博弈诉求出现/解决（payload { demand, factionName } / { demandId, accepted }）→ 诉求弹窗
   FACTION_DEMAND_TRIGGERED: 'state:factionDemandTriggered',
   FACTION_DEMAND_RESOLVED: 'state:factionDemandResolved',
@@ -208,6 +214,10 @@ export interface GameState {
   lastPropagandaDay: number | null;
   /** C1：本局古迹点（种子确定性生成 2~4 个） */
   relicSites: RelicSite[];
+  /** C2：登顶天下共主的日期（null=未登顶） */
+  endgameAscendDay: number | null;
+  /** C2：上一次终局波次日期（null=未放过） */
+  endgameLastWaveDay: number | null;
   playerMilitaryPower: number;
   /** Phase1 国格阶梯：当前国格级（0..5，0=聚落） */
   grade: number;
@@ -308,6 +318,8 @@ function makeDefaultState(): GameState {
     lastWarinessReason: null,
     lastPropagandaDay: null,
     relicSites: [],
+    endgameAscendDay: null,
+    endgameLastWaveDay: null,
     playerMilitaryPower: 30,
     grade: 0,
     gradeReached: 0,
@@ -883,6 +895,7 @@ export class GameStore {
       grade: () => this.runGradeTick(),
       factions: () => this.runFactionTick(),
       megaProjects: () => this.runMegaProjectTick(),
+      endgame: () => this.runEndgamePhase(),
       story: () => this.runStoryTick(),
       breathing: () => this.runBreathingTick(),
       historian: () => this.runHistorianTick(),
@@ -1531,8 +1544,51 @@ export class GameStore {
     });
     if (next >= MAX_GRADE && !this.state.tianxiaAcknowledged) {
       this.state.tianxiaAcknowledged = true;
+      if (this.state.endgameAscendDay === null) this.state.endgameAscendDay = this.state.currentDay;
       this.emitter.emit(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, { def: gradeDefAt(next) });
     }
+  }
+
+  /** C2：登顶后的无限波次压力阶梯——每 20 日一波，烈度三阶递增，扛过给盛名。 */
+  private runEndgamePhase(): void {
+    if (this.state.grade < MAX_GRADE || this.state.endgameAscendDay === null) return;
+    const daysSinceAscend = this.state.currentDay - this.state.endgameAscendDay;
+    if (!shouldFireEndgameWave(this.state.currentDay, this.state.endgameLastWaveDay, daysSinceAscend)) return;
+
+    const severity = endgameSeverity(daysSinceAscend);
+    const rng = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0xe47a) >>> 0);
+    const kindIdx = Math.floor(rng.next() * ENDGAME_WAVE_KINDS.length);
+    const wave = pickEndgameWave(kindIdx, severity);
+
+    if (wave.kind === 'coalition') {
+      this.adjustWariness(12 + severity * 4, '终局合纵');
+      for (const n of this.state.npcCountries) {
+        if (n.stance > -40) n.stance -= 5;
+      }
+    } else if (wave.kind === 'invasion') {
+      this.addResource('gold', -(20 + severity * 20), 'endgame');
+      this.state.playerMilitaryPower = Math.max(0, this.state.playerMilitaryPower - (10 + severity * 5));
+      this.adjustMorale(-4, 'endgame');
+    } else {
+      this.addResource('grain', -(40 + severity * 40), 'endgame');
+      this.addResource('wood', -(30 + severity * 30), 'endgame');
+      this.adjustWrath(8 + severity * 4, 'endgame');
+    }
+
+    this.state.endgameLastWaveDay = this.state.currentDay;
+    // 盛名：每扛过一波给永久小额信誉（软奖励，不强制结束）
+    this.addModifier({
+      id: `mod_endgame_prestige_${this.state.currentDay}`,
+      name: '终局盛名',
+      category: 'culture',
+      stackable: true,
+      effects: [{ target: 'country_renown', op: 'add', value: 3 + severity }],
+      visualBadge: null,
+      remainingDays: -1,
+      description: '扛过终局波次，盛名有加。',
+      descPlain: '扛过终局波次，盛名有加。',
+    });
+    this.emitter.emit(STATE_EVENTS.ENDGAME_WAVE, wave);
   }
 
   // ============== B-4.1：阶层博弈 ==============
@@ -2588,6 +2644,9 @@ export class GameStore {
     if (typeof newState.lastPropagandaDay !== 'number') newState.lastPropagandaDay = null;
     // C1：古迹点（旧档/内存路径可能缺 → 空数组，不重新生成以尊重存档）
     if (!Array.isArray(newState.relicSites)) newState.relicSites = [];
+    // C2：终局字段兜底
+    if (typeof newState.endgameAscendDay !== 'number') newState.endgameAscendDay = null;
+    if (typeof newState.endgameLastWaveDay !== 'number') newState.endgameLastWaveDay = null;
     // Phase1：国格/低谷/模式字段——内存路径（quick-save/旧测试态）可能缺，兜底
     if (typeof newState.grade !== 'number') newState.grade = 0;
     if (typeof newState.gradeReached !== 'number') newState.gradeReached = newState.grade;

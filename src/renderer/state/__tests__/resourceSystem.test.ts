@@ -38,6 +38,8 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     lastWarinessReason: null,
     lastPropagandaDay: null,
     relicSites: [],
+    endgameAscendDay: null,
+    endgameLastWaveDay: null,
     grade: 0,
     gradeReached: 0,
     tianxiaAcknowledged: false,

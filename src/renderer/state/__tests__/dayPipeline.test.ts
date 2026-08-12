@@ -33,6 +33,7 @@ const PHASE_METHOD: Record<DayPhaseId, string> = {
   grade: 'runGradeTick',
   factions: 'runFactionTick',
   megaProjects: 'runMegaProjectTick',
+  endgame: 'runEndgamePhase',
   story: 'runStoryTick',
   breathing: 'runBreathingTick',
   historian: 'runHistorianTick',
