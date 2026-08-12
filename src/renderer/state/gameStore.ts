@@ -64,6 +64,7 @@ import {
   ENDGAME_WAVE_INTERVAL_DAYS, ENDGAME_WAVE_KINDS, endgameSeverity,
   shouldFireEndgameWave, pickEndgameWave,
 } from './endgameEscalation';
+import type { StateEventName, GameStateEventMap } from './stateEvents';
 import type { PopulationClasses, PopulationClass, ConversionOrder } from '../data/populationClass';
 import { createDefaultPopulation, totalPopulation, CONVERSION_DAYS, CONVERSION_REQUIRES, POPULATION_CLASSES, DEFAULT_STARVATION } from '../data/populationClass';
 import { computeClassOccupation, getIdleByClass, canAffordClass, tickConversionQueue, applyConversion, applyStarvation, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
@@ -579,8 +580,16 @@ export class GameStore {
   }
 
   // subscribe API; emitter is intentionally not exposed publicly to prevent external emit injection
-  on(event: string, fn: (...args: unknown[]) => void): void { this.emitter.on(event, fn); }
-  off(event: string, fn: (...args: unknown[]) => void): void { this.emitter.off(event, fn); }
+  on<K extends StateEventName>(event: K, fn: (payload: GameStateEventMap[K]) => void): void {
+    this.emitter.on(event, fn as (...args: unknown[]) => void);
+  }
+  off<K extends StateEventName>(event: K, fn: (payload: GameStateEventMap[K]) => void): void {
+    this.emitter.off(event, fn as (...args: unknown[]) => void);
+  }
+  /** P1：类型化事件发布面（内部实现仍走底层 emitter；新建/外部代码用这个拿编译期载荷校验）。 */
+  emit<K extends StateEventName>(event: K, payload: GameStateEventMap[K]): void {
+    this.emitter.emit(event, payload);
+  }
   listenerCount(event: string): number { return this.emitter.listenerCount(event); }
 
   /** 资源存储上限基数（无仓廪时）。 */

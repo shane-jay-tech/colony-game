@@ -30,7 +30,7 @@
 
 ## P1 — 架构硬化剩余项（`PLAN.md` 未完成部分）
 
-- [ ] **P1-1 类型化事件面**：`GameStore.on/off/emit` 换类型化事件映射，替代 `string + unknown[]`；同步 UIScene/GameScene/HUD 全部订阅点。
+- [x] **P1-1 类型化事件面（核心）**：`GameStateEventMap` 载荷契约 + 泛型 `on/off/emit`（50 个事件全覆盖，运行时双向守护测试）；监听方逆变兼容无需迁移。内部 emit 与逐订阅点迁移留后续低风险渐进。
 - [ ] **P1-2 registry key 类型化**：集中 Phaser registry key 常量 + typed get/set helper，替换散落的字符串。
 - [ ] **P1-3 tickDay 阶段管道抽取**：每日阶段顺序抽出为可测 pipeline，GameStore 保留兼容 facade，阶段顺序加显式测试。
 - [ ] **P1-4 资产清单权威化**：BootScene 以 `artManifest` 为唯一加载源，删除重复加载列表。
