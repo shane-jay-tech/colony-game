@@ -22,22 +22,24 @@ export interface TerrainScatter {
 
 /** 五型地形的散布表。river 不用 slots（仅在与非水相邻的边缘 tile 放芦苇，见 RIVER_EDGE）。 */
 export const SCATTER_BY_TERRAIN: Record<string, TerrainScatter> = {
+  // 注：地形已上真实纹理(plain/forest/... .png 自带草石细节)，故大幅调低"小草/灌木"散布，
+  // 只保留树(林地)、大石(丘陵/山岳)这类有意义的立体地标，避免"草叠草"杂乱。
   forest: {
     slots: [
       { prob: 0.92, pool: ['tree_pine', 'tree_locust', 'tree_mulberry'], minScale: 1.9, maxScale: 2.8 },
       { prob: 0.5, pool: ['tree_pine', 'tree_locust', 'tree_willow'], minScale: 1.6, maxScale: 2.3 },
-      { prob: 0.14, pool: ['rock_cluster', 'bush_shrub', 'grass_tuft'], minScale: 0.7, maxScale: 1.1 },
     ],
   },
   plain: {
     slots: [
-      { prob: 0.13, pool: ['grass_tuft', 'bush_shrub', 'rock_cluster'], minScale: 0.6, maxScale: 1.0 },
-      { prob: 0.035, pool: ['tree_locust', 'tree_mulberry'], minScale: 1.6, maxScale: 2.2 },
+      // 平原地面纹理已带草，仅极少量灌木/树点缀，不再铺草丛。
+      { prob: 0.04, pool: ['tree_locust', 'tree_mulberry'], minScale: 1.6, maxScale: 2.2 },
+      { prob: 0.05, pool: ['bush_shrub'], minScale: 0.6, maxScale: 0.9 },
     ],
   },
   hills: {
     slots: [
-      { prob: 0.26, pool: ['rock_boulder', 'rock_cluster', 'bush_dry'], minScale: 0.9, maxScale: 1.5 },
+      { prob: 0.22, pool: ['rock_boulder', 'rock_cluster'], minScale: 0.9, maxScale: 1.5 },
     ],
   },
   mountain: {

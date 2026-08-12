@@ -29,6 +29,7 @@ export function computeDayDeltas(
       totals.set(out.resource, (totals.get(out.resource) ?? 0) + out.perDay);
     }
     for (const [res, cost] of Object.entries(def.upkeep)) {
+      if (res === 'people') continue; // 占用制：民=劳力，不作为消耗品 upkeep 扣（与 productionSystem 一致；本函数当前已停用，留 guard 防将来误引复活老 bug）
       if (!isValidResourceId(res) || cost === undefined) continue;
       const rid = res as ResourceId;
       totals.set(rid, (totals.get(rid) ?? 0) - cost);

@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
-import { COLORS, FONTS } from './palette';
+import { COLORS, FONTS, UI } from './palette';
 
 /**
- * Toast：右下角悬浮提示。Slice E 用于"建造失败：粮不足"等反馈。
+ * Toast：屏幕**正中偏上**的悬浮提示（2026-06-19 从右下角挪来——用户反馈右下角太不显眼）。
+ * 用于建造失败、呼吸事件、史官谏言、来犯预警等反馈。字号加大 + 居中 + 淡入，确保看得见。
  *
- * 单条 toast 自动消失（fade in/out），多条堆叠不需要——同时只显示一条，
- * 后到的覆盖前一条（避免高频点击 spamming UI）。
+ * 单条 toast 自动消失，多条不堆叠——后到的覆盖前一条（避免高频 spamming）。
  */
 export class Toast {
   private scene: Phaser.Scene;
@@ -18,29 +18,43 @@ export class Toast {
   }
 
   show(message: string, kind: 'info' | 'error' = 'info', durationMs = 2200): void {
+    // A-2：error toast 播放警告音效
+    if (kind === 'error') {
+      const am = this.scene.registry.get('audioManager') as { playUi?: (k: string) => void } | undefined;
+      am?.playUi?.('sfx_warn');
+    }
     this.clearCurrent();
     const w = this.scene.scale.width;
     const h = this.scene.scale.height;
 
-    this.bg = this.scene.add.graphics().setScrollFactor(0).setDepth(2000);
+    this.bg = this.scene.add.graphics().setScrollFactor(0).setDepth(2400);
     this.text = this.scene.add.text(0, 0, message, {
       ...FONTS.body,
+      fontSize: '18px', // 加大，醒目
+      fontStyle: 'bold',
       color: '#F5ECD7',
-    } as Phaser.Types.GameObjects.Text.TextStyle).setScrollFactor(0).setDepth(2000);
+      align: 'center',
+      wordWrap: { width: Math.min(560, w - 80) },
+    } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5, 0).setScrollFactor(0).setDepth(2400);
 
-    const padX = 12;
-    const padY = 8;
+    const padX = 20;
+    const padY = 12;
     const tw = this.text.width + padX * 2;
     const th = this.text.height + padY * 2;
-    const bx = w - tw - 24;
-    const by = h - th - 24;
+    // 正中偏上：水平居中、竖直在顶栏下方一点（不挡 HUD，也不沉到角落）
+    const bx = Math.floor((w - tw) / 2);
+    const by = UI.topbarHeight + UI.toolbarHeight + 16; // 主功能工具栏下方
 
     const fillColor = kind === 'error' ? COLORS.CINNABAR : COLORS.WOOD;
-    this.bg.fillStyle(fillColor, 0.92);
+    this.bg.fillStyle(fillColor, 0.95);
     this.bg.fillRect(bx, by, tw, th);
-    this.bg.lineStyle(1, COLORS.GOLD, 1);
+    this.bg.lineStyle(2, COLORS.GOLD, 1);
     this.bg.strokeRect(bx, by, tw, th);
-    this.text.setPosition(bx + padX, by + padY);
+    this.text.setPosition(w / 2, by + padY);
+
+    // 淡入，进一步抓眼球
+    this.bg.setAlpha(0); this.text.setAlpha(0);
+    this.scene.tweens.add({ targets: [this.bg, this.text], alpha: 1, duration: 160, ease: 'Cubic.easeOut' });
 
     this.hideTimer = this.scene.time.delayedCall(durationMs, () => this.clearCurrent());
   }

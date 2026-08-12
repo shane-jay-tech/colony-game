@@ -1,5 +1,5 @@
 import { RESOURCE_IDS } from '../data/resourceRegistry';
-import type { ResourceId } from '../data/resourceRegistry';
+import type { ResourceId, ModifierTargetKey } from '../data/resourceRegistry';
 import type { ModifierInstance, BuildingDef, BuildingInstance, PolicyNode, RoyalDecree, CourtEvent, CourtEventContext, NpcCountryState } from '../data/schema';
 import { makeInitialNpcStates, getNpcDef, selectNpcsForGame } from '../data/npcCountries';
 import {
@@ -39,6 +39,31 @@ import {
 } from './npcDynamics';
 import { checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand, checkEnding, type EndingId } from './storyDriver';
 import { chapterAt, chapterGoalMet } from '../data/storyChapters';
+import { getBulletinsForChapter, getHistorianComment } from '../data/storyGoals';
+import { assessNationState, shouldSampleEvent, filterEventsByState, DEFAULT_TEMPO_CONFIG, type NationStateInput } from './eventTempo';
+import { applySeasonTransition, isSeasonModifier } from './seasonSystem';
+import { createBreathingState, tickBreathingToast, tickBreathingBulletin, type BreathingState, type BreathingContext } from './breathingSystem';
+import { checkHistorian, type HistorianContext } from './historianSystem';
+import type { PopulationClasses, PopulationClass, ConversionOrder } from '../data/populationClass';
+import { createDefaultPopulation, totalPopulation, CONVERSION_DAYS, CONVERSION_REQUIRES, POPULATION_CLASSES, DEFAULT_STARVATION } from '../data/populationClass';
+import { computeClassOccupation, getIdleByClass, canAffordClass, tickConversionQueue, applyConversion, applyStarvation, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
+import { type FactionState, createFactionState, tickFaction, resolveDemand, scheduleFactionEvent } from './factionSystem';
+import { FACTION_NAMES } from '../data/factions';
+import { type MegaProjectProgress, tickProject, getProjectReward, canAffordPhase } from './megaProjectSystem';
+import { MEGA_PROJECTS } from '../data/megaProjects';
+// P4：军事 + 将领（此前为死代码，现接进玩法）
+import {
+  type MilitaryContext, getAvailableUnitTypes, computeArmyStrength, computeDefenseStrength,
+  canLaunchExpedition, createExpedition, tickExpedition, resolveBattle, computeNoInterceptLoss,
+} from './militarySystem';
+import { UNIT_DEFS, type ActiveExpedition, type ExpeditionConfig, type DefenseAlert, type UnitType } from '../data/military';
+import {
+  recruitGeneral as recruitGeneralFn, dismissGeneral as dismissGeneralFn, deployGeneral as deployGeneralFn,
+  returnGeneral as returnGeneralFn, computeGeneralBonus, tickLoyalty, applyBattleResult, getGeneralDef, canRecruit,
+} from './generalSystem';
+import { type GeneralState, GENERAL_POOL } from '../data/generals';
+import { computeNpcDecision, type NpcDecision } from './diplomacyExpanded';
+import { getExcludedPolicyId, POLICY_EXCLUSION_GROUPS } from '../data/policyExclusions';
 
 export interface IEventEmitter {
   on(event: string, fn: (...args: unknown[]) => void): void;
@@ -72,6 +97,7 @@ export const STATE_EVENTS = {
   PANEL_COLLAPSED_CHANGED: 'state:panelCollapsedChanged',
   // v0.9：建筑升级（纪元 1800 风格 chain）
   BUILDING_UPGRADED: 'state:buildingUpgraded',
+  BUILDING_REMOVED: 'state:buildingRemoved', // 拆除：移除 + 返还半数材料 + 释放占用劳力
   // v1.0 #6：邦交动作产生结果（trade/envoy/war 任一）→ UI refresh + toast
   DIPLOMACY_ACTION: 'state:diplomacyAction',
   // v1.0 #6：通商每 30 日入账时发；UI 给玩家飘一个 +X gold +Y cloth 反馈
@@ -94,6 +120,21 @@ export const STATE_EVENTS = {
   STORY_NARRATION: 'state:storyNarration',
   // Phase2：终章三结局兑现（payload { ending }）→ 结局画面
   STORY_ENDING: 'state:storyEnding',
+  // A-5：世界呼吸通知（payload { entry }）→ toast 或 bulletin UI
+  BREATHING_TOAST: 'state:breathingToast',
+  BREATHING_BULLETIN: 'state:breathingBulletin',
+  HISTORIAN_ADVICE: 'state:historianAdvice',
+  // B-4.1：阶层博弈诉求出现/解决（payload { demand, factionName } / { demandId, accepted }）→ 诉求弹窗
+  FACTION_DEMAND_TRIGGERED: 'state:factionDemandTriggered',
+  FACTION_DEMAND_RESOLVED: 'state:factionDemandResolved',
+  // B-4.2：巨型工程开始/完成（payload { projectId, def } / { projectId, def, reward }）→ 工程面板刷新 + toast
+  MEGA_PROJECT_STARTED: 'state:megaProjectStarted',
+  MEGA_PROJECT_COMPLETED: 'state:megaProjectCompleted',
+  // B-1/B-2：军事——出征结算/将领变动/军务面板刷新/来犯预警
+  EXPEDITION_RESOLVED: 'state:expeditionResolved',
+  GENERALS_CHANGED: 'state:generalsChanged',
+  MILITARY_CHANGED: 'state:militaryChanged',
+  DEFENSE_ALERT: 'state:defenseAlert',
 } as const;
 
 export type PanelSide = 'left' | 'right';
@@ -154,6 +195,24 @@ export interface GameState {
   vassalOf: string | null;
   /** Phase2 故事专属：叙事导演层状态。sandbox 模式恒为 null（不污染沙盒） */
   storyFlags: StoryFlags | null;
+  /** B-0 人口阶层分布（Σ = resources.people） */
+  populationClasses: PopulationClasses;
+  /** B-0 阶层转化队列（farmer→worker等，每条 CONVERSION_DAYS 天完成） */
+  conversionQueue: ConversionOrder[];
+  /** B-0 缺粮连续天数（饥饿减员用） */
+  grainNegativeDays: number;
+  /** B-4.1 阶层博弈状态 */
+  factionState: FactionState;
+  /** B-4.2 巨型工程进度列表 */
+  megaProjects: MegaProjectProgress[];
+  /** B-4.3 已选的互斥国策 id 列表 */
+  exclusivePolicies: string[];
+  /** B-2 已招募将领（忠诚/出征态）。P4 接入。 */
+  generals: GeneralState[];
+  /** B-1 进行中的出征。P4 接入。 */
+  activeExpeditions: ActiveExpedition[];
+  /** B-1 来犯预警（NPC 决定攻击 → 给玩家反应窗口）。P4 接入。 */
+  defenseAlerts: DefenseAlert[];
 }
 
 /** Phase2 故事模式状态（StoryDriver 层；隐性双轴 + 章节进度）。 */
@@ -219,6 +278,15 @@ function makeDefaultState(): GameState {
     crisisCount: 0,
     vassalOf: null,
     storyFlags: null,
+    populationClasses: createDefaultPopulation(0),
+    conversionQueue: [],
+    grainNegativeDays: 0,
+    factionState: createFactionState(),
+    megaProjects: [],
+    exclusivePolicies: [],
+    generals: [],
+    activeExpeditions: [],
+    defenseAlerts: [],
   };
 }
 
@@ -246,10 +314,21 @@ export class GameStore {
   /** Phase2 瞬态（不持久化）：序章统一后等 GameScene 播完建朝过场再 advanceStoryChapter(1)。
    *  重载时默认 false → 若 storyFlags.unified 仍停在 chapter 0，runStoryTick 自动恢复进第一章，防 softlock。 */
   private storyTransitionPending = false;
+  /** A-5 瞬态：世界呼吸系统状态（不持久化） */
+  private breathingState: BreathingState = createBreathingState();
+  /** A-6 瞬态：史官谏言追踪（不持久化，重载后从 0 开始累积） */
+  private historianGrainNegDays = 0;
+  private historianIdleDays = 0;
+  private historianGradeAscended = false;
 
   constructor(emitter: IEventEmitter, initialState?: Partial<GameState>, content?: GameStoreContent) {
     this.emitter = emitter;
     this.state = Object.assign(makeDefaultState(), initialState ?? {});
+    // B-0：如果外部传了 people 但没传 populationClasses，同步到 farmer
+    const peoplePassed = this.state.resources['people'] ?? 0;
+    if (peoplePassed > 0 && totalPopulation(this.state.populationClasses) === 0) {
+      this.state.populationClasses = createDefaultPopulation(peoplePassed);
+    }
     this.worldMapAccessor = new WorldMapAccessor(this.state.worldMap);
     this.policies = content?.policies ?? [];
     this.decrees = content?.decrees ?? [];
@@ -273,6 +352,89 @@ export class GameStore {
   getBuildings(): readonly BuildingInstance[] { return Object.freeze([...this.state.buildings]); }
   // shallow copy of resources dict; ~8 keys, cheap enough for per-frame use (Slice E Critical)
   getResources(): Readonly<Partial<Record<ResourceId, number>>> { return Object.freeze({ ...this.state.resources }); }
+  /** 当前住房上限（人口可增长到的最大值）= 基数 + working 建筑 housingCapacity，经 country_population_cap modifier 聚合。
+   *  与 runPopulationTick 同口径，供 HUD 把"民"显示为 现有/上限（纪元式）。 */
+  getHousingCap(): number {
+    const popCfg = getBalanceConfig(this.state.mode).population;
+    const base = popCfg.baseHousingCap + sumHousingCapacity(this.state.buildings, getBuildingDef);
+    return Math.round(applyModifiers(base, 'country_population_cap', this.state.activeModifiers));
+  }
+  /** 占用制：在役建筑(constructing+working)占用的劳力总和 = Σ def.cost.people。paused/derelict 不占编制。 */
+  getEmployedLabor(): number {
+    let total = 0;
+    for (const b of this.state.buildings) {
+      if (b.status !== 'constructing' && b.status !== 'working') continue;
+      total += getBuildingDef(b.defId)?.cost.people ?? 0;
+    }
+    return total;
+  }
+  /** 占用制：闲置劳力 = 总人口 − 已占用，clamp≥0。HUD 显示"民 闲置/总人口"，建造门槛用它。 */
+  getIdleLabor(): number {
+    return Math.max(0, (this.state.resources['people'] ?? 0) - this.getEmployedLabor());
+  }
+  /** B-0：各阶层当前人口 */
+  getPopulationClasses(): Readonly<PopulationClasses> { return { ...this.state.populationClasses }; }
+  /** B-0：各阶层占用详情 */
+  getClassOccupation() { return computeClassOccupation(this.state.buildings, getBuildingDef); }
+  /** B-0：各阶层闲置人口 */
+  getIdleByClass() { return getIdleByClass(this.state.populationClasses, this.getClassOccupation()); }
+  /** B-0：转化队列 */
+  getConversionQueue(): readonly ConversionOrder[] { return this.state.conversionQueue; }
+  /** B-0：发起阶层转化。返回 false = 条件不满足 */
+  startConversion(from: PopulationClass, to: PopulationClass, count: number): boolean {
+    const key = `${from}->${to}`;
+    const reqBuilding = CONVERSION_REQUIRES[key];
+    if (reqBuilding) {
+      const hasBuilding = this.state.buildings.some(b => b.defId === reqBuilding && b.status === 'working');
+      if (!hasBuilding) return false;
+    }
+    const occ = this.getClassOccupation();
+    if (!canAffordClass(this.state.populationClasses, occ, from, count)) return false;
+    this.state.conversionQueue.push({ from, to, count, daysRemaining: CONVERSION_DAYS });
+    this.state.populationClasses[from] -= count;
+    return true;
+  }
+  /** 分阶段：建筑是否在当前阶段已解锁。
+   *  条件一：tier 对应国格门槛（T1→grade0, T2→grade1, T3→grade2, T4→grade3）
+   *  条件二：upgradeRequires 全满足（国策/前置建筑）。 */
+  isBuildingUnlocked(def: BuildingDef): boolean {
+    const requiredGrade = Math.max(0, def.tier - 1);
+    if (this.state.grade < requiredGrade) return false;
+    if (def.upgradeRequires.length === 0) return true;
+    const adopted = this.getAdoptedPolicyIds();
+    const built = new Set(this.state.buildings.filter(b => b.status === 'working').map(b => b.defId));
+    const decrees = new Set(this.state.completedDecreeIds);
+    return def.upgradeRequires.every(req => adopted.has(req) || built.has(req) || decrees.has(req));
+  }
+  /**
+   * 建筑解锁详情（供 BuildPanel 区分展示，解决"国策采纳了但建筑没出现、玩家以为没生效"）：
+   *  - buildable：可建（= isBuildingUnlocked true）
+   *  - grade_locked：前置(国策/前置建筑/朝令)已满足，但国格不够 → 灰显 + "需晋X"提示
+   *  - prereq_locked：前置未满足 → 仍隐藏（不剧透后期内容）
+   */
+  getBuildingUnlockInfo(def: BuildingDef): { state: 'buildable' | 'grade_locked' | 'prereq_locked'; reason: string } {
+    const requiredGrade = Math.max(0, def.tier - 1);
+    const adopted = this.getAdoptedPolicyIds();
+    const built = new Set(this.state.buildings.filter(b => b.status === 'working').map(b => b.defId));
+    const decrees = new Set(this.state.completedDecreeIds);
+    const prereqMet = def.upgradeRequires.length === 0
+      || def.upgradeRequires.every(req => adopted.has(req) || built.has(req) || decrees.has(req));
+    if (!prereqMet) return { state: 'prereq_locked', reason: '' };
+    if (this.state.grade < requiredGrade) {
+      const gname = gradeDefAt(requiredGrade)?.name ?? `国格${requiredGrade}`;
+      return { state: 'grade_locked', reason: `需晋「${gname}」` };
+    }
+    return { state: 'buildable', reason: '' };
+  }
+
+  /** 分阶段：国策是否已解锁（国格门槛 + prerequisites 全部已采纳）。 */
+  isPolicyUnlocked(def: PolicyNode): boolean {
+    const requiredGrade = Math.max(0, def.tier - 1);
+    if (this.state.grade < requiredGrade) return false;
+    if (def.prerequisites.length === 0) return true;
+    const adopted = this.getAdoptedPolicyIds();
+    return def.prerequisites.every(p => adopted.has(p));
+  }
   getLastSeenTimestamp(): number { return this.state.lastSeenTimestamp; }
   getWorldMap(): WorldMapAccessor { return this.worldMapAccessor; }
   getPendingEventId(): string | null { return this.state.pendingEventId; }
@@ -335,8 +497,26 @@ export class GameStore {
   off(event: string, fn: (...args: unknown[]) => void): void { this.emitter.off(event, fn); }
   listenerCount(event: string): number { return this.emitter.listenerCount(event); }
 
+  /** 资源存储上限基数（无仓廪时）。 */
+  private static readonly RESOURCE_CAP_BASE = 9999;
+
+  /**
+   * 资源存储上限。BUG-B（2026-06-19）：接线 bld_granary 的"储量上限 +50%"死功能——
+   * 每座 working 仓廪让存储类资源上限 ×1.5 线性叠加、封顶 ×3（防把"爆仓"重新架空）。
+   * people 不走此路（其真实约束是住房上限 getHousingCap），仅用基数防溢出。
+   */
+  getResourceCap(id: ResourceId): number {
+    if (id === 'people') return GameStore.RESOURCE_CAP_BASE;
+    let granaries = 0;
+    for (const b of this.state.buildings) {
+      if (b.status === 'working' && b.defId === 'bld_granary') granaries++;
+    }
+    const mul = Math.min(3, 1 + granaries * 0.5);
+    return Math.round(GameStore.RESOURCE_CAP_BASE * mul);
+  }
+
   private setResourceClamped(id: ResourceId, value: number): void {
-    this.state.resources[id] = Math.min(9999, Math.max(0, Math.floor(value)));
+    this.state.resources[id] = Math.min(this.getResourceCap(id), Math.max(0, Math.floor(value)));
   }
 
   addResource(id: ResourceId, amount: number, reason?: string): void {
@@ -346,9 +526,38 @@ export class GameStore {
     this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason });
   }
 
+  /** 开局暂停保护：玩家第一次有意义操作时自动启动时间流 */
+  private autoUnpause(): void {
+    if (this.state.paused && this.state.currentDay === 0) {
+      this.setPaused(false);
+    }
+  }
+
+  /** 自动招募：将闲置人口从其他阶层转入目标阶层，优先从农民抽调。 */
+  private autoRecruitToClass(targetCls: PopulationClass, needed: number): void {
+    if (needed <= 0) return;
+    const occ = this.getClassOccupation();
+    const alreadyIdle = Math.max(0, this.state.populationClasses[targetCls] - occ[targetCls]);
+    let deficit = needed - alreadyIdle;
+    if (deficit <= 0) return;
+    const sourceOrder: PopulationClass[] = (['farmer', 'worker', 'soldier', 'scholar'] as const)
+      .filter(c => c !== targetCls) as unknown as PopulationClass[];
+    for (const src of sourceOrder) {
+      if (deficit <= 0) break;
+      const srcIdle = Math.max(0, this.state.populationClasses[src] - occ[src]);
+      const transfer = Math.min(deficit, srcIdle);
+      if (transfer > 0) {
+        this.state.populationClasses[src] -= transfer;
+        this.state.populationClasses[targetCls] += transfer;
+        deficit -= transfer;
+      }
+    }
+  }
+
   setSpeed(s: 0 | 1 | 2 | 3): void {
     if (this.state.speed === s) return;
     this.state.speed = s;
+    this.autoUnpause();
     this.emitter.emit(STATE_EVENTS.SPEED_CHANGED, s);
   }
 
@@ -402,8 +611,22 @@ export class GameStore {
     );
     if (!result.ok) return result;
 
+    // B-0 占用制：检查总闲置人口是否足够（任意阶层可被建筑招募）。
+    const requiredPeople = def.cost.people ?? 0;
+    if (requiredPeople > 0) {
+      const occ = this.getClassOccupation();
+      const totalIdle = totalPopulation(this.state.populationClasses)
+        - (occ.farmer + occ.worker + occ.soldier + occ.scholar);
+      if (totalIdle < requiredPeople) {
+        return { ok: false, reason: 'insufficient_labor' };
+      }
+      const cls: PopulationClass = def.classType ?? 'farmer';
+      this.autoRecruitToClass(cls, requiredPeople);
+    }
+
     const deltas: Partial<Record<ResourceId, number>> = {};
     for (const id of RESOURCE_IDS) {
+      if (id === 'people') continue; // 民=占用制劳力，不作为造价消耗（占用由 employedLabor 计算）
       const amount = def.cost[id];
       if (amount === undefined || amount === 0) continue;
       const current = this.state.resources[id] ?? 0;
@@ -424,6 +647,8 @@ export class GameStore {
       this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_cost' });
     }
     this.emitter.emit(STATE_EVENTS.BUILDING_PLACED, building);
+    this.historianIdleDays = 0;
+    this.autoUnpause();
     return { ok: true };
   }
 
@@ -453,24 +678,41 @@ export class GameStore {
     const toDef = getBuildingDef(fromDef.upgradesTo);
     if (!toDef) return { ok: false, reason: 'unknown_target_def' };
 
-    // 前置（同 placeBuilding：bld_*=已建建筑 id；pol_*=已采纳国策 id）
+    // 前置（bld_*=已建建筑；pol_*=已采纳国策；decree_*=已完成朝令）
     const builtDefIds = new Set(
       this.state.buildings.filter(b => b.status === 'working').map(b => b.defId),
     );
     const adoptedPolicyIds = this.getAdoptedPolicyIds();
+    const completedDecrees = new Set(this.state.completedDecreeIds);
     const missing: string[] = [];
     for (const req of toDef.upgradeRequires) {
       if (req.startsWith('pol_')) {
         if (!adoptedPolicyIds.has(req)) missing.push(req);
+      } else if (req.startsWith('decree_')) {
+        if (!completedDecrees.has(req)) missing.push(req);
       } else {
         if (!builtDefIds.has(req)) missing.push(req);
       }
     }
     if (missing.length > 0) return { ok: false, reason: 'prerequisites_unmet', missing };
 
+    // B-0 占用制：升级需要额外总闲置人口（net = 新需求 - 旧占用）
+    const toRequiredPeople = toDef.cost.people ?? 0;
+    const fromPeople = fromDef.cost.people ?? 0;
+    const netNeeded = Math.max(0, toRequiredPeople - fromPeople);
+    if (netNeeded > 0) {
+      const occ = this.getClassOccupation();
+      const totalIdle = totalPopulation(this.state.populationClasses)
+        - (occ.farmer + occ.worker + occ.soldier + occ.scholar);
+      if (totalIdle < netNeeded) {
+        return { ok: false, reason: 'insufficient_labor' };
+      }
+    }
+
     // 资源：升级专用 cost；未给则回退到 toDef.cost
     const cost = toDef.upgradeCost ?? toDef.cost;
     for (const id of RESOURCE_IDS) {
+      if (id === 'people') continue; // 民=占用制劳力，升级不消耗人口
       const need = cost[id];
       if (need === undefined || need === 0) continue;
       if ((this.state.resources[id] ?? 0) < need) {
@@ -480,6 +722,7 @@ export class GameStore {
 
     const deltas: Partial<Record<ResourceId, number>> = {};
     for (const id of RESOURCE_IDS) {
+      if (id === 'people') continue; // 民=占用制劳力，升级不消耗人口
       const need = cost[id];
       if (need === undefined || need === 0) continue;
       const cur = this.state.resources[id] ?? 0;
@@ -495,6 +738,38 @@ export class GameStore {
       this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_upgrade' });
     }
     return { ok: true };
+  }
+
+  /** 拆除建筑（按引用定位）。返还 50% 非民材料；释放占用劳力（employedLabor 自动重算）。
+   *  constructing/working 都可拆。找不到返回 false。 */
+  removeBuilding(instance: BuildingInstance): boolean {
+    // 按引用或位置匹配（位置唯一，见 canPlace overlap）——调用方可能传 getState() 的克隆，引用匹配会失效。
+    let idx = this.state.buildings.indexOf(instance);
+    if (idx === -1) {
+      idx = this.state.buildings.findIndex(b => b.position.x === instance.position.x && b.position.y === instance.position.y);
+    }
+    const removed = idx !== -1 ? this.state.buildings[idx] : undefined;
+    if (!removed) return false;
+    this.state.buildings.splice(idx, 1);
+    const def = getBuildingDef(removed.defId);
+    const deltas: Partial<Record<ResourceId, number>> = {};
+    if (def) {
+      for (const id of RESOURCE_IDS) {
+        if (id === 'people') continue; // 占用制：民没被消耗，不返还
+        const amount = def.cost[id];
+        if (!amount || amount <= 0) continue;
+        const refund = Math.floor(amount * 0.5);
+        if (refund <= 0) continue;
+        const cur = this.state.resources[id] ?? 0;
+        this.setResourceClamped(id, cur + refund);
+        deltas[id] = refund;
+      }
+    }
+    if (Object.keys(deltas).length > 0) {
+      this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_refund' });
+    }
+    this.emitter.emit(STATE_EVENTS.BUILDING_REMOVED, { instance });
+    return true;
   }
 
   applyDayDeltas(deltas: Partial<Record<ResourceId, number>>): void {
@@ -525,7 +800,18 @@ export class GameStore {
         this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id: m.id });
       }
     }
-
+    // A-3：季节切换优先于 construction/production，保证新季节第一天就生效
+    if (calAfter.season !== calBefore.season) {
+      const removed = this.state.activeModifiers.filter(isSeasonModifier);
+      this.state.activeModifiers = applySeasonTransition(this.state.activeModifiers, calAfter.season);
+      for (const m of removed) this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id: m.id });
+      this.emitter.emit(STATE_EVENTS.MODIFIER_ADDED, { id: `season_modifier_${calAfter.season}` });
+    }
+    // A-3：季节影响建筑工期（春 +20% 速度 / 冬 -33% 速度）— 仅有在建时才算
+    const hasConstructing = this.state.buildings.some(b => b.status === 'constructing');
+    const constructionSpeedMul = hasConstructing
+      ? applyModifiers(1, 'building_construction_speed', this.state.activeModifiers)
+      : 1;
     for (const b of this.state.buildings) {
       if (b.status !== 'constructing') continue;
       const isUpgrade = !!b.upgradingTo;
@@ -535,9 +821,18 @@ export class GameStore {
       const time = isUpgrade ? (targetDef.upgradeTime ?? 1) : targetDef.constructionTime;
       const finishUpgrade = (): void => {
         const oldDefId = b.defId;
+        const oldDef = getBuildingDef(oldDefId);
         b.defId = b.upgradingTo!;
         b.tier = targetDef.tier;
         b.upgradingTo = undefined;
+        // 阶层招募：升级完成后自动将人力转为新建筑所需阶层。
+        // defId 已切换 → occ 自动从 fromCls 释放旧人力、toCls 占新人力。
+        // 只需确保 populationClasses[toCls] 有足够人数覆盖新占用。
+        const toCls: PopulationClass = targetDef.classType ?? 'farmer';
+        const toPeople = targetDef.cost.people ?? 0;
+        if (toPeople > 0) {
+          this.autoRecruitToClass(toCls, toPeople);
+        }
         this.emitter.emit(STATE_EVENTS.BUILDING_UPGRADED, {
           instance: b, fromDefId: oldDefId, toDefId: b.defId,
         });
@@ -550,7 +845,7 @@ export class GameStore {
         else this.emitter.emit(STATE_EVENTS.BUILDING_COMPLETED, b);
         continue;
       }
-      b.constructionProgress += 100 / time;
+      b.constructionProgress += (100 / time) * constructionSpeedMul;
       // 浮点累加可能停在 99.9999 而少建一天；以 99.999 为闸门兜底（DeepSeek findings）
       if (b.constructionProgress >= 99.999) {
         b.constructionProgress = 100;
@@ -575,6 +870,8 @@ export class GameStore {
 
     // Slice F: production / decree / event tick
     this.runProductionTick();
+    // P4：军事节拍（刷新军力 + 推进出征/来犯）放在 NPC 动态之前，让 NPC 据真实军力决策。
+    this.runMilitaryTick();
     this.runDecreeTick();
     this.runEventTick();
     // v1.0 #6：邦交节拍（通商收入 + stance 漂移）
@@ -584,12 +881,23 @@ export class GameStore {
     this.runNpcDynamicsTick();
     // Phase1：人口增长（用 production 后的存粮判生养；在 crisis 之前，让损失计入双零判定）
     this.runPopulationTick();
+    // B-0：阶层转化推进 + 饥饿减员（在 population 后、crisis 前）
+    this.runConversionTick();
+    this.runStarvationTick();
     // Phase1：低谷危机 → 国格晋阶。顺序固定 crisis→grade：
     // crisis 可能掉人口/降级，grade 判定要用 crisis 后的终值，避免同 tick 既升又降的矛盾。
     this.runCrisisTick();
     this.runGradeTick();
+    // B-4.1：阶层博弈（人口>80 后激活；在 grade 后——faction 事件依据国格门槛）
+    this.runFactionTick();
+    // B-4.2：巨型工程推进（每日 -1 天；完成时发奖励 modifier）
+    this.runMegaProjectTick();
     // Phase2：故事导演（仅 story 模式；沙盒 early-return 零污染）
     this.runStoryTick();
+    // A-5：世界呼吸通知
+    this.runBreathingTick();
+    // A-6：史官谏言
+    this.runHistorianTick();
   }
 
   /** 当日产出 / 维护开销 → 资源 deltas（grain 等） */
@@ -687,11 +995,28 @@ export class GameStore {
       return;
     }
     if (this.events.length === 0) return;
-    // 事件冷却：上次事件结算后至少隔 minDaysBetween 天才采样新事件（纪元式呼吸感，防接二连三）
-    const minGap = getBalanceConfig(this.state.mode).event.minDaysBetween;
-    if (this.state.currentDay - this.state.lastEventDay < minGap) return;
+    // A-7：状态驱动事件节奏（替代固定 minDaysBetween）
+    const daysSinceLast = this.state.currentDay - this.state.lastEventDay;
+    // Fast path: skip state assessment during anti-combo window (unless force-trigger)
+    if (daysSinceLast < DEFAULT_TEMPO_CONFIG.antiComboDays && daysSinceLast < DEFAULT_TEMPO_CONFIG.forceMaxDays) return;
+    const grain = this.state.resources['grain'] ?? 0;
+    const grainCap = Math.max(1, (this.state.resources['people'] ?? 20) * 5);
+    const nationInput: NationStateInput = {
+      crisisActive: this.state.crisisActive,
+      npcCountries: this.state.npcCountries,
+      grainCapacityRatio: grain / grainCap,
+      goldAmount: this.state.resources['gold'] ?? 0,
+    };
+    const nationState = assessNationState(nationInput);
+    // Discriminant 0x1F4E9 separates tempo stream from event-selection stream (avoids correlation)
+    const tempoRng = createRng(this.state.rngSeed ^ (this.state.currentDay * 7919) ^ 0x1F4E9);
+    const decision = shouldSampleEvent(daysSinceLast, nationState, tempoRng.next(), DEFAULT_TEMPO_CONFIG);
+    if (!decision.shouldSample) return;
+    // 按状态过滤事件池
+    const filteredEvents = filterEventsByState(this.events, nationState);
+    if (filteredEvents.length === 0) return;
     const metrics = this.computeMetrics();
-    const id = sampleEventTrigger(this.events, this.state.eventHistory, metrics);
+    const id = sampleEventTrigger(filteredEvents, this.state.eventHistory, metrics);
     if (id === null) return;
     this.state.pendingEventId = id;
     this.state.pendingEventDayStart = this.state.currentDay;
@@ -719,7 +1044,7 @@ export class GameStore {
       season: cal.season,
       dayOfYear: this.state.currentDay % 120,
       rng: () => rngHandle.next(),
-      // Phase3 故事维度（沙盒 storyFlags=null → chapter=-1、双轴=0，事件 trigger 的 story_* 条件自然不命中）
+      grade: this.state.grade,
       storyChapter: sf ? sf.chapter : -1,
       storyPowerAxis: sf ? sf.powerAxis : 0,
       storyResourceAxis: sf ? sf.resourceAxis : 0,
@@ -772,6 +1097,8 @@ export class GameStore {
     this.addModifier(result.modifier);
     this.pushStoryAxis(def.storyAxisDelta); // Phase2：国策推双轴
     this.emitter.emit(STATE_EVENTS.POLICY_ADOPTED, { policyId });
+    this.historianIdleDays = 0;
+    this.autoUnpause();
     return result;
   }
 
@@ -793,6 +1120,8 @@ export class GameStore {
     this.state.activeDecrees.push({ ...result.activeRecord });
     this.pushStoryAxis(def.storyAxisDelta); // Phase2：朝令推双轴
     this.emitter.emit(STATE_EVENTS.DECREE_ADOPTED, { decreeId });
+    this.historianIdleDays = 0;
+    this.autoUnpause();
     return result;
   }
 
@@ -876,7 +1205,8 @@ export class GameStore {
     const state = this.findNpcState(npcId);
     if (!state) return { ok: false, reason: 'unknown_npc' };
     const rngFn = rng ?? createRng(this.state.rngSeed ^ this.state.currentDay ^ 0xdeadbeef).next;
-    const result = tryDeclareWar(def, state, this.state.playerMilitaryPower, this.state.currentDay, rngFn);
+    // P4：用"军队派生军力"而非旧静态标量——兵/军事建筑/将领越强，兴师胜率越高。
+    const result = tryDeclareWar(def, state, this.computeCurrentMilitaryPower(), this.state.currentDay, rngFn);
     return this.applyDiplomacyResult(npcId, result, 'war');
   }
 
@@ -954,6 +1284,7 @@ export class GameStore {
     const from = this.state.grade;
     this.state.grade = next;
     if (next > this.state.gradeReached) this.state.gradeReached = next;
+    this.historianGradeAscended = true;
     this.emitter.emit(STATE_EVENTS.GRADE_CHANGED, {
       from, to: next, def: gradeDefAt(next), reason: 'ascend',
     });
@@ -961,6 +1292,380 @@ export class GameStore {
       this.state.tianxiaAcknowledged = true;
       this.emitter.emit(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, { def: gradeDefAt(next) });
     }
+  }
+
+  // ============== B-4.1：阶层博弈 ==============
+
+  /**
+   * 监察台（bld_censor）加成：每座 working 监察台让阶层诉求间隔拉长 30%（"处理效率 +30%"→诉求更稀、少烦你）。
+   * 多座叠乘但封顶 2.0（最多间隔翻倍），避免堆监察台后诉求几乎绝迹。
+   */
+  private factionIntervalFactor(): number {
+    const censors = this.state.buildings.filter(b => b.defId === 'bld_censor' && b.status === 'working').length;
+    if (censors <= 0) return 1;
+    return Math.min(2.0, Math.pow(1.3, censors));
+  }
+
+  private runFactionTick(): void {
+    const people = this.state.resources['people'] ?? 0;
+    const hadDemand = this.state.factionState.activeDemand !== null;
+    const rngHandle = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0xfac7) >>> 0);
+    const next = tickFaction(this.state.factionState, people, this.state.currentDay, rngHandle, this.factionIntervalFactor());
+    this.state.factionState = next;
+    // B-4.1：新诉求出现（null→有）时通知 UI 弹窗（之前从不 emit → 静默死锁，玩家永远看不到）
+    if (!hadDemand && next.activeDemand) {
+      this.emitter.emit(STATE_EVENTS.FACTION_DEMAND_TRIGGERED, {
+        demand: next.activeDemand,
+        factionName: FACTION_NAMES[next.activeDemand.factionId],
+      });
+    }
+  }
+
+  resolveFactionDemand(accepted: boolean): void {
+    const demand = this.state.factionState.activeDemand;
+    if (!demand) return;
+    const { effect, demandId } = resolveDemand(demand, accepted);
+    if (accepted) {
+      this.state.factionState.acceptedDemands.push(demandId);
+    } else {
+      this.state.factionState.rejectedDemands.push(demandId);
+    }
+    this.state.factionState.activeDemand = null;
+    const fRng = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0xfac8) >>> 0);
+    this.state.factionState.nextEventDay = scheduleFactionEvent(this.state.currentDay, fRng, this.factionIntervalFactor());
+    const moraleDelta = (effect.morale ?? 0) + (effect.loyaltyDelta ?? 0);
+    if (moraleDelta !== 0) {
+      this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + moraleDelta));
+    }
+    if (effect.axisShift && this.state.storyFlags) {
+      if (effect.axisShift.axis === 'power') {
+        this.state.storyFlags.powerAxis = Math.max(-100, Math.min(100, this.state.storyFlags.powerAxis + effect.axisShift.delta));
+      } else {
+        this.state.storyFlags.resourceAxis = Math.max(-100, Math.min(100, this.state.storyFlags.resourceAxis + effect.axisShift.delta));
+      }
+    }
+    // 资源/研究类后果（如豪强减赋 goldMul、士人拒绝 researchMul）此前被算出却从不落地——
+    // 用永久 modifier 真正生效，否则选择是空的。goldMul=-0.2 → 产金 ×0.8。
+    if (effect.goldMul) {
+      this.addModifier(this.makeFactionModifier(demandId, 'country_gold_output', 1 + effect.goldMul, '阶层博弈·赋税'));
+    }
+    if (effect.researchMul) {
+      this.addModifier(this.makeFactionModifier(demandId, 'country_research_speed', 1 + effect.researchMul, '阶层博弈·学问'));
+    }
+    this.emitter.emit(STATE_EVENTS.FACTION_DEMAND_RESOLVED, { demandId, accepted });
+  }
+
+  /** B-4.1：把阶层诉求的乘法后果包成永久 modifier。 */
+  private makeFactionModifier(demandId: string, target: ModifierTargetKey, value: number, name: string): ModifierInstance {
+    return {
+      id: `faction_${demandId}_${target}`, name, category: 'economy', stackable: false,
+      effects: [{ target, op: 'mul', value }], visualBadge: null, remainingDays: -1,
+      description: name, descPlain: name,
+    };
+  }
+
+  getFactionState(): Readonly<FactionState> { return { ...this.state.factionState }; }
+
+  // ============== B-4.2：巨型工程 ==============
+
+  private runMegaProjectTick(): void {
+    if (this.state.megaProjects.length === 0) return;
+    const updated: MegaProjectProgress[] = [];
+    for (const prog of this.state.megaProjects) {
+      if (prog.completed) { updated.push(prog); continue; }
+      const def = MEGA_PROJECTS.find(p => p.id === prog.projectId);
+      if (!def) { updated.push(prog); continue; }
+      const phaseDef = def.phases[prog.currentPhase];
+      if (!phaseDef) { updated.push(prog); continue; }
+      // 阶段首日扣费（daysRemaining 等于阶段总天数 = 刚进入该阶段）
+      const isPhaseStart = prog.daysRemaining === phaseDef.durationDays;
+      if (isPhaseStart) {
+        if (!canAffordPhase(def, prog.currentPhase, this.state.resources)) {
+          updated.push(prog);
+          continue;
+        }
+        for (const [res, amount] of Object.entries(phaseDef.cost)) {
+          if (amount && amount > 0) {
+            this.addResource(res as ResourceId, -amount, 'mega_project');
+          }
+        }
+      }
+      const next = tickProject(prog);
+      if (next.completed && !prog.completed) {
+        const reward = getProjectReward(prog.projectId);
+        if (reward) {
+          if (reward.renown) {
+            const renowMod: ModifierInstance = {
+              id: `megaproj_${prog.projectId}_renown`,
+              name: def.name + '（声望）',
+              category: 'economy',
+              stackable: false,
+              effects: [{ target: 'country_renown', op: 'add', value: reward.renown }],
+              visualBadge: null,
+              remainingDays: -1,
+              description: def.name + '功成，天下仰望。',
+              descPlain: def.name + '完工，声望大增。',
+            };
+            this.state.activeModifiers.push(renowMod);
+          }
+          if (reward.productionMul) {
+            const prodMod: ModifierInstance = {
+              id: `megaproj_${prog.projectId}_prod`,
+              name: def.name + '（产出）',
+              category: 'economy',
+              stackable: false,
+              effects: [{ target: 'country_grain_output', op: 'mul', value: reward.productionMul }],
+              visualBadge: null,
+              remainingDays: -1,
+              description: def.name + '贯通四方，百工兴旺。',
+              descPlain: def.name + '完工，产出提升。',
+            };
+            this.state.activeModifiers.push(prodMod);
+          }
+          if (reward.tradeMul) {
+            const tradeMod: ModifierInstance = {
+              id: `megaproj_${prog.projectId}_trade`,
+              name: def.name + '（贸易）',
+              category: 'economy',
+              stackable: false,
+              effects: [{ target: 'country_gold_output', op: 'mul', value: reward.tradeMul }],
+              visualBadge: null,
+              remainingDays: -1,
+              description: def.name + '通达天下，商贾辐辏。',
+              descPlain: def.name + '完工，贸易收入提升。',
+            };
+            this.state.activeModifiers.push(tradeMod);
+          }
+        }
+        this.emitter.emit(STATE_EVENTS.MEGA_PROJECT_COMPLETED, { projectId: prog.projectId, def, reward });
+      }
+      updated.push(next);
+    }
+    this.state.megaProjects = updated;
+  }
+
+  getMegaProjects(): readonly MegaProjectProgress[] { return this.state.megaProjects; }
+
+  startMegaProject(projectId: string): boolean {
+    const def = MEGA_PROJECTS.find(p => p.id === projectId);
+    if (!def || def.phases.length === 0) return false;
+    if (this.state.megaProjects.some(p => p.projectId === projectId)) return false;
+    if (def.prerequisiteBuilding && !this.state.buildings.some(b => b.defId === def.prerequisiteBuilding)) return false;
+    this.state.megaProjects.push({
+      projectId,
+      currentPhase: 0,
+      daysRemaining: def.phases[0]!.durationDays,
+      completed: false,
+    });
+    this.emitter.emit(STATE_EVENTS.MEGA_PROJECT_STARTED, { projectId, def });
+    return true;
+  }
+
+  // ============== B-1 / B-2：军事 + 将领（P4 接入，此前为死代码） ==============
+
+  private militaryContext(): MilitaryContext {
+    return {
+      grade: this.state.grade,
+      buildings: this.state.buildings,
+      adoptedPolicies: this.getAdoptedPolicyIds(),
+      soldierCount: this.availableSoldiers(),
+      grain: this.state.resources['grain'] ?? 0,
+    };
+  }
+
+  /** 可调遣的兵 = 兵阶层 − 已在出征中的兵（防重复派同一批）。 */
+  private availableSoldiers(): number {
+    const onExpedition = this.state.activeExpeditions.reduce(
+      (s, e) => s + Object.values(e.config.units).reduce((a, n) => a + (n ?? 0), 0), 0);
+    return Math.max(0, this.state.populationClasses.soldier - onExpedition);
+  }
+
+  /** 常备军力：基础征召 + 兵阶层×可用最强兵种攻击×最强将领指挥，再经 country_military_power modifier。
+   *  让"兵阶层 + 军事建筑 + 将领"真正驱动军力（此前是与之无关的标量）。 */
+  computeCurrentMilitaryPower(): number {
+    const soldiers = this.state.populationClasses.soldier;
+    const available = getAvailableUnitTypes(this.militaryContext());
+    const bestAtk = available.length
+      ? Math.max(...available.map(u => UNIT_DEFS[u].attack))
+      : UNIT_DEFS.militia.attack;
+    const bestCmd = this.state.generals.reduce((m, g) => Math.max(m, getGeneralDef(g.id)?.command ?? 0), 0);
+    const raw = 20 + soldiers * bestAtk * (1 + bestCmd / 100); // 20=无常备兵时的乡勇守土基数
+    return Math.round(applyModifiers(raw, 'country_military_power', this.state.activeModifiers));
+  }
+
+  getGenerals(): readonly GeneralState[] { return this.state.generals; }
+  hasAvailableGeneral(): boolean { return this.state.generals.some(g => !g.deployed); }
+  getActiveExpeditions(): readonly ActiveExpedition[] { return this.state.activeExpeditions; }
+  getDefenseAlerts(): readonly DefenseAlert[] { return this.state.defenseAlerts; }
+  getAvailableUnitTypesForUi(): UnitType[] { return getAvailableUnitTypes(this.militaryContext()); }
+  getDeployableSoldiers(): number { return this.availableSoldiers(); }
+
+  /** 可招募将领（池中未招 + 未满编）。 */
+  getRecruitableGenerals(): readonly { id: string; name: string; command: number }[] {
+    if (!canRecruit(this.state.generals)) return [];
+    const have = new Set(this.state.generals.map(g => g.id));
+    return GENERAL_POOL.filter(g => !have.has(g.id)).map(g => ({ id: g.id, name: g.name, command: g.command }));
+  }
+
+  recruitGeneral(id: string): boolean {
+    if (!canRecruit(this.state.generals)) return false;
+    if (this.state.generals.some(g => g.id === id) || !getGeneralDef(id)) return false;
+    const COST = 40;
+    if ((this.state.resources['gold'] ?? 0) < COST) return false;
+    this.addResource('gold', -COST, 'recruit_general');
+    this.state.generals = recruitGeneralFn(id, this.state.generals);
+    this.emitter.emit(STATE_EVENTS.GENERALS_CHANGED, { id });
+    return true;
+  }
+
+  dismissGeneral(id: string): boolean {
+    const g = this.state.generals.find(x => x.id === id);
+    if (!g) return false;
+    if (g.deployed) return false; // 出征中不可遣散（防 activeExpeditions 悬空 generalId）
+    this.state.generals = dismissGeneralFn(id, this.state.generals);
+    this.emitter.emit(STATE_EVENTS.GENERALS_CHANGED, { id });
+    return true;
+  }
+
+  launchExpedition(config: ExpeditionConfig): { ok: boolean; reason?: string } {
+    const check = canLaunchExpedition(config, this.militaryContext());
+    if (!check.ok) return check;
+    if (config.generalId && !this.state.generals.some(g => g.id === config.generalId && !g.deployed)) {
+      return { ok: false, reason: 'general_unavailable' };
+    }
+    this.addResource('grain', -config.grainAllocated, 'expedition');
+    if (config.generalId) this.state.generals = deployGeneralFn(config.generalId, this.state.generals);
+    const rng = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0x6217) >>> 0);
+    this.state.activeExpeditions.push(createExpedition(config, rng));
+    this.emitter.emit(STATE_EVENTS.MILITARY_CHANGED, {});
+    return { ok: true };
+  }
+
+  private runMilitaryTick(): void {
+    // 1. 常备军力随兵/建筑/将领刷新（NPC/外交据此判断）
+    this.state.playerMilitaryPower = this.computeCurrentMilitaryPower();
+    // 2. 出征推进 + 到期结算
+    if (this.state.activeExpeditions.length > 0) {
+      const grain = this.state.resources['grain'] ?? 0;
+      const ongoing: ActiveExpedition[] = [];
+      for (const exp of this.state.activeExpeditions) {
+        const ticked = tickExpedition(exp, grain);
+        if (ticked.daysRemaining > 0) { ongoing.push(ticked); continue; }
+        this.resolveExpedition(ticked);
+      }
+      this.state.activeExpeditions = ongoing;
+    }
+    // 3. 来犯预警倒计时 + 结算
+    if (this.state.defenseAlerts.length > 0) {
+      const remaining: DefenseAlert[] = [];
+      for (const alert of this.state.defenseAlerts) {
+        const next = { ...alert, daysUntilAttack: alert.daysUntilAttack - 1 };
+        if (next.daysUntilAttack > 0) { remaining.push(next); continue; }
+        this.resolveIncomingAttack(next);
+      }
+      this.state.defenseAlerts = remaining;
+    }
+    // 4. 每月将领忠诚衰减 + 叛逃
+    if (this.state.currentDay > 0 && this.state.currentDay % 30 === 0 && this.state.generals.length > 0) {
+      const rng = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0x10a1) >>> 0);
+      const { generals, defected } = tickLoyalty(this.state.generals, rng);
+      this.state.generals = generals;
+      if (defected.length > 0) this.emitter.emit(STATE_EVENTS.GENERALS_CHANGED, { defected });
+    }
+    // 5. 偶发来犯预警：敌对(stance<-40)且更强的邻国可能来犯，给 3 日反应窗口。低频，避免压垮玩家。
+    //    玩家的"应对"=平时养兵——有兵则守土结算，无兵则被劫掠（见 resolveIncomingAttack）。
+    if (this.state.defenseAlerts.length === 0 && this.state.currentDay > 0) {
+      const rng = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0xa1e27) >>> 0);
+      if (rng.next() < 0.012) {
+        const hostile = this.state.npcCountries.filter(n => n.stance < -40 && n.militaryPower > this.state.playerMilitaryPower);
+        if (hostile.length > 0) {
+          const pick = hostile[rng.nextInt(0, hostile.length - 1)]!;
+          const alert: DefenseAlert = { npcId: pick.id, daysUntilAttack: 3, npcStrength: pick.militaryPower };
+          this.state.defenseAlerts.push(alert);
+          this.emitter.emit(STATE_EVENTS.DEFENSE_ALERT, { alert });
+        }
+      }
+    }
+  }
+
+  private resolveExpedition(exp: ActiveExpedition): void {
+    const npc = this.findNpcState(exp.config.npcId);
+    const bonus = exp.config.generalId ? computeGeneralBonus(exp.config.generalId) : null;
+    const myStrength = computeArmyStrength(exp.config.units, exp.morale, bonus?.command) * (bonus?.attackMul ?? 1);
+    const enemyStrength = npc?.militaryPower ?? 30;
+    const totalUnits = Object.values(exp.config.units).reduce((s, n) => s + (n ?? 0), 0);
+    const rng = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0xba77e) >>> 0);
+    const r = resolveBattle(myStrength, enemyStrength, totalUnits, rng, false);
+    if (r.lootGrain > 0) this.addResource('grain', r.lootGrain, 'war_loot');
+    if (r.lootGold > 0) this.addResource('gold', r.lootGold, 'war_loot');
+    if (r.unitsLost > 0) this.killSoldiers(r.unitsLost);
+    if (npc) npc.stance = Math.max(-100, Math.min(100, npc.stance + r.npcStanceDelta));
+    if (r.renownGain !== 0) {
+      this.addModifier({
+        id: `war_renown_${this.state.currentDay}_${exp.config.npcId}`, name: '战功声望', category: 'military', stackable: true,
+        effects: [{ target: 'country_renown', op: 'add', value: r.renownGain }], visualBadge: null,
+        remainingDays: -1, description: '战功声望', descPlain: '战功声望',
+      });
+    }
+    if (exp.config.generalId) {
+      this.state.generals = applyBattleResult(this.state.generals, exp.config.generalId, r.outcome !== 'defeat');
+      this.state.generals = returnGeneralFn(exp.config.generalId, this.state.generals);
+    }
+    this.emitter.emit(STATE_EVENTS.EXPEDITION_RESOLVED, { result: r, npcId: exp.config.npcId, target: exp.config.target });
+  }
+
+  private resolveIncomingAttack(alert: DefenseAlert): void {
+    // 守土只算"不在外出征的兵"（出征在外的兵不能同时守家——修 DeepSeek 一兵两用）。
+    const soldiers = this.availableSoldiers();
+    const rng = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0xdefe2) >>> 0);
+    if (soldiers <= 0) {
+      const loss = computeNoInterceptLoss({
+        grain: this.state.resources['grain'] ?? 0, gold: this.state.resources['gold'] ?? 0, people: this.state.resources['people'] ?? 0,
+      }, rng);
+      if (loss.grainLost > 0) this.addResource('grain', -loss.grainLost, 'raided');
+      if (loss.goldLost > 0) this.addResource('gold', -loss.goldLost, 'raided');
+      if (loss.peopleLost > 0) {
+        this.shrinkPopulationClasses(loss.peopleLost);
+        this.setResourceClamped('people', totalPopulation(this.state.populationClasses));
+      }
+      this.emitter.emit(STATE_EVENTS.EXPEDITION_RESOLVED, { defense: true, intercepted: false, npcId: alert.npcId });
+      return;
+    }
+    // 守军以"现有最强可用兵种"列阵（而非恒按民兵），让练兵场/马厩等防御也增益。
+    const available = getAvailableUnitTypes(this.militaryContext());
+    const bestDef: UnitType = available.length
+      ? available.reduce((a, b) => (UNIT_DEFS[b].defense > UNIT_DEFS[a].defense ? b : a))
+      : 'militia';
+    const myDef = computeDefenseStrength({ [bestDef]: soldiers }, 80);
+    const r = resolveBattle(myDef, alert.npcStrength, soldiers, rng, true);
+    if (r.unitsLost > 0) this.killSoldiers(r.unitsLost);
+    this.emitter.emit(STATE_EVENTS.EXPEDITION_RESOLVED, { defense: true, intercepted: true, result: r, npcId: alert.npcId });
+  }
+
+  /** 战损：从兵阶层扣，并同步 people。 */
+  private killSoldiers(n: number): void {
+    const lost = Math.min(this.state.populationClasses.soldier, Math.max(0, Math.floor(n)));
+    if (lost <= 0) return;
+    this.state.populationClasses.soldier -= lost;
+    this.addResource('people', -lost, 'war_loss');
+  }
+
+  // ============== B-4.3：互斥国策 ==============
+
+  getExclusivePolicies(): readonly string[] { return this.state.exclusivePolicies; }
+
+  adoptExclusivePolicy(policyId: string): boolean {
+    const excluded = getExcludedPolicyId(policyId);
+    if (excluded === undefined) return false;
+    const group = POLICY_EXCLUSION_GROUPS.find(g =>
+      g.policies[0].id === policyId || g.policies[1].id === policyId);
+    if (!group) return false;
+    if (this.state.grade < group.minGrade) return false;
+    if (this.state.exclusivePolicies.includes(policyId)) return false;
+    const idx = this.state.exclusivePolicies.indexOf(excluded);
+    if (idx >= 0) this.state.exclusivePolicies.splice(idx, 1);
+    this.state.exclusivePolicies.push(policyId);
+    return true;
   }
 
   // ============== Phase2：故事导演层（仅 story 模式） ==============
@@ -1020,6 +1725,15 @@ export class GameStore {
     if (sf.ending !== null) return; // 已到结局
     const def = chapterAt(sf.chapter);
     const daysInChapter = this.state.currentDay - sf.chapterStartDay;
+
+    // C-2：叙事报文（章节 dwell 期间按 dayOffset 精确触发）
+    const bulletins = getBulletinsForChapter(sf.chapter);
+    for (const bul of bulletins) {
+      if (daysInChapter === bul.dayOffset) {
+        this.emitter.emit(STATE_EVENTS.BREATHING_BULLETIN, { entry: { id: bul.id, text: bul.text, textPlain: bul.textPlain } });
+      }
+    }
+
     const met = def.advanceGoal
       ? chapterGoalMet(def.advanceGoal, new Set(sf.storyEventsTriggered), daysInChapter)
       : (def.advanceAfterDays ?? 0) > 0 && daysInChapter >= (def.advanceAfterDays ?? 0);
@@ -1034,12 +1748,84 @@ export class GameStore {
     }
   }
 
+  private runBreathingTick(): void {
+    const cal = dayToCalendar(this.state.currentDay);
+    const buildingDefIds = new Set(this.state.buildings.filter(b => b.status === 'working').map(b => b.defId));
+    const totalPop = this.state.resources.people ?? 0;
+    const idleLabor = this.getIdleLabor();
+    const populationRatio = totalPop > 0 ? idleLabor / totalPop : 1;
+    const ctx: BreathingContext = {
+      currentDay: this.state.currentDay,
+      season: cal.season,
+      resources: this.state.resources as Record<string, number>,
+      populationRatio,
+      buildingDefIds,
+      hasHostileNpc: this.state.npcCountries.some(n => n.stance <= -30),
+      hasFriendlyNpc: this.state.npcCountries.some(n => n.stance >= 30),
+      crisisActive: this.state.crisisActive,
+      grade: this.state.grade,
+      lastEventDay: this.state.lastEventDay,
+    };
+    const rng = createRng(this.state.rngSeed ^ (this.state.currentDay * 0x2B57));
+    const rngFn = () => rng.next();
+    const toast = tickBreathingToast(this.breathingState, ctx, rngFn);
+    if (toast.entry) {
+      this.emitter.emit(STATE_EVENTS.BREATHING_TOAST, { entry: toast.entry });
+    }
+    const bulletin = tickBreathingBulletin(this.breathingState, ctx, rngFn);
+    if (bulletin.entry) {
+      this.emitter.emit(STATE_EVENTS.BREATHING_BULLETIN, { entry: bulletin.entry });
+    }
+  }
+
+  private runHistorianTick(): void {
+    const grain = this.state.resources.grain ?? 0;
+    this.historianGrainNegDays = grain < 0 ? this.historianGrainNegDays + 1 : 0;
+    this.historianIdleDays++;
+
+    const cal = dayToCalendar(this.state.currentDay);
+    const buildingDefIds = new Set(this.state.buildings.filter(b => b.status === 'working').map(b => b.defId));
+    const ctx: HistorianContext = {
+      currentDay: this.state.currentDay,
+      isFirstDay: this.state.currentDay === 1,
+      grainNegativeDays: this.historianGrainNegDays,
+      gold: this.state.resources.gold ?? 0,
+      hasGoldCostBuilding: this.state.buildings.some(b => b.status === 'constructing'),
+      policyPanelUnlocked: this.state.grade >= 1 && this.state.policies.every(p => !p.adopted),
+      hasHostileNpc: this.state.npcCountries.some(n => n.stance <= -30),
+      populationAtCap: (this.state.resources.people ?? 0) >= this.getHousingCap() && this.getHousingCap() > 0,
+      gradeJustAscended: this.historianGradeAscended,
+      idleDays: this.historianIdleDays,
+      crisisActive: this.state.crisisActive,
+      noAdjacentBonus: buildingDefIds.has('bld_farm') && !buildingDefIds.has('bld_well') && this.state.buildings.length >= 5,
+      isFirstWinter: cal.season === 3,
+      hasAvailableGeneral: this.hasAvailableGeneral(),
+      seenIds: new Set(this.state.seenJitHints),
+    };
+    const result = checkHistorian(ctx);
+    if (result.advice) {
+      this.state.seenJitHints.push(result.advice.id);
+      this.emitter.emit(STATE_EVENTS.HISTORIAN_ADVICE, { advice: result.advice });
+    }
+    if (result.advice?.id === 'hist_07_grade_ascend') {
+      this.historianGradeAscended = false;
+    }
+  }
+
   /** 推进到指定章节并发 banner 事件（GameScene 跳变过场结束 / runStoryTick 占位推进调用）。 */
   advanceStoryChapter(chapter: number): void {
     if (!this.state.storyFlags) return;
-    this.storyTransitionPending = false; // 跳变过场已落地
+    // C-3：切章时为上一章发史官评语（基于权力轴判断倾向）
+    const prevChapter = this.state.storyFlags.chapter;
+    if (prevChapter >= 1 && prevChapter <= 7) {
+      const comment = getHistorianComment(prevChapter, this.state.storyFlags.powerAxis);
+      if (comment) {
+        this.emitter.emit(STATE_EVENTS.STORY_NARRATION, { text: '史官评曰：' + comment });
+      }
+    }
+    this.storyTransitionPending = false;
     this.state.storyFlags.chapter = chapter;
-    this.state.storyFlags.chapterStartDay = this.state.currentDay; // 重置本章计时
+    this.state.storyFlags.chapterStartDay = this.state.currentDay;
     this.emitter.emit(STATE_EVENTS.STORY_CHAPTER_CHANGED, { chapter, def: chapterAt(chapter) });
   }
 
@@ -1075,6 +1861,11 @@ export class GameStore {
   /** 新局重置 NPC 阵容（用随机种子从池中选 4，含 ≥1 蛮夷）。IntroScene 立国时调，使每局不同。 */
   startNewGameNpcs(seed: number): void {
     this.state.npcCountries = selectNpcsForGame(seed);
+    // A-3：新游戏注入当前季节 modifier
+    if (!this.state.activeModifiers.some(isSeasonModifier)) {
+      const cal = dayToCalendar(this.state.currentDay);
+      this.state.activeModifiers = applySeasonTransition(this.state.activeModifiers, cal.season);
+    }
   }
 
   /**
@@ -1114,6 +1905,18 @@ export class GameStore {
       const next = alliancePatch[s.id];
       if (next && (next.length !== s.allyIds.length || next.some((id, i) => id !== s.allyIds[i]))) {
         s.allyIds = next;
+        changed = true;
+      }
+    }
+
+    // B-3: NPC AI 决策（30天一次简单规则：攻击/求贸/求盟/合纵）
+    for (const s of npcs) {
+      const otherNpcs = npcs.filter(n => n.id !== s.id);
+      const decision = computeNpcDecision(
+        s, this.state.playerMilitaryPower, otherNpcs, this.state.currentDay, rngHandle,
+      );
+      if (decision) {
+        s.lastActionDay = this.state.currentDay;
         changed = true;
       }
     }
@@ -1158,22 +1961,168 @@ export class GameStore {
 
   // ============== Phase1：人口增长 ==============
 
-  /** 每日：有余粮 + 未满住房上限 → 人口渐增；缺粮 → 流失。走 addResource 自带 clamp。 */
+  /** 最近一次 runPopulationTick 的增长趋势与浮点日增量（运行时，不入存档）——供 HUD/详情面板。 */
+  private lastPopReason: 'grow' | 'cap' | 'idle' | 'overflow' = 'idle';
+  private lastPopRawNet = 0;
+
+  /**
+   * BUG-A：负增长（超住房上限的"无家可归"流失）唯一出口——从农→工→兵→士级联扣减、不扣穿 0。
+   * 与 applyStarvation 的 STARVATION_ORDER 同序，保证负增长口径单一、不分裂。返回实际扣减数。
+   */
+  private shrinkPopulationClasses(n: number): number {
+    let remaining = Math.floor(n);
+    let removed = 0;
+    for (const cls of POPULATION_CLASSES) {
+      if (remaining <= 0) break;
+      const take = Math.min(this.state.populationClasses[cls], remaining);
+      if (take > 0) {
+        this.state.populationClasses[cls] -= take;
+        remaining -= take;
+        removed += take;
+      }
+    }
+    return removed;
+  }
+
+  /**
+   * 每日：有余粮 + 未满住房上限 → 人口渐增。缺粮减员**不在此**（由 runStarvationTick 独家负责，
+   * 避免双重扣减）。余粮正反馈：粮储够的天数越多增长越快，封顶 ×1.5。
+   */
   private runPopulationTick(): void {
     const people = this.state.resources['people'] ?? 0;
     const grainStock = this.state.resources['grain'] ?? 0;
     // §8.1 双表：按模式取人口参数（故事用 STORY_BALANCE 覆盖）
     const popCfg = getBalanceConfig(this.state.mode).population;
-    // 住房上限 = 基数 + working 建筑 housingCapacity，再经 country_population_cap modifier 聚合
-    const housingBase = popCfg.baseHousingCap + sumHousingCapacity(this.state.buildings, getBuildingDef);
-    const housingCap = applyModifiers(housingBase, 'country_population_cap', this.state.activeModifiers);
+    // A-3：季节 modifier 影响人口增长率（夏 +50%）
+    const growthMul = applyModifiers(1, 'country_population_growth', this.state.activeModifiers);
+    // 余粮正反馈（2026-06-17）：surplusDays = 存粮 / 当日阶层粮耗；够 1 日 ×1.0、3 日 ×1.2、≥6 日 ×1.5。
+    // 缺粮时不起作用（computePopulationGrowth 会判 idle）。给"攒粮"一个正向回报，也加速中后期。
+    const grainPerDay = computeClassConsumption(this.state.populationClasses).totalGrain;
+    // 无消耗者（grainPerDay=0）按基准、不额外奖励，避免"撤掉所有消耗以刷满加成"（DeepSeek 复审 ID-R3）
+    const surplusDays = grainPerDay > 0 ? grainStock / grainPerDay : 1;
+    const surplusMul = Math.max(1, Math.min(1.5, 1 + (surplusDays - 1) * 0.1));
+    const totalMul = growthMul * surplusMul;
+    const effectiveCfg = totalMul === 1 ? popCfg : {
+      ...popCfg,
+      // 季节(growthMul) + 余粮(surplusMul) 共同加速"百分比增长"；但保底 minDailyGrowth 只随季节、
+      // 不被余粮抬高，否则夏季囤粮时保底被放大到 2.7/天、开局几天就撞顶（DeepSeek 复审 ID-R4）。
+      growthRatePerDay: popCfg.growthRatePerDay * totalMul,
+      minDailyGrowth: popCfg.minDailyGrowth * growthMul,
+    };
+    const housingCap = this.getHousingCap();
     const result = computePopulationGrowth(
-      { people, housingCap, grainStock, carry: this.state.populationCarry },
-      popCfg,
+      {
+        people, housingCap, grainStock, carry: this.state.populationCarry,
+        minimumPopulation: DEFAULT_STARVATION.minimumPopulation,
+        dailyConsumption: grainPerDay, // 仅"够喂当前人口的真余粮"才触发超限回落，防与饥荒双扣
+      },
+      effectiveCfg,
     );
     this.state.populationCarry = result.carry;
+    // 趋势快照（运行时）——供 HUD 顶栏箭头 + 详情面板"今日约 +X"
+    this.lastPopReason = result.reason;
+    this.lastPopRawNet = result.rawNet;
     if (result.peopleDelta !== 0) {
+      // ID-1 修复：addResource 内部 clamp 到 [0,9999]，故用"调用前后的实际差值"同步阶层，
+      // 不能直接用 result.peopleDelta（否则 clamp 掉的部分会经 classTotal 回写、绕过 9999 上限）。
+      const before = this.state.resources['people'] ?? 0;
       this.addResource('people', result.peopleDelta, 'population');
+      const actual = (this.state.resources['people'] ?? 0) - before;
+      if (actual > 0) {
+        // B-0：新增人口全部归入 farmer（最基础阶层）
+        this.state.populationClasses.farmer += actual;
+      } else if (actual < 0) {
+        // BUG-A：超上限回落，从农→工→兵→士级联扣减（统一出口，不只扣 farmer）
+        this.shrinkPopulationClasses(-actual);
+      }
+    }
+    // B-0：同步 populationClasses 总和 → resources.people（防漂移）；经 setResourceClamped，不绕过 [0,9999]
+    const classTotal = totalPopulation(this.state.populationClasses);
+    if (classTotal !== (this.state.resources['people'] ?? 0)) {
+      this.setResourceClamped('people', classTotal);
+    }
+  }
+
+  /**
+   * 人口状态快照（供 HUD 顶栏 + 详情面板）。reason 含 UI 专用的 'starve'：
+   * 缺粮时（即便仍在 applyStarvation 宽限期内）也提前飘红预警，让玩家及时补粮。
+   */
+  getPopulationStatus(): {
+    total: number;
+    idle: number;
+    cap: number;
+    reason: 'grow' | 'cap' | 'idle' | 'starve' | 'overflow';
+    dailyRaw: number;
+    classes: Readonly<PopulationClasses>;
+    occupation: ClassOccupation;
+    grainDays: number;
+  } {
+    const total = this.state.resources['people'] ?? 0;
+    const grainStock = this.state.resources['grain'] ?? 0;
+    const grainPerDay = computeClassConsumption(this.state.populationClasses).totalGrain;
+    const grainDays = grainPerDay > 0 ? grainStock / grainPerDay : Infinity;
+    let reason: 'grow' | 'cap' | 'idle' | 'starve' | 'overflow' = this.lastPopReason;
+    if (grainStock <= 0 && total > 0) reason = 'starve';
+    return {
+      total,
+      idle: this.getIdleLabor(),
+      cap: this.getHousingCap(),
+      reason,
+      dailyRaw: this.lastPopRawNet,
+      classes: this.getPopulationClasses(),
+      occupation: this.getClassOccupation(),
+      grainDays,
+    };
+  }
+
+  /** B-0：每日转化队列推进（4 天完成一批转化） */
+  private runConversionTick(): void {
+    if (this.state.conversionQueue.length === 0) return;
+    const { completed, remaining } = tickConversionQueue(this.state.conversionQueue);
+    this.state.conversionQueue = remaining;
+    for (const order of completed) {
+      this.state.populationClasses[order.to] += order.count;
+    }
+  }
+
+  /** B-0：缺粮饥饿减员（宽限 5 日 → 温和 2% → 15 日后严重 5%） */
+  private runStarvationTick(): void {
+    const grainBefore = this.state.resources['grain'] ?? 0;
+    const consumption = computeClassConsumption(this.state.populationClasses);
+    // BUG-B（2026-06-19）：人口每日真实吃粮——此前只比较不扣库存，导致粮食爆仓(粮9999)、
+    // 粮食几乎无消耗。现真实扣减（addResource 已 clamp≥0，扣到 0 即止）。
+    if (consumption.totalGrain > 0) {
+      this.addResource('grain', -consumption.totalGrain, 'consumption');
+    }
+    // 缺口判定用"扣前库存 grainBefore"：用扣后会被 clamp 到 0 而误判永久缺粮。
+    if (grainBefore < consumption.totalGrain) {
+      this.state.grainNegativeDays += 1;
+    } else {
+      this.state.grainNegativeDays = 0;
+    }
+    // P3（2026-06-19）：中后期供养闭环——工要布、兵要铜、士要钱。此前 computeClassConsumption 算了却不扣
+    // → 布/铜囤到爆仓、阶层资源无意义。现真实扣减形成消耗出口。短缺**非致命**（不像缺粮饿死）：扣到 0 即止，
+    // 仅按是否短缺给轻微民心下滑（-1/日，可随补给恢复），提示玩家"该建蚕桑/铸造、给士发俸"。
+    let supplyShort = false;
+    for (const [res, need] of [['cloth', consumption.totalCloth], ['bronze', consumption.totalBronze], ['gold', consumption.totalGold]] as const) {
+      if (need > 0) {
+        const before = this.state.resources[res] ?? 0;
+        this.addResource(res, -need, 'consumption');
+        if (before < need) supplyShort = true;
+      }
+    }
+    if (supplyShort) {
+      this.state.playerMorale = Math.max(0, this.state.playerMorale - 1);
+    }
+    if (this.state.grainNegativeDays <= 0) return;
+    // 缺口造成的减员由 applyStarvation 独家负责；此处只扣粮、不额外减员，杜绝双扣。
+    const result = applyStarvation(this.state.populationClasses, this.state.grainNegativeDays);
+    if (result.peopleLost > 0) {
+      this.state.populationClasses = result.pop;
+      this.addResource('people', -result.peopleLost, 'starvation');
+    }
+    if (result.moralePenalty > 0) {
+      this.state.playerMorale = Math.max(0, this.state.playerMorale - result.moralePenalty);
     }
   }
 
@@ -1334,8 +2283,37 @@ export class GameStore {
     if (typeof newState.crisisCount !== 'number' || !Number.isFinite(newState.crisisCount)) newState.crisisCount = 0;
     if (typeof newState.vassalOf !== 'string') newState.vassalOf = newState.vassalOf === null ? null : null;
     if (newState.storyFlags === undefined) newState.storyFlags = null;
+    // B-0：人口阶层（内存路径可能缺 → 全归 farmer）
+    if (!newState.populationClasses || typeof newState.populationClasses !== 'object') {
+      newState.populationClasses = createDefaultPopulation(newState.resources['people'] ?? 0);
+    }
+    if (!Array.isArray(newState.conversionQueue)) newState.conversionQueue = [];
+    if (typeof newState.grainNegativeDays !== 'number') newState.grainNegativeDays = 0;
+    // 占用制迁移：旧档 people 曾被"建筑消耗 people"的老 bug 吃空，但建筑仍在、仍占编制。
+    // 若 people < 已占用劳力，读档后闲置劳力恒为 0 → 一栋都建不了的硬软锁。补足 people 到已占用量解死局。
+    {
+      let employed = 0;
+      for (const b of newState.buildings) {
+        if (b.status !== 'constructing' && b.status !== 'working') continue;
+        employed += getBuildingDef(b.defId)?.cost.people ?? 0;
+      }
+      const curPeople = newState.resources.people ?? 0;
+      if (curPeople < employed) newState.resources.people = employed;
+    }
+    // A-3：存档加载时强制修正季节 modifier（防重复/损坏堆叠）
+    {
+      const cal = dayToCalendar(newState.currentDay);
+      newState.activeModifiers = applySeasonTransition(newState.activeModifiers, cal.season);
+    }
     this.state = newState;
     this.worldMapAccessor = new WorldMapAccessor(newState.worldMap);
+    // 瞬态字段重置：防止旧会话的暂停/呼吸/史官状态泄漏到新存档
+    this.pauseHolders.clear();
+    this.storyTransitionPending = false;
+    this.breathingState = createBreathingState();
+    this.historianGrainNegDays = 0;
+    this.historianIdleDays = 0;
+    this.historianGradeAscended = false;
     this.emitter.emit(STATE_EVENTS.STATE_REPLACED, undefined);
   }
 }

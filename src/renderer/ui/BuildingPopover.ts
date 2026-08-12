@@ -69,7 +69,6 @@ export class BuildingPopover {
   private outsideClickHandler: ((p: Phaser.Input.Pointer) => void) | null = null;
   private escHandler: (() => void) | null = null;
   private upgradedListener: (...args: unknown[]) => void;
-  private resourcesListener: (...args: unknown[]) => void;
   private adjacencyTexts: Phaser.GameObjects.Text[] = [];
 
   constructor(scene: Phaser.Scene, store: GameStore, toast: Toast | null) {
@@ -82,12 +81,9 @@ export class BuildingPopover {
       // 当前展示的建筑刚升级完 → 关闭，让玩家看到金边脉冲
       if (this.currentInstance && payload.instance === this.currentInstance) this.hide();
     };
-    this.resourcesListener = (): void => {
-      // 资源变化：若 popover 开着，重画一次按钮态（资源够/不够）
-      if (this.currentInstance) this.redraw();
-    };
     this.store.on(STATE_EVENTS.BUILDING_UPGRADED, this.upgradedListener);
-    this.store.on(STATE_EVENTS.RESOURCES_CHANGED, this.resourcesListener);
+    // 不再监听 RESOURCES_CHANGED 重绘：产出每 tick 变 → 每 tick hide+show 造成弹窗漂移+闪烁。
+    // 弹窗改为开启时画一次快照；升级能否点在点击时由 upgradeBuilding 重新校验，不影响功能。
   }
 
   /** 是否正在显示（GameScene handlePointerDown 用来防误关） */
@@ -113,14 +109,7 @@ export class BuildingPopover {
       POPOVER_PAD * 2 + TITLE_H + ROW_GAP + descLineCount * DESC_LINE_H + adjacencyRowH + ROW_GAP + upgradeRowH + hintH;
 
     // 锚到点击位置上方；越界则贴边
-    const sw = this.scene.scale.width;
-    const sh = this.scene.scale.height;
-    let px = anchorScreenX - POPOVER_W / 2;
-    let py = anchorScreenY - totalH - 12;
-    if (px < 8) px = 8;
-    if (px + POPOVER_W > sw - 8) px = sw - POPOVER_W - 8;
-    if (py < 8) py = anchorScreenY + 16; // 上方放不下就放下方
-    if (py + totalH > sh - 8) py = sh - totalH - 8;
+    const { px, py } = this.computePos(anchorScreenX, anchorScreenY, totalH);
 
     this.container = this.scene.add.container(px, py).setScrollFactor(0).setDepth(DEPTH);
 
@@ -171,7 +160,7 @@ export class BuildingPopover {
         const t = this.scene.add.text(POPOVER_PAD, cy, label, {
           ...FONTS.smallDim,
           color: COLORS_HEX.GOLD,
-          fontSize: '12px',
+          fontSize: '14px',
         } as Phaser.Types.GameObjects.Text.TextStyle);
         this.container.add(t);
         this.adjacencyTexts.push(t);
@@ -194,6 +183,19 @@ export class BuildingPopover {
     // ESC 关
     this.escHandler = (): void => this.hide();
     this.scene.input.keyboard?.on('keydown-ESC', this.escHandler);
+  }
+
+  /** 计算 popover 左上角屏幕坐标：默认锚点上方居中，越界则翻到下方/贴边。 */
+  private computePos(anchorScreenX: number, anchorScreenY: number, totalH: number): { px: number; py: number } {
+    const sw = this.scene.scale.width;
+    const sh = this.scene.scale.height;
+    let px = anchorScreenX - POPOVER_W / 2;
+    let py = anchorScreenY - totalH - 12;
+    if (px < 8) px = 8;
+    if (px + POPOVER_W > sw - 8) px = sw - POPOVER_W - 8;
+    if (py < 8) py = anchorScreenY + 16; // 上方放不下就放下方
+    if (py + totalH > sh - 8) py = sh - totalH - 8;
+    return { px, py };
   }
 
   /**
@@ -235,10 +237,13 @@ export class BuildingPopover {
     );
 
     // 前置缺失
+    const completedDecrees = new Set(this.store.getCompletedDecreeIds());
     const missing: string[] = [];
     for (const req of toDef.upgradeRequires) {
       if (req.startsWith('pol_')) {
         if (!adopted.has(req)) missing.push(req);
+      } else if (req.startsWith('decree_')) {
+        if (!completedDecrees.has(req)) missing.push(req);
       } else if (!builtIds.has(req) && req !== fromDef.id) {
         missing.push(req);
       }
@@ -273,7 +278,7 @@ export class BuildingPopover {
       .text(btnX + btnW / 2, cy + BUTTON_H / 2, label, {
         ...FONTS.body,
         color: ok ? COLORS_HEX.GOLD : COLORS_HEX.ASH,
-        fontSize: '13px',
+        fontSize: '14px',
       } as Phaser.Types.GameObjects.Text.TextStyle)
       .setOrigin(0.5, 0.5);
     this.container.add(this.upgradeBtnLabel);
@@ -342,17 +347,6 @@ export class BuildingPopover {
     return map[reason] ?? `升级失败：${reason}`;
   }
 
-  private redraw(): void {
-    if (!this.currentInstance) return;
-    // 简单做：拿原 anchor 重画。container.x/y 当 anchor 用——保持位置
-    if (!this.container) return;
-    const px = this.container.x;
-    const py = this.container.y;
-    const inst = this.currentInstance;
-    this.hide();
-    // 重新 show 在原位（偏移 0,0）—— 用左上角作为 anchor 时，show 会做边界 clamp，避免抖
-    this.show(inst, px + POPOVER_W / 2, py); // anchor 是上方中心，show 内部减 totalH
-  }
 
   private bindOutsideClick(): void {
     if (!this.container) return;
@@ -395,7 +389,6 @@ export class BuildingPopover {
   destroy(): void {
     this.hide();
     this.store.off(STATE_EVENTS.BUILDING_UPGRADED, this.upgradedListener);
-    this.store.off(STATE_EVENTS.RESOURCES_CHANGED, this.resourcesListener);
   }
 }
 

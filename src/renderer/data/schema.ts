@@ -16,6 +16,7 @@ import type {
   ResourceId,
   ModifierTargetKey,
 } from './resourceRegistry';
+import type { PopulationClass } from './populationClass';
 
 // ============== Modifier ================================================
 
@@ -56,8 +57,8 @@ export interface ModifierInstance {
 
 export type BuildingCategory = '民生' | '工坊' | '礼制' | '军事' | '科技';
 
-/** Tier 1 = 茅屋, Tier 2 = 瓦房, Tier 3 = 殿宇 */
-export type BuildingTier = 1 | 2 | 3;
+/** Tier 1 = 茅屋, Tier 2 = 瓦房, Tier 3 = 殿宇, Tier 4 = 传国/巨构（禁军府·太庙·九鼎） */
+export type BuildingTier = 1 | 2 | 3 | 4;
 
 export type BuildingStatus =
   | 'idle'
@@ -99,6 +100,8 @@ export interface BuildingDef {
   adjacencyBonus?: AdjacencyBonus[];
   /** Phase1：提供的住房容量（人口增长上限）。仅居住类建筑（民居/王宫等）设置。 */
   housingCapacity?: number;
+  /** B-0：该建筑需要哪种阶层劳力。缺省='farmer'；无劳力需求的建筑(cost.people=0/undefined)忽略此字段 */
+  classType?: PopulationClass;
 }
 
 /** v1.0 #3：相邻加成规则 —— 受益方为本 def，命中范围内有 partnerDefId 时启用。 */
@@ -228,6 +231,8 @@ export interface CourtEvent {
   choices?: CourtEventChoice[];
   /** 多少游戏内秒/天后未处理则按 choices[0] 默认（保守选项） */
   defaultTimeoutDays?: number;
+  /** 2026-06-19：事件插画纹理 key（如 'evt_art_flood'）。有则 EventModal 在标题下展示一张插画；缺图静默回退纯文字。 */
+  illustrationKey?: string;
 }
 
 // ============== Royal Decree (朝令) =====================================

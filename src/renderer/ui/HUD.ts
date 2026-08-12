@@ -76,14 +76,22 @@ export class HUD {
   private snapNextResourceUpdate = false; // STATE_REPLACED 时跳过 tween（读档不该看到数字飞）
   // 日期文字软淡入：每次文本变化淡入一下，给"日推进"一点呼吸感
   private dateFadeTween: Phaser.Tweens.Tween | null = null;
+  // A-8：资源变化飘字
+  private floatTexts: Array<{ t: Phaser.GameObjects.Text; tw: Phaser.Tweens.Tween }> = [];
   // Slice G 教程：右上角的 "?" 按钮，重开欢迎引导
   private helpBg: Phaser.GameObjects.Graphics | null = null;
   private helpLabel: Phaser.GameObjects.Text | null = null;
   private helpZone: Phaser.GameObjects.Zone | null = null;
-  // v1.0 #6：邦交按钮，开关 DiplomacyPanel（位于 ? 按钮左侧）
-  private diplomacyBg: Phaser.GameObjects.Graphics | null = null;
-  private diplomacyLabel: Phaser.GameObjects.Text | null = null;
-  private diplomacyZone: Phaser.GameObjects.Zone | null = null;
+  // A-1：设置按钮（音量），顶栏右侧工具角
+  private settingsBg: Phaser.GameObjects.Graphics | null = null;
+  private settingsLabel: Phaser.GameObjects.Text | null = null;
+  private settingsZone: Phaser.GameObjects.Zone | null = null;
+  // 2026-06-19：主功能工具栏（朝堂/邦交/军务/大业）——顶栏下方独立一排大按钮（参考钢铁雄心）。
+  private toolbarBg: Phaser.GameObjects.Graphics | null = null;
+  private toolbarBtns: { bg: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone }[] = [];
+  // 2026-06-17：点击"民"token 打开人口详情面板
+  private populationZone: Phaser.GameObjects.Zone | null = null;
+  private peopleTokenX = 0;
 
   // 监听器引用（destroy 解绑）
   private onResources = (): void => this.refreshResources();
@@ -152,9 +160,14 @@ export class HUD {
     this.bgGfx.lineStyle(1, COLORS.GOLD_DIM, 0.8);
     this.bgGfx.lineBetween(0, h, w, h);
 
-    // 资源区域：左侧起，每个资源占 ~84px（J-1 修缺陷 #4：tokenW 92→84
-    // 给中央日期腾出空间，1280px 最小宽度下不再和资源 token 重叠）
-    const tokenW = 84;
+    // 资源区域：左侧起，每个资源占 ~104px。早期 84px 太挤（数字贴下一个色块），
+    // 且"民"改成 X/Y 后更宽；放宽到 104 让每项有呼吸感。日期块动态贴在 cursorX 之后，
+    // 1280px 最小宽度下 8×104 + 日期 + 国格仍排得下。
+    const tokenW = 104;
+    // 2026-06-19：「民」token 显示"现有/上限 + 趋势箭头"（如 120/120 ▲），三位数时远超普通 token 宽度，
+    // 会顶到下一个"布"。给它略宽的槽位 + refreshResources 里把该数字字号调小到 16px，两者配合容下三位数；
+    // 不取过大值(150)以免 1280 最小宽度下把日期挤进右侧按钮。
+    const peopleTokenW = 120;
     const padX = 12;
     let cursorX = padX;
     const tokenY = Math.floor(h / 2);
@@ -189,8 +202,22 @@ export class HUD {
       token.swatch.setPosition(cursorX, tokenY);
       token.label.setPosition(cursorX + 18, tokenY - 9);
       token.txt.setPosition(cursorX + 36, tokenY - 9);
-      cursorX += tokenW;
+      if (id === 'people') { this.peopleTokenX = cursorX; cursorX += peopleTokenW; }
+      else cursorX += tokenW;
     }
+
+    // 2026-06-17：覆盖"民"token 的点击区，开关人口详情面板（PopulationPanel）
+    if (!this.populationZone) {
+      this.populationZone = this.scene.add.zone(0, 0, peopleTokenW, 28).setOrigin(0, 0)
+        .setInteractive({ useHandCursor: true });
+      // pointerup（非 pointerdown）：否则打开的那一下"松手"会落到刚弹出的面板遮罩上→秒关（"按着才看得见"bug）
+      this.populationZone.on('pointerup', () => {
+        const panel = this.scene.registry.get('populationPanel') as { toggle?: () => void } | undefined;
+        panel?.toggle?.();
+      });
+      this.container.add(this.populationZone);
+    }
+    this.populationZone.setPosition(this.peopleTokenX, tokenY - 16).setSize(peopleTokenW, 28);
 
     // 日期文字：放在资源区右侧，紧跟 cursorX（J-1 修缺陷 #4：v0.7 用 w/2-80
     // 固定位置，资源 token 多时会和日期重叠；现在动态贴在最后一个 token 后面）
@@ -221,7 +248,12 @@ export class HUD {
       } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5, 0.5);
       this.helpZone = this.scene.add.zone(0, 0, helpBtnW, btnSize).setOrigin(0, 0)
         .setInteractive({ useHandCursor: true });
-      this.helpZone.on('pointerdown', () => this.store.setTutorialStepId('tut_welcome'));
+      // 2026-06-19：「?」改为打开「典册」（新手引导/百科），比重放一次性欢迎引导更有用、可随时查
+      this.helpZone.on('pointerup', () => {
+        (this.scene.registry.get('audioManager') as { playUi?: (k: string) => void } | undefined)?.playUi?.('sfx_click');
+        const codex = this.scene.registry.get('codexPanel') as { toggle?: () => void } | undefined;
+        codex?.toggle?.();
+      });
       this.container.add([this.helpBg, this.helpLabel, this.helpZone]);
     }
     if (this.helpZone && this.helpBg && this.helpLabel) {
@@ -234,31 +266,34 @@ export class HUD {
       this.helpLabel.setPosition(helpBtnX + helpBtnW / 2, btnY + btnSize / 2);
     }
 
-    // v1.0 #6：邦交按钮（位于 ? 按钮左侧，56px 容下「邦交」二字）
-    const diplomacyBtnW = 56;
-    const diplomacyBtnX = helpBtnX - btnGap - diplomacyBtnW;
-    if (!this.diplomacyZone) {
-      this.diplomacyBg = this.scene.add.graphics();
-      this.diplomacyLabel = this.scene.add.text(0, 0, '邦交', {
+    // A-1：设置按钮（顶栏右侧，? 按钮左侧，28px）。邦交已移到下方主功能工具栏。
+    const settingsBtnW = 28;
+    const settingsBtnX = helpBtnX - btnGap - settingsBtnW;
+    if (!this.settingsZone) {
+      this.settingsBg = this.scene.add.graphics();
+      this.settingsLabel = this.scene.add.text(0, 0, '设', {
         ...FONTS.body, color: '#F5ECD7', fontStyle: 'bold',
       } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5, 0.5);
-      this.diplomacyZone = this.scene.add.zone(0, 0, diplomacyBtnW, btnSize).setOrigin(0, 0)
+      this.settingsZone = this.scene.add.zone(0, 0, settingsBtnW, btnSize).setOrigin(0, 0)
         .setInteractive({ useHandCursor: true });
-      this.diplomacyZone.on('pointerdown', () => {
-        const panel = this.scene.registry.get('diplomacyPanel') as { toggle?: () => void } | undefined;
+      this.settingsZone.on('pointerup', () => {
+        const panel = this.scene.registry.get('settingsPanel') as { toggle?: () => void } | undefined;
         panel?.toggle?.();
       });
-      this.container.add([this.diplomacyBg, this.diplomacyLabel, this.diplomacyZone]);
+      this.container.add([this.settingsBg, this.settingsLabel, this.settingsZone]);
     }
-    if (this.diplomacyZone && this.diplomacyBg && this.diplomacyLabel) {
-      this.diplomacyZone.setPosition(diplomacyBtnX, btnY).setSize(diplomacyBtnW, btnSize);
-      this.diplomacyBg.clear();
-      this.diplomacyBg.fillStyle(COLORS.WOOD, 0.7);
-      this.diplomacyBg.fillRect(diplomacyBtnX, btnY, diplomacyBtnW, btnSize);
-      this.diplomacyBg.lineStyle(1, COLORS.GOLD_DIM, 1);
-      this.diplomacyBg.strokeRect(diplomacyBtnX, btnY, diplomacyBtnW, btnSize);
-      this.diplomacyLabel.setPosition(diplomacyBtnX + diplomacyBtnW / 2, btnY + btnSize / 2);
+    if (this.settingsZone && this.settingsBg && this.settingsLabel) {
+      this.settingsZone.setPosition(settingsBtnX, btnY).setSize(settingsBtnW, btnSize);
+      this.settingsBg.clear();
+      this.settingsBg.fillStyle(COLORS.WOOD, 0.7);
+      this.settingsBg.fillRect(settingsBtnX, btnY, settingsBtnW, btnSize);
+      this.settingsBg.lineStyle(1, COLORS.GOLD_DIM, 1);
+      this.settingsBg.strokeRect(settingsBtnX, btnY, settingsBtnW, btnSize);
+      this.settingsLabel.setPosition(settingsBtnX + settingsBtnW / 2, btnY + btnSize / 2);
     }
+
+    // 2026-06-19：主功能按钮（朝堂/邦交/军务/大业）移到顶栏下方独立工具栏（见 layoutFunctionToolbar）。
+    this.layoutFunctionToolbar(w);
 
     let btnX = w - padX - labels.length * (btnSize + btnGap) + btnGap;
 
@@ -285,6 +320,57 @@ export class HUD {
     this.refreshSpeed();
   }
 
+  /** 2026-06-19：主功能工具栏——顶栏正下方一排大按钮（朝堂/邦交/军务/大业），参考钢铁雄心主菜单的醒目布局。 */
+  private layoutFunctionToolbar(w: number): void {
+    const defs: { text: string; reg: string }[] = [
+      { text: '朝堂', reg: 'policyTreePanel' },
+      { text: '邦交', reg: 'diplomacyPanel' },
+      { text: '军务', reg: 'militaryPanel' },
+      { text: '大业', reg: 'megaProjectPanel' },
+    ];
+    const tbY = UI.topbarHeight;
+    const tbH = UI.toolbarHeight;
+    if (!this.toolbarBg) {
+      this.toolbarBg = this.scene.add.graphics();
+      this.container.add(this.toolbarBg);
+    }
+    this.toolbarBg.clear();
+    this.toolbarBg.fillStyle(COLORS.WOOD_LIGHT, 0.96);
+    this.toolbarBg.fillRect(0, tbY, w, tbH);
+    this.toolbarBg.lineStyle(2, COLORS.GOLD_DIM, 1);
+    this.toolbarBg.lineBetween(0, tbY + tbH, w, tbY + tbH);
+
+    const btnW = 104, btnH = 30, gap = 8, padLeft = 12;
+    const y = tbY + Math.floor((tbH - btnH) / 2);
+    defs.forEach((d, i) => {
+      let b = this.toolbarBtns[i];
+      if (!b) {
+        const bg = this.scene.add.graphics();
+        const label = this.scene.add.text(0, 0, d.text, {
+          ...FONTS.panelHeading, fontSize: '18px', color: '#F5ECD7',
+        } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5, 0.5);
+        const zone = this.scene.add.zone(0, 0, btnW, btnH).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+        // pointerup：朝堂/邦交/军务/大业面板都会"点遮罩关闭"，若用 pointerdown，开面板那一下的松手会落在遮罩上秒关（军务 bug）
+        zone.on('pointerup', () => {
+          (this.scene.registry.get('audioManager') as { playUi?: (k: string) => void } | undefined)?.playUi?.('sfx_click');
+          const panel = this.scene.registry.get(d.reg) as { toggle?: () => void } | undefined;
+          panel?.toggle?.();
+        });
+        this.container.add([bg, label, zone]);
+        b = { bg, label, zone };
+        this.toolbarBtns[i] = b;
+      }
+      const x = padLeft + i * (btnW + gap);
+      b.zone.setPosition(x, y).setSize(btnW, btnH);
+      b.bg.clear();
+      b.bg.fillStyle(COLORS.GOLD_DIM, 0.95);
+      b.bg.fillRect(x, y, btnW, btnH);
+      b.bg.lineStyle(1.5, COLORS.GOLD, 1);
+      b.bg.strokeRect(x, y, btnW, btnH);
+      b.label.setPosition(x + btnW / 2, y + btnH / 2);
+    });
+  }
+
   private onSpeedButton(speed: 0 | 1 | 2 | 3): void {
     if (speed === 0) {
       this.store.setPaused(!this.store.isPaused());
@@ -300,6 +386,30 @@ export class HUD {
     this.snapNextResourceUpdate = false;
     for (const [id, token] of this.resourceTokens) {
       const v = resources[id] ?? 0;
+      // 纪元式：民 = 闲民/住房上限（现有可用人力 / 可容纳上限）。民是建造时会被消耗、之后回涨的人力池，
+      // 单显"民0"会被误读为"没人"；显示成 0/40 一眼看懂"人都在岗、上限 40"。不走数字 tween（X/Y 无法插值）。
+      if (id === 'people') {
+        // 纪元式：民显示"当前/住房上限 + 趋势箭头"，一眼看出有多少民、还能长多少、在涨还是跌。
+        // 闲置劳力 / 农工兵士分布 / 粮储等细节移到点击"民"打开的人口详情面板（PopulationPanel）。
+        const status = this.store.getPopulationStatus();
+        const old = this.resourceTweens.get(id);
+        if (old) { old.stop(); this.resourceTweens.delete(id); }
+        const arrow = status.reason === 'grow' ? '▲'
+          : status.reason === 'starve' ? '▼'
+          : status.reason === 'overflow' ? '▼'  // 超住房上限，人口正温和回落（BUG-A）
+          : status.reason === 'cap' ? '●'
+          : '─';
+        token.txt.setText(`${status.total}/${status.cap} ${arrow}`);
+        token.txt.setFontSize(16); // 「民」是 X/Y 复合文本，比纯数字宽；调小到 16px 容下三位数，不顶到"布"
+        // 配色守 11 色板：缺粮→朱砂(CINNABAR #B71C1C)预警；满/超/接近上限→金(GOLD #C9A84C)；正常→奶纸(PAPER)
+        const ratio = status.cap > 0 ? status.total / status.cap : 0;
+        let color = '#F5ECD7';
+        if (status.reason === 'starve') color = '#B71C1C';
+        else if (status.reason === 'overflow' || status.reason === 'cap' || ratio >= 0.8) color = '#C9A84C';
+        token.txt.setColor(color);
+        this.prevResourceValues.set(id, v);
+        continue;
+      }
       const prev = this.prevResourceValues.get(id);
       // 首次绘制 / snap / 值未变：直接 setText，不起 tween
       if (prev === undefined || snap || prev === v) {
@@ -309,6 +419,9 @@ export class HUD {
         this.prevResourceValues.set(id, v);
         continue;
       }
+      // A-8：资源变化飘字
+      const delta = v - prev;
+      if (delta !== 0) this.spawnResourceFloat(token, delta);
       // 值有变动：起新 counter。若旧 tween 还在飞，先停掉，并用"当前正在显示的数字"
       // 作为新 tween 的起点（不是 prev），否则快速连续变动时会看见数字短暂回弹。
       const old = this.resourceTweens.get(id);
@@ -332,6 +445,48 @@ export class HUD {
       });
       this.resourceTweens.set(id, tween);
       this.prevResourceValues.set(id, v);
+    }
+  }
+
+  private spawnResourceFloat(token: ResourceToken, delta: number): void {
+    const isPositive = delta > 0;
+    const isLarge = Math.abs(delta) > 20;
+    const text = isPositive ? `+${delta}` : `${delta}`;
+    const color = isPositive ? '#4CAF50' : '#E53935';
+    const fontSize = isLarge ? 18 : 13;
+
+    const x = token.txt.x + 20;
+    const y = token.txt.y - 4;
+    const t = this.scene.add.text(x, y, text, {
+      fontFamily: '"Noto Sans SC", sans-serif',
+      fontSize: `${fontSize}px`,
+      color,
+      fontStyle: 'bold',
+    }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(1100);
+    this.container.add(t);
+
+    const targetY = isPositive ? y - 22 : y + 18;
+    const tw = this.scene.tweens.add({
+      targets: t,
+      y: targetY,
+      alpha: 0,
+      duration: 1000,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        t.destroy();
+        this.floatTexts = this.floatTexts.filter(f => f.t !== t);
+      },
+    });
+    this.floatTexts.push({ t, tw });
+
+    if (isLarge) {
+      this.scene.tweens.add({
+        targets: t,
+        x: x + 2,
+        duration: 50,
+        yoyo: true,
+        repeat: 3,
+      });
     }
   }
 
@@ -436,6 +591,8 @@ export class HUD {
     this.resourceTweens.clear();
     if (this.dateFadeTween) { this.dateFadeTween.stop(); this.dateFadeTween = null; }
     if (this.gradeBadgeTween) { this.gradeBadgeTween.stop(); this.gradeBadgeTween = null; }
+    for (const f of this.floatTexts) { f.tw.stop(); f.t.destroy(); }
+    this.floatTexts = [];
     this.container.destroy(true);
   }
 }

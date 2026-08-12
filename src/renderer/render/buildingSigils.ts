@@ -20,6 +20,7 @@ export const BUILDING_SIGIL: Record<string, string> = {
   bld_market: '市',
   bld_woodcutter: '林',
   bld_quarry: '石',
+  bld_pottery_kiln: '陶',
   bld_loom_house: '织',
   bld_smithy: '冶',
   bld_ancestor_shrine: '祖',
@@ -36,6 +37,20 @@ export const BUILDING_SIGIL: Record<string, string> = {
   bld_stele_yard: '碑',
   bld_village_school: '塾',
   bld_envoy_lodge: '宾',
+
+  // B-6 扩展建筑沙印
+  bld_training_ground: '武',
+  bld_stable: '马',
+  bld_chariot_works: '车',
+  bld_city_wall: '城',
+  bld_imperial_guard: '禁',
+  bld_granary: '仓',
+  bld_watchtower: '哨',
+  bld_censor: '察',
+  bld_grand_temple: '庙',
+  bld_observatory: '星',
+  bld_relay_station: '邮',
+  bld_nine_cauldrons: '鼎',
 };
 
 /** 安全查询：未配 sigil 的兜底用首字（建筑名第一个汉字），不返回 undefined。 */

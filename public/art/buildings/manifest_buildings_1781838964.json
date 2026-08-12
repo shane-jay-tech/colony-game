@@ -1,0 +1,65 @@
+[
+  {
+    "id": "bld_watchtower",
+    "model": "wan2.7-image-pro",
+    "task_id": "9cc69017-f7a6-4128-9694-c5c037524e21",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_watchtower.png",
+    "error": null
+  },
+  {
+    "id": "bld_censor",
+    "model": "wan2.7-image-pro",
+    "task_id": "89352232-cba9-47c8-bf5b-e9e7cae09f09",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_censor.png",
+    "error": null
+  },
+  {
+    "id": "bld_grand_temple",
+    "model": "wan2.7-image-pro",
+    "task_id": "afc778e6-051c-429b-a7b6-627d519e8602",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_grand_temple.png",
+    "error": null
+  },
+  {
+    "id": "bld_observatory",
+    "model": "wan2.7-image-pro",
+    "task_id": "70902ad9-8ea7-4d7a-a657-47bc4ffdbe5d",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_observatory.png",
+    "error": null
+  },
+  {
+    "id": "bld_relay_station",
+    "model": "wan2.7-image-pro",
+    "task_id": "2e481d07-b8c8-4d19-90ea-f8a4591fb2fb",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_relay_station.png",
+    "error": null
+  },
+  {
+    "id": "bld_training_ground",
+    "model": "wan2.7-image-pro",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '0013"
+  },
+  {
+    "id": "bld_stable",
+    "model": "wan2.7-image-pro",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '3766"
+  },
+  {
+    "id": "bld_chariot_works",
+    "model": "wan2.7-image-pro",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '755d"
+  },
+  {
+    "id": "bld_imperial_guard",
+    "model": "wan2.7-image-pro",
+    "task_id": null,
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'cb70"
+  }
+]

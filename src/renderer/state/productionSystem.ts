@@ -135,6 +135,7 @@ export function computeProductionTick(
       rawOutput[r] = cur + o.perDay * adj.mul;
     }
     for (const id of RESOURCE_IDS) {
+      if (id === 'people') continue; // 民=占用制劳力，不作为消耗品 upkeep 扣减（否则人口被持续吃空）
       const u = def.upkeep[id];
       if (u === undefined || u <= 0) continue;
       const cur = rawUpkeep[id] ?? 0;

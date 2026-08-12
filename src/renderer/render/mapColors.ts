@@ -22,13 +22,15 @@ import { COLORS } from '../ui/palette';
 // 拿到 undefined 渲染出黑块。
 const FALLBACK_COLOR = 0xFF00FF;
 
+// 可辨识优先：5 型用清楚分开的色相（用户反馈"认不出色块是什么"）。河泽改成**蓝色水**（之前是棕色，
+// 完全读不出是水）；平原暖米、丘陵赭、林地绿、山岳灰。与 Legend 图例同源（Legend 也调 terrainColor）。
 export function terrainColor(t: Terrain): number {
   switch (t) {
-    case 'plain': return COLORS.PAPER_DIM;
-    case 'hills': return COLORS.GOLD_DIM;
-    case 'forest': return COLORS.STONE_GREEN;
-    case 'river': return COLORS.WOOD_LIGHT;
-    case 'mountain': return COLORS.ASH;
+    case 'plain': return 0xd9c79a;    // 暖米黄——宜耕宜居
+    case 'hills': return 0xb07d3e;    // 赭褐——丘陵
+    case 'forest': return 0x4f7a45;   // 林绿
+    case 'river': return 0x3f6f8f;    // 水蓝（关键：之前棕色读不出是水）
+    case 'mountain': return 0x8c8782; // 岩灰
     default: {
       console.warn('[mapColors] unknown terrain:', t);
       return FALLBACK_COLOR;

@@ -24,6 +24,8 @@ const PANEL_WIDTH = 720;
 const PANEL_HEIGHT = 660; // Phase1：容下每局 4 张 NPC 卡
 const CARD_HEIGHT = 130;
 const CARD_GAP = 12;
+/** 邦交按钮宽度（READ-01：80px 容不下"通商(金50布2)"14px 文字，加宽到 120）。 */
+const BTN_W = 120;
 
 interface NpcCard {
   def: NpcCountryDef;
@@ -291,7 +293,7 @@ export class DiplomacyPanel {
     card.statsLabel.setPosition(x + 16, y + 64);
 
     // 三个按钮：右侧竖排
-    const btnW = 80;
+    const btnW = BTN_W;
     const btnH = 32;
     const btnGap = 8;
     const btnX = x + w - btnW - 16;
@@ -345,14 +347,23 @@ export class DiplomacyPanel {
     else if (state.stance >= -20) cardFill = COLORS.WOOD_LIGHT;
     else cardFill = COLORS.WOOD;
     card.bg.fillStyle(cardFill, 0.88);
-    card.bg.fillRect(card.nameLabel.x - 8, card.nameLabel.y - 8, card.tradeZone.x - card.nameLabel.x + 88, CARD_HEIGHT - 8);
+    card.bg.fillRect(card.nameLabel.x - 8, card.nameLabel.y - 8, card.tradeZone.x - card.nameLabel.x + BTN_W + 8, CARD_HEIGHT - 8);
     card.bg.lineStyle(1, COLORS.GOLD, 1);
-    card.bg.strokeRect(card.nameLabel.x - 8, card.nameLabel.y - 8, card.tradeZone.x - card.nameLabel.x + 88, CARD_HEIGHT - 8);
+    card.bg.strokeRect(card.nameLabel.x - 8, card.nameLabel.y - 8, card.tradeZone.x - card.nameLabel.x + BTN_W + 8, CARD_HEIGHT - 8);
 
-    // 三按钮 affordance
-    const tradeEnabled = !state.tradeRoute && state.warStatus !== 'war';
-    const envoyEnabled = state.warStatus !== 'war';
+    // 三按钮 affordance（含资源检查 + 费用提示）
+    const res = this.store.getState().resources;
+    const goldHave = res.gold ?? 0;
+    const clothHave = res.cloth ?? 0;
+    const tradeAfford = goldHave >= 50 && clothHave >= 2;
+    const envoyAfford = goldHave >= 30 && clothHave >= 5;
+    const tradeEnabled = !state.tradeRoute && state.warStatus !== 'war' && tradeAfford;
+    const envoyEnabled = state.warStatus !== 'war' && envoyAfford;
     const warEnabled = state.warStatus !== 'war' && playerMP >= state.militaryPower * 0.5;
+
+    // READ-01：去掉会溢出的" 不足"后缀——按钮置灰(ASH)本身即表示不可用，成本仍在标签内。
+    card.tradeLabel.setText(state.tradeRoute ? '已通商' : '通商(金50布2)');
+    card.envoyLabel.setText('出使(金30布5)');
 
     this.paintButton(card.tradeBg, card.tradeZone, card.tradeLabel, tradeEnabled ? COLORS.GOLD : COLORS.ASH, tradeEnabled ? '#1A1410' : '#A89A8A');
     this.paintButton(card.envoyBg, card.envoyZone, card.envoyLabel, envoyEnabled ? COLORS.GOLD : COLORS.ASH, envoyEnabled ? '#1A1410' : '#A89A8A');

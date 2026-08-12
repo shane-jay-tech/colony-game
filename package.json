@@ -1,6 +1,6 @@
 {
   "name": "colony-game",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "邦国录 — 春秋战国小邦国经营游戏",
   "main": "./dist/main/index.js",
   "type": "module",
@@ -14,7 +14,8 @@
     "pack-sprites": "node scripts/pack-sprites.mjs",
     "postprocess-png": "node scripts/postprocess-ai-png.mjs",
     "type-check": "tsc -p tsconfig.renderer.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify": "npm run type-check && npm run test"
   },
   "dependencies": {
     "phaser": "^3.70.0"

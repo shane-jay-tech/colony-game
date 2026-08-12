@@ -47,15 +47,15 @@ export class StoryBar {
       ...FONTS.glyph, fontSize: '16px', color: COLORS_HEX.GOLD,
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0, 0.5);
     this.powerLabel = scene.add.text(0, 0, '', {
-      ...FONTS.small, fontSize: '12px', color: COLORS_HEX.PAPER_DIM,
+      ...FONTS.small, fontSize: '14px', color: COLORS_HEX.PAPER_DIM,
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0, 0.5);
     this.powerTrack = scene.add.graphics();
     this.resourceLabel = scene.add.text(0, 0, '', {
-      ...FONTS.small, fontSize: '12px', color: COLORS_HEX.PAPER_DIM,
+      ...FONTS.small, fontSize: '14px', color: COLORS_HEX.PAPER_DIM,
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0, 0.5);
     this.resourceTrack = scene.add.graphics();
     this.distText = scene.add.text(0, 0, '', {
-      ...FONTS.small, fontSize: '12px', color: COLORS_HEX.ASH,
+      ...FONTS.small, fontSize: '14px', color: COLORS_HEX.ASH,
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(1, 0.5);
 
     this.container.add([
@@ -76,7 +76,7 @@ export class StoryBar {
   layout(): void {
     if (this.destroyed) return;
     const w = this.scene.scale.width;
-    const y = UI.topbarHeight; // 紧贴主顶栏下方
+    const y = UI.topbarHeight + UI.toolbarHeight; // 紧贴主功能工具栏下方（2026-06-19）
     this.container.setPosition(0, 0);
 
     this.bg.clear();
@@ -134,15 +134,21 @@ export class StoryBar {
     const rBand = resourceBand(sf.resourceAxis);
     this.resourceLabel.setText(`资 ${rBand === 'private' ? '私有' : rBand === 'public' ? '公有' : '——'}`);
 
-    const cy = UI.topbarHeight + Math.floor(BAR_H / 2);
+    const cy = UI.topbarHeight + UI.toolbarHeight + Math.floor(BAR_H / 2);
     this.paintTrack(this.powerTrack, this.powerTrackX, cy, sf.powerAxis);
     this.paintTrack(this.resourceTrack, this.resourceTrackX, cy, sf.resourceAxis);
 
-    // 距下章
+    // 距下章：剧情章节按"关键事件进度"显示（章节靠 advanceGoal 事件全解决推进，而非天数，
+    // 用天数倒计时会卡在 0 日却不进章，误导玩家）。仅无 story_events 目标的章节回退天数。
     if (sf.ending !== null) {
       this.distText.setText('终局已定');
     } else if (sf.chapter === 0) {
       this.distText.setText('序章 · 统一天下');
+    } else if (def.advanceGoal?.kind === 'story_events') {
+      const ids = def.advanceGoal.eventIds ?? [];
+      const resolved = new Set(sf.storyEventsTriggered);
+      const done = ids.filter(id => resolved.has(id)).length;
+      this.distText.setText(`本章 ${done}/${ids.length} 事`);
     } else {
       const dwell = def.advanceAfterDays ?? 0;
       const left = Math.max(0, dwell - (this.store.getCurrentDay() - sf.chapterStartDay));

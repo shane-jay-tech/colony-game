@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 import { GameStore, STATE_EVENTS } from '../state/gameStore';
-import { MapRenderer, MAP_ZOOM_STEP } from '../render/MapRenderer';
+import { MapRenderer, MAP_ZOOM_STEP_FACTOR } from '../render/MapRenderer';
 import { BuildMode, checkBuildAt } from '../state/buildMode';
 import type { BuildingInstance } from '../data/schema';
 import { getBuildingDef } from '../data/buildingRegistry';
 import type { Toast } from '../ui/Toast';
 import { BuildingPopover } from '../ui/BuildingPopover';
 import { TimeSystem } from '../state/timeSystem';
+import { dayToCalendar } from '../state/calendar';
 import { FONTS, UI } from '../ui/palette';
 import { DYNASTY_TRANSITION_NARRATION, ENDING_NARRATION } from '../data/storyChapters';
 import type { TransitionData } from './TransitionScene';
@@ -31,6 +32,10 @@ export class GameScene extends Phaser.Scene {
   private offBuildModeChange: (() => void) | null = null;
   // v0.9 Pillar 2.4：建筑升级 popover（点击已建建筑时弹出）
   private buildingPopover: BuildingPopover | null = null;
+  // 相机状态快照（每帧比对：相机一动就关 popover，避免屏幕固定弹窗错位）
+  private lastCamZoom = -1;
+  private lastCamScrollX = Number.NaN;
+  private lastCamScrollY = Number.NaN;
   // pointermove last-frame cache（DeepSeek Medium：避免同格重绘 hover 预览）
   private lastHoverGridX = Number.NaN;
   private lastHoverGridY = Number.NaN;
@@ -45,6 +50,14 @@ export class GameScene extends Phaser.Scene {
   private isPanning = false;
   private lastPanX = 0;
   private lastPanY = 0;
+
+  // v2：左键拖动平移地图（空闲态）。用阈值区分"点击选建筑/关 popover"与"拖动平移"。
+  private isLeftPanning = false;
+  private leftPanStartX = 0;
+  private leftPanStartY = 0;
+  private leftPanDragging = false;
+  private lastLeftPanX = 0;
+  private lastLeftPanY = 0;
 
   // Slice I：建筑落地额外触发 fade+scale 脉冲（与 BUILDING_PLACED 一起接线，建造瞬间给玩家反馈）
   private placedListener = (...args: unknown[]): void => {
@@ -68,12 +81,13 @@ export class GameScene extends Phaser.Scene {
     this.rerenderBuildings();
     this.buildMode?.cancel();
     this.invalidateHoverCache();
-    // v0.9：state replaced（读档）后，可能折叠态变了，刷一次视口
-    this.mapRenderer?.recenter();
+    // v0.9/v2：state replaced（读档）后布局可能变了，请求下一帧重新整图居中。
+    this.mapRenderer?.requestRefit();
   };
   // v0.9：面板折叠 → 重算视口（同时 hover preview cache 失效）
+  // v2：折叠/展开让可用区变了但画布尺寸没变——请求下一帧重新整图居中，避免地图被挤偏。
   private panelCollapsedListener = (): void => {
-    this.mapRenderer?.recenter();
+    this.mapRenderer?.requestRefit();
     this.invalidateHoverCache();
   };
   // v0.9：建筑升级完成 → 重画 + 金边脉冲
@@ -84,6 +98,10 @@ export class GameScene extends Phaser.Scene {
       this.mapRenderer?.pulseBuildingCompleted(b);
       this.mapRenderer?.floatTextAtTile(b.position.x, b.position.y, '营建　升', 0xe0b94a);
     }
+  };
+  // 拆除 → 重画建筑层（建筑已移除，无需脉冲）
+  private removedListener = (): void => {
+    this.rerenderBuildings();
   };
 
   // Phase2：序章统一 → 暂停游戏 + UI → 播建朝跳变旁白 → 推进第一章 → 恢复
@@ -117,6 +135,7 @@ export class GameScene extends Phaser.Scene {
     if (uiWasActive) this.scene.pause('UIScene');
     const data: TransitionData = {
       lines: ENDING_NARRATION[ending],
+      imageKey: `evt_art_ending_${ending}`, // 公/家/或 三结局插画；缺图 TransitionScene 静默回退纯文字
       onDone: () => {
         this.scene.resume();
         if (uiWasActive) this.scene.resume('UIScene');
@@ -124,7 +143,21 @@ export class GameScene extends Phaser.Scene {
     };
     this.scene.launch('TransitionScene', data);
   };
-  private escHandler = (): void => { this.buildMode?.cancel(); };
+  // A-3/A-4：季节色调切换（散布层 tint + 农田色 + 雪花）
+  private seasonTintListener = (...args: unknown[]): void => {
+    const s = (args[0] as { season?: number } | undefined)?.season;
+    if (typeof s === 'number' && s >= 0 && s <= 3) {
+      this.mapRenderer?.setSeasonTint(s as 0 | 1 | 2 | 3);
+      this.rerenderBuildings();
+    }
+  };
+  // v2 DeepSeek 复审[边界]：ESC 同时关掉可能开着的建筑 popover，避免残留悬浮 UI
+  private escHandler = (): void => { this.buildMode?.cancel(); this.buildingPopover?.hide(); };
+  // A-9：速度快捷键
+  private spaceHandler = (): void => { this.store?.setPaused(!this.store.isPaused()); };
+  private speedKeyHandler1 = (): void => { this.store?.setPaused(false); this.store?.setSpeed(1); };
+  private speedKeyHandler2 = (): void => { this.store?.setPaused(false); this.store?.setSpeed(2); };
+  private speedKeyHandler3 = (): void => { this.store?.setPaused(false); this.store?.setSpeed(3); };
 
   constructor() {
     super({ key: 'GameScene' });
@@ -151,11 +184,15 @@ export class GameScene extends Phaser.Scene {
     // v0.9：注入折叠态 source，让 MapRenderer 视口考虑面板折叠
     this.mapRenderer.setPanelLayoutSource({
       isLeftCollapsed: () => store.getPanelCollapsed('left'),
-      isRightCollapsed: () => store.getPanelCollapsed('right'),
+      // 2026-06-19：右侧朝堂面板已退休（改为全屏国策树），右侧恒按"已折叠"算，地图多占右边空间。
+      isRightCollapsed: () => true,
     });
     // v1.0 #5：注册到 registry，让 UIScene 的 ZoomControl 能拿到引用
     this.registry.set('mapRenderer', this.mapRenderer);
     this.rerenderBuildings();
+    // A-3：初始季节色调
+    const initSeason = dayToCalendar(store.getCurrentDay()).season;
+    this.mapRenderer.setSeasonTint(initSeason);
 
     this.timeSystem = new TimeSystem(store);
 
@@ -165,6 +202,7 @@ export class GameScene extends Phaser.Scene {
 
     store.on(STATE_EVENTS.BUILDING_PLACED, this.placedListener);
     store.on(STATE_EVENTS.BUILDING_COMPLETED, this.completedListener);
+    store.on(STATE_EVENTS.BUILDING_REMOVED, this.removedListener);
     store.on(STATE_EVENTS.STATE_REPLACED, this.replacedListener);
     // v0.9：面板折叠态变化 → 重算视口 + 居中
     store.on(STATE_EVENTS.PANEL_COLLAPSED_CHANGED, this.panelCollapsedListener);
@@ -174,6 +212,8 @@ export class GameScene extends Phaser.Scene {
     store.on(STATE_EVENTS.STORY_UNIFIED, this.storyUnifiedListener);
     // Phase2：终章 → 三结局画面
     store.on(STATE_EVENTS.STORY_ENDING, this.storyEndingListener);
+    // A-3：季节色调切换
+    store.on(STATE_EVENTS.SEASON_TICK, this.seasonTintListener);
 
     // BuildMode 取消时清掉 hover 预览
     this.offBuildModeChange = buildMode.onChange((def) => {
@@ -181,6 +221,9 @@ export class GameScene extends Phaser.Scene {
         this.mapRenderer?.setHoverPreview(null);
         this.invalidateHoverCache();
       } else {
+        // v2：进入建造态时取消进行中的左键拖动，避免拖动态残留
+        this.isLeftPanning = false;
+        this.leftPanDragging = false;
         // 切换到不同建筑时也得让下一次 pointermove 强制重算
         this.invalidateHoverCache();
       }
@@ -198,8 +241,11 @@ export class GameScene extends Phaser.Scene {
     // ESC 取消建造模式（Slice E High #2：保存引用以便 shutdown 解绑）
     this.input.keyboard?.on('keydown-ESC', this.escHandler);
 
-    // v0.9 hotfix#6：删掉 Slice E 临时标题（"邦国录 — Slice E（...）"）。
-    // 这条本是 Slice D 占位，HUD 上线后忘了清；title depth=900 透过 HUD 看像水印金字残留。
+    // A-9：速度快捷键（空格=暂停切换，1/2/3=速度档）
+    this.input.keyboard?.on('keydown-SPACE', this.spaceHandler);
+    this.input.keyboard?.on('keydown-ONE', this.speedKeyHandler1);
+    this.input.keyboard?.on('keydown-TWO', this.speedKeyHandler2);
+    this.input.keyboard?.on('keydown-THREE', this.speedKeyHandler3);
 
     // 启动 UIScene（HUD + BuildPanel）
     if (!this.scene.isActive('UIScene')) this.scene.launch('UIScene');
@@ -212,7 +258,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   override update(_time: number, delta: number): void {
+    // v2：每帧守护——视口尺寸真正稳定后把地图重新 fit 到整图并居中（修构造/最大化时序导致的右下角偏移）。
+    // 尺寸不变时为 O(1) no-op，不影响用户缩放/拖动。
+    this.mapRenderer?.ensureFittedToViewport();
     this.timeSystem?.update(delta);
+    // 相机一动（缩放/平移/重新 fit）就关掉建筑详情弹窗：屏幕固定的弹窗跟随相机换算易错位，
+    // 关掉最干净（再点建筑重开）。点击本身不移动相机，故开窗当帧不会被误关。
+    const pop = this.buildingPopover;
+    const cam = this.cameras.main;
+    if (pop?.isVisible() && cam) {
+      if (this.lastCamZoom !== cam.zoom || this.lastCamScrollX !== cam.scrollX || this.lastCamScrollY !== cam.scrollY) {
+        pop.hide();
+      }
+    }
+    if (cam) {
+      this.lastCamZoom = cam.zoom;
+      this.lastCamScrollX = cam.scrollX;
+      this.lastCamScrollY = cam.scrollY;
+    }
   }
 
   private invalidateHoverCache(): void {
@@ -228,12 +291,11 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     if (!cam) return false;
     const leftCollapsed = store.getPanelCollapsed('left');
-    const rightCollapsed = store.getPanelCollapsed('right');
     const leftW = leftCollapsed ? 28 : UI.buildPanelWidth;
-    const rightW = rightCollapsed ? 28 : UI.rightPanelWidth;
+    const rightW = 28; // 朝堂面板退休：右侧只留 28px 边距，不再预留整块面板
     const x = pointer.x;
     const y = pointer.y;
-    if (y < UI.topbarHeight) return true;
+    if (y < UI.topbarHeight + UI.toolbarHeight) return true; // 顶栏 + 主功能工具栏区域不放置/不平移
     if (x < 8 + leftW + 8) return true;
     if (x > cam.width - rightW - 8 - 8) return true;
     return false;
@@ -248,15 +310,51 @@ export class GameScene extends Phaser.Scene {
   ): void => {
     if (!this.mapRenderer) return;
     if (this.isPointerOverPanel(pointer)) return;
+    // 2026-06-19：全屏国策树打开时，滚轮归它缩放树，不缩放底层地图。
+    if (this.registry.get('treePanelOpen')) return;
     const cur = this.mapRenderer.getMapZoom();
-    const target = cur + (dy < 0 ? MAP_ZOOM_STEP : -MAP_ZOOM_STEP);
+    // v2：乘法步进（每档 ×/÷ MAP_ZOOM_STEP_FACTOR）。开局 zoom 很小（fit≈0.1），加法步进会一步越界。
+    const target = dy < 0 ? cur * MAP_ZOOM_STEP_FACTOR : cur / MAP_ZOOM_STEP_FACTOR;
     this.mapRenderer.setMapZoom(target, pointer.x, pointer.y);
     this.invalidateHoverCache();
   };
 
-  /** v1.0 #5：松开任何鼠标键 → 退出 panning */
-  private handlePointerUp = (): void => {
+  /** v1.0 #5：松开任何鼠标键 → 退出 panning。
+   *  v2：左键空闲态——若本次没有越过拖动阈值（= 点击而非拖动），在松开时执行 popover 显隐。 */
+  private handlePointerUp = (pointer: Phaser.Input.Pointer): void => {
     this.isPanning = false;
+    if (this.isLeftPanning) {
+      if (!this.leftPanDragging) {
+        const renderer = this.mapRenderer;
+        const store = this.store;
+        const bm = this.buildMode;
+        if (renderer && store && bm && !bm.getSelected()) {
+          const grid = renderer.screenToGrid(pointer.worldX, pointer.worldY);
+          if (grid) {
+            const inst = this.findBuildingAt(grid.x, grid.y);
+            if (bm.isDemolish()) {
+              // 拆除工具：点中建筑即拆，保持模式以连拆（ESC/右键/再点工具退出）。
+              if (inst) {
+                const name = getBuildingDef(inst.defId)?.name ?? '建筑';
+                store.removeBuilding(inst);
+                (this.registry.get('toast') as Toast | undefined)?.show(`已拆除${name}，返还半数材料`, 'info');
+              }
+            } else if (inst) {
+              // popover 锚到建筑地基中心的屏幕位置（而非鼠标点——点高屋顶会离地基很远导致飘）。
+              const def = getBuildingDef(inst.defId);
+              const ccx = inst.position.x + ((def?.size.width ?? 1) - 1) / 2;
+              const ccy = inst.position.y + ((def?.size.height ?? 1) - 1) / 2;
+              const anchor = renderer.gridToScreenPixel(ccx, ccy);
+              this.buildingPopover?.show(inst, anchor.x, anchor.y);
+            } else {
+              this.buildingPopover?.hide();
+            }
+          }
+        }
+      }
+      this.isLeftPanning = false;
+      this.leftPanDragging = false;
+    }
   };
 
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
@@ -264,6 +362,8 @@ export class GameScene extends Phaser.Scene {
     const store = this.store;
     const bm = this.buildMode;
     if (!renderer || !store || !bm) return;
+    // 2026-06-19：全屏国策树打开时，所有地图交互（平移/hover/放置预览）让位给它。
+    if (this.registry.get('treePanelOpen')) return;
     // v1.0 #5：中键拖动平移。需要在 build hover 之前，因为 pan 时不该再画 hover preview。
     const middleDown = typeof pointer.middleButtonDown === 'function' && pointer.middleButtonDown();
     if (middleDown) {
@@ -283,6 +383,26 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     if (this.isPanning) this.isPanning = false;
+    // v2：左键拖动平移（空闲态）。越过 4px 阈值才算拖动，避免误判点击。
+    if (this.isLeftPanning) {
+      const leftDown = typeof pointer.leftButtonDown === 'function' && pointer.leftButtonDown();
+      if (!leftDown) {
+        // 失焦等异常导致没走 pointerup：直接清理
+        this.isLeftPanning = false;
+        this.leftPanDragging = false;
+      } else {
+        const totalDx = pointer.x - this.leftPanStartX;
+        const totalDy = pointer.y - this.leftPanStartY;
+        if (!this.leftPanDragging && Math.hypot(totalDx, totalDy) > 4) this.leftPanDragging = true;
+        if (this.leftPanDragging) {
+          renderer.panBy(pointer.x - this.lastLeftPanX, pointer.y - this.lastLeftPanY);
+          this.invalidateHoverCache();
+        }
+        this.lastLeftPanX = pointer.x;
+        this.lastLeftPanY = pointer.y;
+        return;
+      }
+    }
     const def = bm.getSelected();
     if (!def) return;
     const grid = renderer.screenToGrid(pointer.worldX, pointer.worldY);
@@ -321,23 +441,38 @@ export class GameScene extends Phaser.Scene {
     const store = this.store;
     const bm = this.buildMode;
     if (!renderer || !store || !bm) return;
+    // 2026-06-19：全屏国策树打开时，点击归它处理，不在底层地图放置建筑/平移。
+    if (this.registry.get('treePanelOpen')) return;
     const def = bm.getSelected();
     // 右键统一释义：建造模式下取消选中；空闲态下若 popover 开着也关掉
     if (pointer.rightButtonDown()) {
-      if (def) bm.cancel();
+      if (def || bm.isDemolish()) bm.cancel();
       else this.buildingPopover?.hide();
       return;
     }
-    if (!def) {
-      // v0.9 Pillar 2.4：空闲态——点击地图上已建建筑 → 弹升级 popover
+    // 2026-06-19：拆除模式左键"按下即拆"——不再依赖 pointerup + 4px 拖动判定（之前"点了拆不掉"的真因）。
+    // 点中建筑即拆并 return；点空地则不拦截，落到下面的左键拖动平移（拆除模式仍可拖地图找目标）。
+    // 保持拆除模式以便连拆（右键/ESC/再点工具退出）。
+    if (bm.isDemolish() && pointer.leftButtonDown() && !this.isPointerOverPanel(pointer)) {
       const grid = renderer.screenToGrid(pointer.worldX, pointer.worldY);
-      if (!grid) return;
-      const inst = this.findBuildingAt(grid.x, grid.y);
+      const inst = grid ? this.findBuildingAt(grid.x, grid.y) : null;
       if (inst) {
-        this.buildingPopover?.show(inst, pointer.x, pointer.y);
-      } else {
-        // 点空地 → 关闭 popover（如果开着）
-        this.buildingPopover?.hide();
+        const name = getBuildingDef(inst.defId)?.name ?? '建筑';
+        store.removeBuilding(inst);
+        (this.registry.get('toast') as Toast | undefined)?.show(`已拆除${name}，返还半数材料`, 'info');
+        return; // 拆掉了才结束；点空地继续往下走平移
+      }
+    }
+    if (!def) {
+      // v2：空闲态左键按下——开始左键拖动追踪。popover 显隐延到 pointerup（按拖动阈值判定），
+      // 这样一次"拖动平移"不会误弹 popover；一次"点击"才在松开时弹/关 popover。
+      if (pointer.leftButtonDown() && !this.isPointerOverPanel(pointer)) {
+        this.isLeftPanning = true;
+        this.leftPanStartX = pointer.x;
+        this.leftPanStartY = pointer.y;
+        this.lastLeftPanX = pointer.x;
+        this.lastLeftPanY = pointer.y;
+        this.leftPanDragging = false;
       }
       return;
     }
@@ -378,6 +513,7 @@ export class GameScene extends Phaser.Scene {
     if (!toast) return;
     const msg: Record<string, string> = {
       insufficient_resources: '资源不足，无法建造',
+      insufficient_labor: '劳力不足——需要对应阶层的闲置民力',
       out_of_bounds: '超出地图范围',
       overlap: '此处已有建筑',
       unbuildable_terrain: '此地形不可建造',
@@ -437,16 +573,24 @@ export class GameScene extends Phaser.Scene {
     this.input.off('pointerupoutside', this.handlePointerUp, this);
     this.input.off('wheel', this.handleWheel, this);
     this.isPanning = false;
+    this.isLeftPanning = false;
+    this.leftPanDragging = false;
     // Slice E High #2：解绑 ESC keyboard 监听
     this.input.keyboard?.off('keydown-ESC', this.escHandler);
+    this.input.keyboard?.off('keydown-SPACE', this.spaceHandler);
+    this.input.keyboard?.off('keydown-ONE', this.speedKeyHandler1);
+    this.input.keyboard?.off('keydown-TWO', this.speedKeyHandler2);
+    this.input.keyboard?.off('keydown-THREE', this.speedKeyHandler3);
     if (this.store) {
       this.store.off(STATE_EVENTS.BUILDING_PLACED, this.placedListener);
       this.store.off(STATE_EVENTS.BUILDING_COMPLETED, this.completedListener);
+      this.store.off(STATE_EVENTS.BUILDING_REMOVED, this.removedListener);
       this.store.off(STATE_EVENTS.STATE_REPLACED, this.replacedListener);
       this.store.off(STATE_EVENTS.PANEL_COLLAPSED_CHANGED, this.panelCollapsedListener);
       this.store.off(STATE_EVENTS.BUILDING_UPGRADED, this.upgradedListener);
       this.store.off(STATE_EVENTS.STORY_UNIFIED, this.storyUnifiedListener);
       this.store.off(STATE_EVENTS.STORY_ENDING, this.storyEndingListener);
+      this.store.off(STATE_EVENTS.SEASON_TICK, this.seasonTintListener);
     }
     if (this.offBuildModeChange) {
       this.offBuildModeChange();

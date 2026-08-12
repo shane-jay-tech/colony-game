@@ -47,7 +47,7 @@ export const NPC_POOL: NpcCountryDef[] = [
   },
   {
     id: 'npc_ju', name: '莒', archetype: 'commercial', homeColor: 0xCDB985,
-    description: '东夷小邦，海岱之间。',
+    description: '东方小邦，地沃粮丰。',
     descPlain: '【商】东方小邦，富庶而军力薄弱，易成众矢之的。',
     initialStance: 0, initialMilitaryPower: 35, initialRenown: 40,
   },

@@ -10,12 +10,17 @@ import type { CourtEvent } from './schema';
  *   - choices.storyAxisDelta 悄悄推隐性双轴（power 负=集权/正=还权；production 负=私有/正=公有）。
  *   - OQ-S3 控量：1-2 章只 default context（零差异）；3/6 章起加按双轴的滤镜变体（同一事件多套文本）。
  *
- * 七卷各一关键🔀抉择事件（主干）。第五章 3 套独立内容（OQ-S3）后续按增量验证决定保 3 路/降 2 路。
+ * 七卷主干🔀抉择事件 + 每卷取材小说高光场景的剧情事件（共扩充至每卷 3-4 个）。
+ * 补充事件同样按 story_chapter 门控、tag '故事'、并已纳入各章 advanceGoal.eventIds（见 storyChapters.ts），
+ * 故为"必经剧情"——按数组顺序逐个触发（关键事件在前、补充在后），全部解决方推进下章，剧情更饱满而推进逻辑不破。
+ * 角色：你=赵衍（不具名，玩家本人）；裴绍/沈逸尘/周昭仪/顾怀瑾/王端/马援朝/赵铁锤/阮小七为有名 NPC。
+ * 意象贯穿：石碑/灯塔/蒸汽轮/囚车/白话册子《天下人公约》（架空名，禁现实政治词）/油菜花。
  */
 export const STORY_EVENTS: CourtEvent[] = [
   // ============ 一 · 血堤（破土：旧秩序裂缝中采火种） ============
   {
     id: 'evt_s_ch1_dike',
+    illustrationKey: 'evt_art_flood',
     tags: ['故事', '抉择'],
     triggers: [{ condition: 'story_chapter == 1' }],
     contexts: [{
@@ -83,9 +88,78 @@ export const STORY_EVENTS: CourtEvent[] = [
     defaultTimeoutDays: 12,
   },
 
+  {
+    id: 'evt_s_ch1_arrest',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 1' }],
+    contexts: [{
+      condition: 'default',
+      title: '抓人，活着',
+      desc: '裴绍率众围住裕王府，遣人来问如何处置。你给的密旨只八字：抓人，不要杀人，活着。',
+      descPlain: '裴绍围了贪墨主谋的府邸，来问怎么发落。死了的人能被装成忠臣烈士，活着的贪官才一直是贪官——你怎么定？',
+    }],
+    choices: [
+      {
+        text: '活捉示众，令其亲手修堤赎债',
+        textPlain: '【让天下人看着】不杀，押去常州天天背石头修堤，让人人看见——天家的人也是人，也得用双手还债。民心+8、信誉+10。',
+        effects: [
+          { target: 'country_morale', op: 'add', value: 8 },
+          { target: 'country_renown', op: 'add', value: 10 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 10 },
+      },
+      {
+        text: '就地正法，以儆余党',
+        textPlain: '【雷霆立威】当场处决，震慑同党，一了百了。军力+10、民心+4。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 10 },
+          { target: 'country_morale', op: 'add', value: 4 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -10 },
+      },
+    ],
+    defaultTimeoutDays: 12,
+  },
+  {
+    id: 'evt_s_ch1_oath',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 1' }],
+    contexts: [{
+      condition: 'default',
+      title: '窝头分两半',
+      desc: '城西废营，新募的流民、伤兵、工徒围坐土上。有人问："咱们听谁的？"你掰开一只黑面窝头，分与身旁老兵。',
+      descPlain: '新招募的队伍是流民、伤残老兵、穷苦匠人。有人问"听谁的"。你把一个粗面窝头掰成两半分出去——这第一课，你怎么上？',
+    }],
+    choices: [
+      {
+        text: '听道理——谁砌堤谁打铁谁种地，谁就该先吃饱',
+        textPlain: '【认道理不认门第】坐到地上跟大家围一圈，把窝头掰开分着吃：谁砌堤、谁打铁、谁种地，谁就该先吃饱。民心+10、信誉+8。',
+        effects: [
+          { target: 'country_morale', op: 'add', value: 10 },
+          { target: 'country_renown', op: 'add', value: 8 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 12 },
+      },
+      {
+        text: '立军规——令行禁止，只认号令',
+        textPlain: '【先立规矩】不讲那么多，先把纪律立起来，号令如山。军力+8。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 8 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -10 },
+      },
+    ],
+    defaultTimeoutDays: 12,
+  },
+
   // ============ 二 · 分田（立碑：阶级斗争初展） ============
   {
     id: 'evt_s_ch2_grievance',
+    illustrationKey: 'evt_art_rebellion',
     tags: ['故事', '抉择'],
     triggers: [{ condition: 'story_chapter == 2' }],
     contexts: [{
@@ -153,6 +227,74 @@ export const STORY_EVENTS: CourtEvent[] = [
     defaultTimeoutDays: 14,
   },
 
+  {
+    id: 'evt_s_ch2_shen',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 2' }],
+    contexts: [{
+      condition: 'default',
+      title: '囚车前的泥土',
+      desc: '推行分田的寒门官员沈逸尘，被七县田主联名弹劾，押回京下狱。囚车过城门，路两侧跪满从江南赶来的农人，将一把把泥土撒在车前。',
+      descPlain: '帮你推分田的清官沈逸尘，被世家告倒下了狱。囚车过城，农民们跪在两边往车前撒土送他。怎么办？',
+    }],
+    choices: [
+      {
+        text: '公开审理，准各州县派人旁听',
+        textPlain: '【摆到台面上】让各地派代表来听审。当堂只问原告一句：你们田里的粮，是你们自己种的吗？满堂寂静。信誉+12、民心+10。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 12 },
+          { target: 'country_morale', op: 'add', value: 10 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 12, production: 12 },
+      },
+      {
+        text: '私下从轻，息事宁人',
+        textPlain: '【大事化小】悄悄轻判放人，不把世家逼到墙角，先稳住局面。民心+4、钱+2。',
+        effects: [
+          { target: 'country_morale', op: 'add', value: 4 },
+          { target: 'country_gold_output', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -10, production: -8 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+  {
+    id: 'evt_s_ch2_zhou',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 2' }],
+    contexts: [{
+      condition: 'default',
+      title: '拆下的裹脚布',
+      desc: '周昭仪入乡教农女识字。有母言："认字的女娃嫁不出去。"她当众拆下自己的裹脚布，伸足于前："您看我，没缠脚，认字，活得挺好。"',
+      descPlain: '周昭仪下乡教农家女孩认字，有母亲说"认字的女娃嫁不掉"。她当场拆了自己的裹脚布给那母亲看："我没缠脚，我认字，我活得挺好。"要不要把女学办起来？',
+    }],
+    choices: [
+      {
+        text: '广设女学，农女皆可入塾',
+        textPlain: '【天亮一分】分到地，还得认得契上的字才不被骗回去。让女子也进学堂。民心+8、信誉+10。',
+        effects: [
+          { target: 'country_morale', op: 'add', value: 8 },
+          { target: 'country_renown', op: 'add', value: 10 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 10, production: 10 },
+      },
+      {
+        text: '循其旧俗，此事从缓',
+        textPlain: '【不动旧规】乡里风俗根深，暂不强求，免生事端。钱+2。',
+        effects: [
+          { target: 'country_gold_output', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { production: -8 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+
   // ============ 三 · 淬火（自噬：自我革命）—— OQ-S3 起：3 章加滤镜变体 ============
   {
     id: 'evt_s_ch3_corruption',
@@ -176,7 +318,7 @@ export const STORY_EVENTS: CourtEvent[] = [
     choices: [
       {
         text: '公审立纪，自己人也不例外',
-        textPlain: '【革自己的命】公开审办，立纪检之制。信誉+15、民心+8；老臣寒心。',
+        textPlain: '【革自己的命】公开审办，明正其罪、立下纲纪。信誉+15、民心+8；老臣寒心。',
         effects: [
           { target: 'country_renown', op: 'add', value: 15 },
           { target: 'country_morale', op: 'add', value: 8 },
@@ -196,6 +338,81 @@ export const STORY_EVENTS: CourtEvent[] = [
       },
     ],
     defaultTimeoutDays: 12,
+  },
+
+  {
+    id: 'evt_s_ch3_arrest',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 3' }],
+    contexts: [{
+      condition: 'default',
+      title: '囚车里的信',
+      desc: '当年常州背石头的流犯，十二年间积功升至将军，竟成第二个裕王。裴绍亲手押他入囚车——车中不置刑具，只待放一物。',
+      descPlain: '一个当年苦出身、靠你起家的老将，十二年里贪成了又一个大贪官。裴绍把他押上囚车。这一程，你给他留下什么？',
+    }],
+    choices: [
+      {
+        text: '只留一封亲笔信：这一路是你自己走的',
+        textPlain: '【仁至义尽，法不容情】不加刑，只在车里放一封信——"老马，这一路是你自己走的，我没能拉住你。"信誉+12。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 12 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 12 },
+      },
+      {
+        text: '当众加刑，夷其党羽',
+        textPlain: '【铁腕清剿】公开重刑，连根带党一起清算，震慑百官。军力+10、民心-4。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 10 },
+          { target: 'country_morale', op: 'add', value: -4 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -12 },
+      },
+    ],
+    defaultTimeoutDays: 12,
+  },
+  {
+    id: 'evt_s_ch3_wang',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 3' }],
+    contexts: [
+      {
+        condition: 'default',
+        title: '不容善意的例外',
+        desc: '狱卒之子王端，二十年阅尽千份贪墨案卷，悟出一理："无人生来该杀；仁心未丧时，已开邪门。"他请立一台专司核查，直对你言："制度要绑住天下人，就不能不绑住陛下。"',
+        descPlain: '一个把上千贪案看穿的人发现：倒下的官没一个一开始就坏。他要建个谁都管得着的核查机构，还当面说——规矩要绑住所有人，就不能不绑住你这个皇帝。你准不准？',
+      },
+      {
+        condition: 'story_power_axis > 30',
+        title: '不容善意的例外（连你也绑）',
+        desc: '你立的规矩已传遍朝野："无人例外。"王端捧来核查之制的草案，最刺人的一条赫然在首：此制亦及君上。满殿屏息，只待你一句话。',
+        descPlain: '你定的规矩早就说了"谁都不例外"。如今草案第一条就是"连皇帝也归它管"，满朝都在看你点不点头。',
+      },
+    ],
+    choices: [
+      {
+        text: '准立鉴台，朕亦受其绑',
+        textPlain: '【先绑住自己】立独立核查之台（取"鉴"为记），直对天下人公议负责，连君上也不例外。信誉+15、研究+10%。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 15 },
+          { target: 'country_research_speed', op: 'mul', value: 1.1 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 20 },
+      },
+      {
+        text: '留君上余地，此制不及朕身',
+        textPlain: '【网开一面】核查可设，但君上不在其列，免得自缚手脚。军力+8。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 8 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -15 },
+      },
+    ],
+    defaultTimeoutDays: 14,
   },
 
   // ============ 四 · 铁与火（熔铸：生产力革命）🔀③技术归公/归私——生产资料轴关键 ============
@@ -234,6 +451,74 @@ export const STORY_EVENTS: CourtEvent[] = [
     defaultTimeoutDays: 14,
   },
 
+  {
+    id: 'evt_s_ch4_smith',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 4' }],
+    contexts: [{
+      condition: 'default',
+      title: '炸了七回的炉',
+      desc: '铁匠赵铁锤造以水火自动之器，三年炸炉七回，一次削去左手三指。坊间讥其耗费靡费、奇技淫巧；徒弟亦哭劝勿再。他举起缠绷带的残手："蒸汽比手劲大，装上轮子，天下人就再不用使死力气了。"',
+      descPlain: '一个铁匠在试造蒸汽机，三年炸了七回，炸掉三根手指还要干。有人骂他白花朝廷的银子、尽搞些没用的奇巧。你支持，还是叫停？',
+    }],
+    choices: [
+      {
+        text: '倾力护其试炉，续拨料工',
+        textPlain: '【护住种子】顶住非议，给料给人让他接着试——这东西成了，天下人就省一辈子死力气。研究+10%、信誉+8。',
+        effects: [
+          { target: 'country_research_speed', op: 'mul', value: 1.1 },
+          { target: 'country_renown', op: 'add', value: 8 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { production: 15 },
+      },
+      {
+        text: '斥为奇技淫巧，封场停工',
+        textPlain: '【先顾眼前】耗钱又危险，封了工场把钱省下来稳妥。钱+3。',
+        effects: [
+          { target: 'country_gold_output', op: 'add', value: 3 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { production: -15 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+  {
+    id: 'evt_s_ch4_spy',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 4' }],
+    contexts: [{
+      condition: 'default',
+      title: '种子与粮仓',
+      desc: '掌关键之术的匠人被北人策反，借"共享"之名外泄图纸。赵铁锤追捕中又伤一目，醒来抚眼罩道："技术不是粮仓，是种子，须撒出去——但撒往何处，天下人得商量着来。"',
+      descPlain: '有匠人被敌国收买、借"共享"的名义偷传图纸。赵铁锤追贼又瞎了一只眼。技术到底该怎么管——锁死，还是放开但定好规矩？',
+    }],
+    choices: [
+      {
+        text: '立公议，定技术外授之界',
+        textPlain: '【种子要撒，但商量着撒】技术归公、人人可用，但传到哪儿、传给谁，由天下人公议定规。研究+12%、信誉+10。',
+        effects: [
+          { target: 'country_research_speed', op: 'mul', value: 1.12 },
+          { target: 'country_renown', op: 'add', value: 10 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { production: 20, power: 12 },
+      },
+      {
+        text: '严锁技术，军工独占',
+        textPlain: '【锁进粮仓】关键技术一律封禁，只供官营军工，绝不外流。军力+10、钱+3。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 10 },
+          { target: 'country_gold_output', op: 'add', value: 3 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { production: -20, power: -10 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+
   // ============ 五 · 海与灯（远航：人类命运共同体）🔀④共同体/帝国殖民 ============
   {
     id: 'evt_s_ch5_lighthouse',
@@ -265,6 +550,75 @@ export const STORY_EVENTS: CourtEvent[] = [
         ],
         removeEffects: [],
         storyAxisDelta: { power: -12, production: -10 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+
+  {
+    id: 'evt_s_ch5_gu',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 5' }],
+    contexts: [{
+      condition: 'default',
+      title: '守塔三日',
+      desc: '世家子弃产外放，于博多湾建三方共管之灯塔。海寇围攻三日，倭人守塔者以最后一壶水让他。塔成而人亡，塔基刻八字：此灯之炬，天下人之目。',
+      descPlain: '一个抛弃家产、远赴海外的官员，在海岛上跟邻邦渔民一起建灯塔。海盗围攻三天，他战死了，临终在塔基刻下"此灯之炬，天下人之目"。这盏灯，要怎么定性？',
+    }],
+    choices: [
+      {
+        text: '旌其志，灯塔归公，与各邦共守',
+        textPlain: '【共守的光】把灯塔链定为各邦共有、平等守望，不归一国一姓。信誉+15、外交+10。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 15 },
+          { target: 'country_diplomacy_weight', op: 'add', value: 10 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 12, production: 12 },
+      },
+      {
+        text: '厚葬抚恤，撤使止损',
+        textPlain: '【止损为先】重恤其家、撤回使团，不在险地空耗。军力+8、钱+3。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 8 },
+          { target: 'country_gold_output', op: 'add', value: 3 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -12, production: -10 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+  {
+    id: 'evt_s_ch5_ruan',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 5' }],
+    contexts: [{
+      condition: 'default',
+      title: '异乡的稻穗',
+      desc: '农技援外的阮小七在暹罗教人种稻，一去八年，死于田头。墓碑刻两种文字，汉文一行：粒粒皆辛苦。王端低语："陛下说的天下人，如今不只是大梁了。"',
+      descPlain: '一个去外国教人种水稻的农技员，干了八年死在田里，外国人只叫他"老师"。这样的援外，还要不要继续派？',
+    }],
+    choices: [
+      {
+        text: '续派援队，薪火不绝',
+        textPlain: '【天下人不只大梁】接着往外派农技队，把稻种和法子传到更远的地方。信誉+12、粮产+3。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 12 },
+          { target: 'country_grain_output', op: 'add', value: 3 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 10, production: 12 },
+      },
+      {
+        text: '召队归国，固守本土',
+        textPlain: '【先顾自家】把人召回来，先把本国的事办好，不为外人耗人命。军力+6、钱+2。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 6 },
+          { target: 'country_gold_output', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -10, production: -8 },
       },
     ],
     defaultTimeoutDays: 14,
@@ -314,6 +668,84 @@ export const STORY_EVENTS: CourtEvent[] = [
     defaultTimeoutDays: 14,
   },
 
+  {
+    id: 'evt_s_ch6_shen',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 6' }],
+    contexts: [{
+      condition: 'default',
+      title: '从我沈逸尘起',
+      desc: '制度奠基之臣沈逸尘，众请其终身在位。他当众回绝："革了世家的命、革了富户的命，最后一刀，不敢革自己的命？代表轮换，我第一个，从我沈逸尘起。"',
+      descPlain: '最有威望的老臣沈逸尘，本可终身任职。他却带头说：连任不能没个头，我第一个退、第一个轮换。你准不准这条规矩？',
+    }],
+    choices: [
+      {
+        text: '准其首倡，立代表轮换之制',
+        textPlain: '【谁也不能是铁帽子】定下：公议代表连任有限、到期轮换，从最有功的人开始。信誉+18、研究+10%。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 18 },
+          { target: 'country_research_speed', op: 'mul', value: 1.1 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 25 },
+      },
+      {
+        text: '留任元勋，以稳为重',
+        textPlain: '【老成持重】这等栋梁岂能轻去，挽留续任，求个稳当。军力+8、民心+4。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 8 },
+          { target: 'country_morale', op: 'add', value: 4 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -20 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+  {
+    id: 'evt_s_ch6_yifa',
+    tags: ['故事'],
+    triggers: [
+      { condition: 'story_chapter == 6' },
+    ],
+    contexts: [
+      {
+        condition: 'default',
+        title: '议席把头',
+        desc: '公议行之既久，竟生出久据议席之人——熟谙议程、把持言路、彼此输利。一耕者起身陈情，话未半即被斥令噤声。你取一柄锄头，搁在议案之上，满堂遂静。',
+        descPlain: '议事开久了，出了一批老占着代表位的人：熟门熟路、把着话语权、互相分好处。一个种地的刚开口就被喝止。你把一柄锄头放到议桌上——这局面，要不要动？',
+      },
+      {
+        condition: 'story_power_axis > 40',
+        title: '议席把头（众望催逼）',
+        desc: '还政于民已成大势，乡野代表联名上书，请破"议席把头"、还言路于耕者匠人。万目睽睽，只待你裁断。',
+        descPlain: '还权已是大势，乡里代表联名上书，要求打破那帮把持议席的人。大家都看着你怎么定。',
+      },
+    ],
+    choices: [
+      {
+        text: '立耕者匠人直谏之权，破其把持',
+        textPlain: '【言路还给耕匠】给种地的、做工的直接陈情提案的权，打散把持议席的小圈子。信誉+12、民心+8。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 12 },
+          { target: 'country_morale', op: 'add', value: 8 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 15, production: 12 },
+      },
+      {
+        text: '倚重熟手，维持议效',
+        textPlain: '【讲究效率】这些人熟门熟路，办事快，先靠着他们维持运转。钱+3。',
+        effects: [
+          { target: 'country_gold_output', op: 'add', value: 3 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -12, production: -8 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+
   // ============ 七 · 归根（归去：个人退场，制度向前） ============
   {
     id: 'evt_s_ch7_war_vote',
@@ -344,6 +776,82 @@ export const STORY_EVENTS: CourtEvent[] = [
         ],
         removeEffects: [],
         storyAxisDelta: { power: -20 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+  {
+    id: 'evt_s_ch7_stele',
+    tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 7' }],
+    contexts: [{
+      condition: 'default',
+      title: '不立功勋的碑',
+      desc: '老将裴绍年逾六旬，亲赴前线。新附之地本有共耕之俗，他不强推分田，只立一碑：此地人民，自古与天地共生；外人不得夺占，内人不得买卖；公约自定，天下共守。阵亡者亦不立个人之功，只留一行——事迹由当地人自记。',
+      descPlain: '打下的新地方本来就有自己的共耕老规矩。老将裴绍不硬塞你的分田法，只立块碑保护当地人自己说了算；连战死的将士也不立功劳碑，只写"事迹由当地人自己记"。你认不认这块碑？',
+    }],
+    choices: [
+      {
+        text: '依其碑，护当地自决，不立个人之功',
+        textPlain: '【连分田都不强加】只护人民自决的权，不夺不买；境外不立功勋碑。信誉+18、外交+10。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 18 },
+          { target: 'country_diplomacy_weight', op: 'add', value: 10 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 20, production: 20 },
+      },
+      {
+        text: '设官分治，立威纪功',
+        textPlain: '【纳入治理】派官治理新地、立碑纪功，把威信和秩序一并立起来。军力+12、钱+3。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 12 },
+          { target: 'country_gold_output', op: 'add', value: 3 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -15, production: -12 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+  {
+    id: 'evt_s_ch7_throne',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 7' }],
+    contexts: [
+      {
+        condition: 'default',
+        title: '空椅与一本书',
+        desc: '你已老。最后一次走上大殿，不着衮服，只穿与众人一样的灰蓝罩袍。手中是一本翻得起毛、夹满批注的白话册子——《天下人公约》。放，还是不放？',
+        descPlain: '你老了，最后一次上朝，不穿龙袍，只穿和大家一样的工作罩袍，手里是一本写满大白话、改了又改的册子。这把龙椅，撤掉，还是传给子孙？',
+      },
+      {
+        condition: 'story_power_axis > 40',
+        title: '空椅与一本书（众皆同袍）',
+        desc: '殿上众人皆着同色罩袍而立，无人称万岁。还政已成大势，只待你把那本《天下人公约》放在榻上，转身离去。',
+        descPlain: '满殿的人都穿着和你一样的罩袍站着，没人喊万岁。该来的都来了，就差你把那本册子放下、转身走开。',
+      },
+    ],
+    choices: [
+      {
+        text: '撤去龙椅，只留一册于榻',
+        textPlain: '【永远撤掉那把椅子】不是换个人坐上去，而是把椅子撤了，只在原处留一本写满白话、注明"仍待后人续改"的册子。信誉+20、民心+10。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 20 },
+          { target: 'country_morale', op: 'add', value: 10 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 30, production: 15 },
+      },
+      {
+        text: '传之子孙，守此家业',
+        textPlain: '【守成传家】终究没舍得放手，把这江山与规矩，传给同姓后人守着。军力+10、钱+3；龙椅犹在。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 10 },
+          { target: 'country_gold_output', op: 'add', value: 3 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -25 },
       },
     ],
     defaultTimeoutDays: 14,

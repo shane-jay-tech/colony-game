@@ -2,6 +2,13 @@ import Phaser from 'phaser';
 import { validateStaticData, BUILDINGS } from '@/data';
 import { ALL_BGM_KEYS, SFX_KEYS } from '../state/audioDirector';
 import { ALL_SCATTER_IDS as SCATTER_IDS } from '../data/scatterConfig';
+import { GENERAL_POOL } from '../data/generals';
+
+/** 2026-06-19：事件插画 key（与 gen_portraits_events.py 的 EVENTS 对齐；缺图静默回退纯文字）。 */
+const EVENT_ART_NAMES = [
+  'unification', 'coronation', 'battle', 'flood', 'feast', 'diplomacy', 'rebellion',
+  'ending_gong', 'ending_jia', 'ending_huo',
+] as const;
 
 /**
  * BootScene：
@@ -43,6 +50,13 @@ export class BootScene extends Phaser.Scene {
     // W4：2.5D 散布素材（树/石/灌木/芦苇；缺则 MapRenderer 跳过散布）。
     for (const id of SCATTER_IDS) {
       this.load.image(`scatter_${id}`, `art/scatter/${id}.png`);
+    }
+    // 2026-06-19：将领立绘（军务面板）+ 事件插画（朝议弹窗/结局）。缺图静默 → 回退文字。
+    for (const g of GENERAL_POOL) {
+      this.load.image(`portrait_${g.id}`, `art/generals/${g.id}.png`);
+    }
+    for (const name of EVENT_ART_NAMES) {
+      this.load.image(`evt_art_${name}`, `art/events/${name}.png`);
     }
 
     // Phase4 音频：试加载 BGM + 音效。同 sprite——缺文件 loaderror 静默，

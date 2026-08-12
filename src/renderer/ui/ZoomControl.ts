@@ -2,12 +2,7 @@ import Phaser from 'phaser';
 import { COLORS, COLORS_HEX, FONTS, UI } from './palette';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
-import {
-  MAP_ZOOM_MIN,
-  MAP_ZOOM_MAX,
-  MAP_ZOOM_STEP,
-  type MapRenderer,
-} from '../render/MapRenderer';
+import { MAP_ZOOM_STEP_FACTOR, type MapRenderer } from '../render/MapRenderer';
 
 /**
  * v1.0 #5：地图缩放小工具条（视口右下角）。三键：+ / - / ⊙ 重置。
@@ -62,13 +57,13 @@ export class ZoomControl {
     this.btnZoomIn = this.createBtn('+', () => {
       const r = this.getRenderer();
       if (!r) return;
-      r.setMapZoom(r.getMapZoom() + MAP_ZOOM_STEP);
+      r.setMapZoom(r.getMapZoom() * MAP_ZOOM_STEP_FACTOR);
       this.refreshZoomText();
     });
     this.btnZoomOut = this.createBtn('−', () => {
       const r = this.getRenderer();
       if (!r) return;
-      r.setMapZoom(r.getMapZoom() - MAP_ZOOM_STEP);
+      r.setMapZoom(r.getMapZoom() / MAP_ZOOM_STEP_FACTOR);
       this.refreshZoomText();
     });
     this.btnReset = this.createBtn('⊙', () => {
@@ -120,8 +115,8 @@ export class ZoomControl {
     if (!cam) return;
     const W = cam.width;
     const H = cam.height;
-    const rightCollapsed = this.store.getPanelCollapsed('right');
-    const rightPanelW = rightCollapsed ? 28 : UI.rightPanelWidth;
+    // 2026-06-19：朝堂面板退休，右侧固定按 28px 边距摆放（不再随面板展开）
+    const rightPanelW = 28;
     const x = W - rightPanelW - 8 - PANEL_W - 12;
     const y = H - PANEL_H - 12;
     this.container.setPosition(x, y);
@@ -150,8 +145,10 @@ export class ZoomControl {
     const r = this.getRenderer();
     if (!r) return;
     const z = r.getMapZoom();
-    const min = Math.abs(z - MAP_ZOOM_MIN) < 1e-3;
-    const max = Math.abs(z - MAP_ZOOM_MAX) < 1e-3;
+    // v4：上限/下限随视口动态变化——max 用 getMaxZoom()（近景放大上限，约8栋建筑填满屏；
+    // 注意它已不是 refit 档，refit 用 getDefaultZoom()=coverZoom），min 用 getMinZoom()（整图可见）。
+    const min = z <= r.getMinZoom() + 1e-3;
+    const max = z >= r.getMaxZoom() - 1e-3;
     const tag = min ? '（最远）' : max ? '（最近）' : '';
     this.zoomText.setText(`×${z.toFixed(1)}${tag}`);
   }

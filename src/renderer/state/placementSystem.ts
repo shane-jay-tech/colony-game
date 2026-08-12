@@ -11,6 +11,7 @@ export interface MapBounds {
 
 export type PlacementFailReason =
   | 'insufficient_resources'
+  | 'insufficient_labor'
   | 'out_of_bounds'
   | 'overlap'
   | 'unbuildable_terrain';
@@ -72,7 +73,10 @@ export function canPlace(
     }
   }
 
-  if (!canAfford(resources, def.cost)) {
+  // 占用制：people 不是材料（劳力门槛在 gameStore.placeBuilding 判），材料校验排除 people。
+  const matCost = { ...def.cost };
+  delete matCost.people;
+  if (!canAfford(resources, matCost)) {
     return { ok: false, reason: 'insufficient_resources' };
   }
 

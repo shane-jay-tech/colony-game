@@ -1,5 +1,6 @@
 import type { CourtEvent } from './schema';
 import { STORY_EVENTS } from './storyEvents';
+import { ALL_EXPANDED_EVENTS } from './eventsExpanded';
 
 /**
  * v0.7 朝议事件（沙盒心跳调味）。Phase3：末尾并入 STORY_EVENTS（故事模式按章触发）。
@@ -23,6 +24,7 @@ const BASE_EVENTS: CourtEvent[] = [
   },
   {
     id: 'evt_emissary',
+    illustrationKey: 'evt_art_diplomacy',
     tags: ['抉择'],
     triggers: [{ condition: 'country_morale > 60' }, { condition: 'year >= 5' }],
     contexts: [
@@ -93,6 +95,7 @@ const BASE_EVENTS: CourtEvent[] = [
   },
   {
     id: 'evt_river_flood',
+    illustrationKey: 'evt_art_flood',
     tags: ['抉择', '负'],
     triggers: [{ condition: 'random', value: 0.08 }, { condition: 'season == autumn' }],
     contexts: [
@@ -197,6 +200,7 @@ const BASE_EVENTS: CourtEvent[] = [
   },
   {
     id: 'evt_bandit_raid',
+    illustrationKey: 'evt_art_battle',
     tags: ['抉择', '负'],
     triggers: [{ condition: 'random', value: 0.10 }, { condition: 'country_military_power < 12' }],
     contexts: [
@@ -269,4 +273,4 @@ const BASE_EVENTS: CourtEvent[] = [
   },
 ];
 
-export const EVENTS: CourtEvent[] = [...BASE_EVENTS, ...STORY_EVENTS];
+export const EVENTS: CourtEvent[] = [...BASE_EVENTS, ...ALL_EXPANDED_EVENTS, ...STORY_EVENTS];

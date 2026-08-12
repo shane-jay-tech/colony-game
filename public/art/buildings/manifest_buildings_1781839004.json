@@ -1,0 +1,30 @@
+[
+  {
+    "id": "bld_training_ground",
+    "model": "wan2.7-image-pro",
+    "task_id": "68c4addb-5c38-4eb5-a666-02d0c2661090",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_training_ground.png",
+    "error": null
+  },
+  {
+    "id": "bld_stable",
+    "model": "wan2.7-image-pro",
+    "task_id": "e625d714-b1c2-4464-b262-3f0b1c4ed05d",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_stable.png",
+    "error": null
+  },
+  {
+    "id": "bld_chariot_works",
+    "model": "wan2.7-image-pro",
+    "task_id": "21c1b9b7-98aa-47f3-9633-affc7bde563e",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_chariot_works.png",
+    "error": null
+  },
+  {
+    "id": "bld_imperial_guard",
+    "model": "wan2.7-image-pro",
+    "task_id": "c685479f-d90f-46db-bd45-0068119cd72d",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_imperial_guard.png",
+    "error": null
+  }
+]

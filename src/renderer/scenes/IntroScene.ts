@@ -211,7 +211,7 @@ export class IntroScene extends Phaser.Scene {
       color: COLORS_HEX.GOLD,
     } as Phaser.Types.GameObjects.Text.TextStyle);
 
-    this.subtitleText = this.add.text(0, 0, '春秋小邦立国志 · v0.8', {
+    this.subtitleText = this.add.text(0, 0, '春秋小邦立国志 · v0.9', {
       ...FONTS.body,
       fontSize: '14px',
       color: COLORS_HEX.PAPER_DIM,

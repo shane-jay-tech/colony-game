@@ -6,8 +6,14 @@ import { makeInitialNpcStates } from '../data/npcCountries';
 import type { WorldMap, MapTile, ResourceNode } from '../data/mapSchema';
 import { isValidTerrain, isValidResourceNodeKind } from '../data/mapSchema';
 import { generateMap } from './mapGen';
+import type { PopulationClasses, ConversionOrder, PopulationClass } from '../data/populationClass';
+import { createDefaultPopulation, POPULATION_CLASSES } from '../data/populationClass';
+import { type FactionState, createFactionState } from './factionSystem';
+import type { MegaProjectProgress } from './megaProjectSystem';
+import type { GeneralState } from '../data/generals';
+import type { ActiveExpedition, DefenseAlert } from '../data/military';
 
-export const SAVE_SCHEMA_VERSION = 1;
+export const SAVE_SCHEMA_VERSION = 3;
 
 export class SaveLoadError extends Error {
   constructor(message: string) {
@@ -73,12 +79,49 @@ export interface SerializedSave {
       chapterStartDay?: number;
       ending?: 'gong' | 'jia' | 'huo' | null;
     } | null;
+    /** B-0：人口阶层分布（旧存档无→全归farmer） */
+    populationClasses?: PopulationClasses;
+    /** B-0：阶层转化队列 */
+    conversionQueue?: ConversionOrder[];
+    /** B-0：缺粮连续天数 */
+    grainNegativeDays?: number;
+    /** B-4.1：阶层博弈状态 */
+    factionState?: FactionState;
+    /** B-4.2：巨型工程进度 */
+    megaProjects?: MegaProjectProgress[];
+    /** B-4.3：已选互斥国策 */
+    exclusivePolicies?: string[];
+    /** B-2：已招募将领（P4） */
+    generals?: GeneralState[];
+    /** B-1：进行中出征（P4） */
+    activeExpeditions?: ActiveExpedition[];
+    /** B-1：来犯预警（P4） */
+    defenseAlerts?: DefenseAlert[];
   };
 }
 
 type MigrationFn = (old: unknown) => unknown;
-// empty for v1; add entries for v2, v3, etc. as needed
-const migrations: Partial<Record<number, MigrationFn>> = {};
+const migrations: Partial<Record<number, MigrationFn>> = {
+  1: (blob) => {
+    const data = blob as { schemaVersion: number; state: Record<string, unknown> };
+    const s = data.state;
+    const people = (s['resources'] as Record<string, number>)?.['people'] ?? 0;
+    s['populationClasses'] = createDefaultPopulation(people);
+    s['conversionQueue'] = [];
+    s['grainNegativeDays'] = 0;
+    data.schemaVersion = 2;
+    return data;
+  },
+  2: (blob) => {
+    const data = blob as { schemaVersion: number; state: Record<string, unknown> };
+    const s = data.state;
+    s['factionState'] = createFactionState();
+    s['megaProjects'] = [];
+    s['exclusivePolicies'] = [];
+    data.schemaVersion = 3;
+    return data;
+  },
+};
 
 function runMigrations(blob: unknown, fromVersion: number): unknown {
   let current = blob;
@@ -231,6 +274,15 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
         chapterStartDay: state.storyFlags.chapterStartDay,
         ending: state.storyFlags.ending,
       } : null,
+      populationClasses: state.populationClasses,
+      conversionQueue: state.conversionQueue,
+      grainNegativeDays: state.grainNegativeDays,
+      factionState: state.factionState,
+      megaProjects: state.megaProjects,
+      exclusivePolicies: state.exclusivePolicies,
+      generals: state.generals,
+      activeExpeditions: state.activeExpeditions,
+      defenseAlerts: state.defenseAlerts,
     },
   };
 }
@@ -340,6 +392,23 @@ export function deserialize(blob: unknown): GameState {
     vassalOf: typeof s.vassalOf === 'string' ? s.vassalOf : null,
     // Phase2 故事 storyFlags（仅 story 存档有；sandbox → null）
     storyFlags: deserializeStoryFlags(s.storyFlags, s.mode === 'story', finiteNum(s.currentDay, 0)),
+    // B-0 人口阶层（旧存档无 → 全归 farmer）
+    populationClasses: deserializePopulationClasses(s.populationClasses, s.resources?.['people'] ?? 0),
+    conversionQueue: deserializeConversionQueue(s.conversionQueue),
+    grainNegativeDays: Math.max(0, Math.floor(finiteNum(s.grainNegativeDays, 0))),
+    factionState: deserializeFactionState(s.factionState),
+    megaProjects: deserializeMegaProjects(s.megaProjects),
+    exclusivePolicies: Array.isArray(s.exclusivePolicies)
+      ? s.exclusivePolicies.filter((x): x is string => typeof x === 'string')
+      : [],
+    // P4：军事/将领（旧存档无 → 空）。深拷贝防共享引用（含嵌套 config.units）+ 钳忠诚到 [0,100]。
+    generals: Array.isArray(s.generals)
+      ? s.generals.map(g => ({ id: String(g.id), loyalty: Math.max(0, Math.min(100, finiteNum(g.loyalty, 80))), deployed: !!g.deployed }))
+      : [],
+    activeExpeditions: Array.isArray(s.activeExpeditions)
+      ? s.activeExpeditions.map(e => ({ ...e, config: { ...e.config, units: { ...e.config.units } } }))
+      : [],
+    defenseAlerts: Array.isArray(s.defenseAlerts) ? s.defenseAlerts.map(a => ({ ...a })) : [],
   };
   return gameState;
 }
@@ -370,6 +439,78 @@ function deserializeStoryFlags(
       return e === 'gong' || e === 'jia' || e === 'huo' ? e : null;
     })(),
   };
+}
+
+function deserializePopulationClasses(raw: unknown, totalPeople: number): PopulationClasses {
+  if (raw === null || raw === undefined || typeof raw !== 'object') {
+    return createDefaultPopulation(Math.max(0, Math.floor(totalPeople)));
+  }
+  const obj = raw as Record<string, unknown>;
+  const result: PopulationClasses = { farmer: 0, worker: 0, soldier: 0, scholar: 0 };
+  for (const cls of POPULATION_CLASSES) {
+    const v = obj[cls];
+    result[cls] = typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
+  }
+  if (result.farmer + result.worker + result.soldier + result.scholar === 0 && totalPeople > 0) {
+    result.farmer = Math.floor(totalPeople);
+  }
+  return result;
+}
+
+function deserializeConversionQueue(raw: unknown): ConversionOrder[] {
+  if (!Array.isArray(raw)) return [];
+  const validClasses = new Set<string>(POPULATION_CLASSES);
+  const out: ConversionOrder[] = [];
+  for (const item of raw.slice(0, 50)) {
+    if (typeof item !== 'object' || item === null) continue;
+    const o = item as Record<string, unknown>;
+    if (!validClasses.has(o['from'] as string) || !validClasses.has(o['to'] as string)) continue;
+    const count = o['count'];
+    const days = o['daysRemaining'];
+    if (typeof count !== 'number' || count <= 0 || !Number.isFinite(count)) continue;
+    if (typeof days !== 'number' || days <= 0 || !Number.isFinite(days)) continue;
+    out.push({
+      from: o['from'] as PopulationClass,
+      to: o['to'] as PopulationClass,
+      count: Math.floor(count),
+      daysRemaining: Math.floor(days),
+    });
+  }
+  return out;
+}
+
+function deserializeFactionState(raw: unknown): FactionState {
+  if (raw === null || raw === undefined || typeof raw !== 'object') return createFactionState();
+  const o = raw as Record<string, unknown>;
+  return {
+    active: o['active'] === true,
+    lastEventDay: typeof o['lastEventDay'] === 'number' ? Math.floor(o['lastEventDay'] as number) : -1,
+    nextEventDay: typeof o['nextEventDay'] === 'number' ? Math.floor(o['nextEventDay'] as number) : -1,
+    activeDemand: null,
+    acceptedDemands: Array.isArray(o['acceptedDemands'])
+      ? (o['acceptedDemands'] as unknown[]).filter((x): x is string => typeof x === 'string')
+      : [],
+    rejectedDemands: Array.isArray(o['rejectedDemands'])
+      ? (o['rejectedDemands'] as unknown[]).filter((x): x is string => typeof x === 'string')
+      : [],
+  };
+}
+
+function deserializeMegaProjects(raw: unknown): MegaProjectProgress[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MegaProjectProgress[] = [];
+  for (const item of (raw as unknown[]).slice(0, 10)) {
+    if (typeof item !== 'object' || item === null) continue;
+    const o = item as Record<string, unknown>;
+    if (typeof o['projectId'] !== 'string') continue;
+    out.push({
+      projectId: o['projectId'] as string,
+      currentPhase: typeof o['currentPhase'] === 'number' ? Math.max(0, Math.floor(o['currentPhase'] as number)) : 0,
+      daysRemaining: typeof o['daysRemaining'] === 'number' ? Math.max(0, Math.floor(o['daysRemaining'] as number)) : 0,
+      completed: o['completed'] === true,
+    });
+  }
+  return out;
 }
 
 const VALID_WAR_STATUS = new Set<WarStatus>(['peace', 'tension', 'war']);
@@ -416,7 +557,7 @@ function validateNpcCountriesArray(arr: unknown): NpcCountryState[] {
 }
 
 const VALID_BUILDING_STATUS = new Set<BuildingStatus>(['idle', 'constructing', 'working', 'paused', 'derelict']);
-const VALID_BUILDING_TIER = new Set<BuildingTier>([1, 2, 3]);
+const VALID_BUILDING_TIER = new Set<BuildingTier>([1, 2, 3, 4]);
 
 /**
  * Slice G hardening：deserialize 时校验 buildings 数组每条 shape。

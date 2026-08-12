@@ -1,4 +1,4 @@
-import type { RoyalDecree } from './schema';
+import type { RoyalDecree, StoryAxisDelta } from './schema';
 
 /**
  * v1.0 #2：朝堂政令扩展。
@@ -394,3 +394,23 @@ export const DECREES: RoyalDecree[] = [
     ],
   },
 ];
+
+// 意识形态双轴（2026-06-20）：朝令同样推"封建→三主义"漂移。语义同 POLICY_AXIS。仅故事模式生效。
+const DECREE_AXIS: Record<string, StoryAxisDelta> = {
+  decree_conscript: { power: -4 },                  // 徵役令：集权
+  decree_train_levy: { power: -3 },                 // 整军经武：集权
+  decree_hegemony: { power: -4 },                   // 武备称霸：集权
+  decree_alliance_oath: { power: 3 },               // 会盟立信：还权/多极
+  decree_cast_ding: { power: 5, production: 3 },     // 铸鼎告民：公开法度→还权+公
+  decree_stele_market: { power: 4 },                // 立碑于市：公开法→还权
+  decree_compile_rites: { power: -3 },              // 修典礼乐：集权正统
+  decree_promote_agri: { production: 2 },           // 劝农桑：轻公
+  decree_tuntian: { power: -1, production: 5 },      // 屯田积谷：轻集权+公（国营集体耕作）
+  decree_workshop_levy: { power: 1, production: -3 }, // 通工易事：松动专营→轻还权+私有
+  decree_hundred_crafts: { power: 2, production: -5 }, // 百工兴市：货天下
+  // decree_envoy_mission（通使邻邦）：中立，不推轴
+};
+for (const d of DECREES) {
+  const a = DECREE_AXIS[d.id];
+  if (a) d.storyAxisDelta = a;
+}

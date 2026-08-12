@@ -1,0 +1,172 @@
+Task: Implement the labor-occupation system for a TypeScript/Phaser colony game.
+Output real TypeScript before/after diffs for the 9 code changes listed.
+
+GOAL:
+- people resource = total population, only changed by population.ts. Never deducted by cost/upkeep.
+- Each placed building (constructing OR working) occupies def.cost.people labor slots.
+- employedLabor = sum of (getBuildingDef(b.defId)?.cost.people ?? 0) over this.state.buildings.
+- idleLabor = Math.max(0, people - employedLabor).
+- Build gate: idleLabor >= def.cost.people. Return reason='insufficient_labor' if not.
+- canPlace material check excludes people. Labor gate is in gameStore.placeBuilding.
+- HUD people token: show idleLabor/total.
+
+=== DIFF 1: productionSystem.ts upkeep loop ===
+BEFORE:
+    for (const id of RESOURCE_IDS) {
+      const u = def.upkeep[id];
+      if (u === undefined || u <= 0) continue;
+      const cur = rawUpkeep[id] ?? 0;
+      rawUpkeep[id] = cur + u;
+    }
+AFTER: Add "if (id === 'people') continue; // labor, not consumable upkeep" as the first line inside the for body.
+
+=== DIFF 2a: gameStore.ts placeBuilding cost deduction loop ===
+BEFORE:
+    for (const id of RESOURCE_IDS) {
+      const amount = def.cost[id];
+      if (amount === undefined || amount === 0) continue;
+      const current = this.state.resources[id] ?? 0;
+      this.setResourceClamped(id, current - amount);
+      deltas[id] = -amount;
+    }
+AFTER: Add "if (id === 'people') continue; // labor occupation, not consumed" as first line inside for body.
+
+=== DIFF 2b: gameStore.ts upgradeBuilding affordability check loop ===
+BEFORE:
+    for (const id of RESOURCE_IDS) {
+      const need = cost[id];
+      if (need === undefined || need === 0) continue;
+      if ((this.state.resources[id] ?? 0) < need) {
+        return { ok: false, reason: 'insufficient_resources' };
+      }
+    }
+AFTER: Add "if (id === 'people') continue; // labor not consumed on upgrade" as first line inside for body.
+
+=== DIFF 2c: gameStore.ts upgradeBuilding deduction loop ===
+BEFORE:
+    const deltas: Partial<Record<ResourceId, number>> = {};
+    for (const id of RESOURCE_IDS) {
+      const need = cost[id];
+      if (need === undefined || need === 0) continue;
+      const cur = this.state.resources[id] ?? 0;
+      this.setResourceClamped(id, cur - need);
+      deltas[id] = -need;
+    }
+AFTER: Add "if (id === 'people') continue; // labor not consumed on upgrade" as first line inside for body.
+
+=== DIFF 2d: gameStore.ts two new methods after getHousingCap ===
+ADD:
+  /** Total labor slots occupied by all placed buildings (constructing or working). */
+  getEmployedLabor(): number {
+    let total = 0;
+    for (const b of this.state.buildings) {
+      const def = getBuildingDef(b.defId);
+      total += def?.cost.people ?? 0;
+    }
+    return total;
+  }
+
+  /** Idle labor = total population minus employed, clamped to zero. */
+  getIdleLabor(): number {
+    return Math.max(0, (this.state.resources['people'] ?? 0) - this.getEmployedLabor());
+  }
+
+=== DIFF 2e: gameStore.ts placeBuilding labor gate ===
+INSERT after: if (!result.ok) return result;
+ADD:
+    // Reject if not enough idle workers to staff this building
+    if (this.getIdleLabor() < (def.cost.people ?? 0)) {
+      return { ok: false, reason: 'insufficient_labor' };
+    }
+
+=== DIFF 3a: placementSystem.ts PlacementFailReason type ===
+BEFORE:
+export type PlacementFailReason =
+  | 'insufficient_resources'
+  | 'out_of_bounds'
+  | 'overlap'
+  | 'unbuildable_terrain';
+AFTER: Add | 'insufficient_labor' after 'insufficient_resources'.
+
+=== DIFF 3b: placementSystem.ts canPlace material check ===
+BEFORE:
+  if (!canAfford(resources, def.cost)) {
+    return { ok: false, reason: 'insufficient_resources' };
+  }
+AFTER:
+  // Exclude people; labor gate is in gameStore.placeBuilding
+  const matCost = { ...def.cost };
+  delete matCost.people;
+  if (!canAfford(resources, matCost)) {
+    return { ok: false, reason: 'insufficient_resources' };
+  }
+
+=== DIFF 4a: BuildPanel.ts formatCost ===
+BEFORE (include the full method body):
+  private formatCost(def: BuildingDef): string {
+    const parts: string[] = [];
+    const labelMap: Record<string, string> = {
+      grain: 'grai_cn', wood: 'wood_cn', stone: 'stone_cn', gold: 'gold_cn', people: 'people_cn',
+      cloth: 'cloth_cn', bronze: 'bronze_cn', rite: 'rite_cn',
+    };
+    for (const [k, v] of Object.entries(def.cost)) {
+      if (v && v > 0) parts.push(TEMPLATE_LITERAL_labelMap[k]_v);
+    }
+    return parts.length > 0 ? parts.join(' MIDDLE_DOT ') : 'MIAN_FEI';
+  }
+AFTER: Skip people in loop, append labor indicator:
+  private formatCost(def: BuildingDef): string {
+    const parts: string[] = [];
+    const labelMap: Record<string, string> = {
+      grain: 'grain_cn', wood: 'wood_cn', stone: 'stone_cn', gold: 'gold_cn',
+      cloth: 'cloth_cn', bronze: 'bronze_cn', rite: 'rite_cn',
+    };
+    for (const [k, v] of Object.entries(def.cost)) {
+      if (k === 'people') continue;
+      if (v && v > 0) parts.push((labelMap[k] ?? k) + String(v));
+    }
+    const laborN = def.cost.people ?? 0;
+    if (laborN > 0) parts.push('ZHAN_LAO' + String(laborN));
+    return parts.length > 0 ? parts.join(' MIDDLE_DOT ') : 'MIAN_FEI';
+  }
+NOTE: Replace grain_cn with actual Chinese char, wood_cn with actual, etc. Replace TEMPLATE_LITERAL_x_y with template literal, MIDDLE_DOT with actual middle dot, MIAN_FEI with actual chars, ZHAN_LAO with actual chars.
+
+=== DIFF 4b: BuildPanel.ts refreshAffordance ===
+BEFORE:
+    const affordable = canAfford(resources, row.def.cost);
+AFTER:
+    const matCost = { ...row.def.cost };
+    delete matCost.people;
+    const affordable = canAfford(resources, matCost) && this.store.getIdleLabor() >= (row.def.cost.people ?? 0);
+
+=== DIFF 5: HUD.ts people token display ===
+BEFORE:
+      if (id === 'people') {
+        const cap = this.store.getHousingCap();
+        const old = this.resourceTweens.get(id);
+        if (old) { old.stop(); this.resourceTweens.delete(id); }
+        token.txt.setText(TEMPLATE_LITERAL_v_slash_cap);
+        this.prevResourceValues.set(id, v);
+        continue;
+      }
+AFTER:
+      if (id === 'people') {
+        const total = resources['people'] ?? 0;
+        const idle = this.store.getIdleLabor();
+        const old = this.resourceTweens.get(id);
+        if (old) { old.stop(); this.resourceTweens.delete(id); }
+        token.txt.setText(TEMPLATE_LITERAL_idle_slash_total);
+        this.prevResourceValues.set(id, v);
+        continue;
+      }
+NOTE: Replace TEMPLATE_LITERAL_... with actual backtick template literals using ${} interpolation.
+
+CONSTRAINTS:
+- Do NOT touch camera/zoom/resize/mask/map rendering.
+- Do NOT touch population.ts.
+- Keep getHousingCap() (population.ts uses housing cap).
+- TypeScript strict: no unused imports or variables.
+- upgradeBuilding does NOT need a new labor check.
+- ResourceCost = Partial<Record<ResourceId,number>>; delete on spread copy is valid TS.
+
+OUTPUT: (1) All 9 diffs verbatim in TypeScript BEFORE/AFTER blocks with real Chinese chars and template literals. (2) 3 self-review concerns. (3) Final corrected code.

@@ -3,7 +3,7 @@
  * 我们只验证 coordinate math 和事件路径，不验证 WebGL 渲染本身。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MapRenderer } from '../MapRenderer';
+import { MapRenderer, MAP_ZOOM_MAX } from '../MapRenderer';
 import { WorldMapAccessor } from '../../state/worldMap';
 import type { WorldMap } from '../../data/mapSchema';
 import { TILE_SIZE } from '../mapColors';
@@ -96,7 +96,8 @@ interface TweenConfig {
 
 function makeFakeImage() {
   const im = {
-    x: 0, y: 0, visible: true, alpha: 1, key: '',
+    x: 0, y: 0, visible: true, alpha: 1, key: '', width: 256, height: 256,
+    setScale: vi.fn().mockImplementation(function (this: typeof im) { return this; }),
     setOrigin: vi.fn().mockImplementation(function (this: typeof im) { return this; }),
     setPosition: vi.fn().mockImplementation(function (this: typeof im, x: number, y: number) {
       this.x = x; this.y = y; return this;
@@ -119,9 +120,17 @@ function makeFakeScene(camWidth = 1366, camHeight = 800, textureExists: (key: st
   const textCalls: FakeText[] = [];
   const imageCalls: ReturnType<typeof makeFakeImage>[] = [];
   const tweenCalls: TweenConfig[] = [];
+  const fakeEmitter = { setDepth: vi.fn(), destroy: vi.fn() };
   return {
     cameras: { main: { width: camWidth, height: camHeight } },
     textures: { exists: vi.fn(textureExists) },
+    make: {
+      graphics: vi.fn(() => {
+        const g = makeFakeGraphics();
+        (g as unknown as Record<string, unknown>).generateTexture = vi.fn();
+        return g;
+      }),
+    },
     add: {
       graphics: vi.fn(() => {
         const g = makeFakeGraphics();
@@ -140,6 +149,7 @@ function makeFakeScene(camWidth = 1366, camHeight = 800, textureExists: (key: st
         imageCalls.push(im);
         return im;
       }),
+      particles: vi.fn(() => fakeEmitter),
     },
     tweens: {
       add: vi.fn((cfg: TweenConfig) => {
@@ -292,9 +302,10 @@ describe('MapRenderer.bake (terrain / nodes)', () => {
     const acc = new WorldMapAccessor(map);
     const scene = makeFakeScene();
     new MapRenderer(scene, acc);
-    // first graphics = terrain：等距每 tile 画一个菱形 fillPoints（4×4=16 个）
+    // first graphics = terrain：等距每 tile 画一个菱形 fillPoints（4×4=16 个）；
+    // 河格额外画一次"深水内芯"双色填充 → 本例 1 个河格 → 16+1=17。
     const terrainGfx = (scene as unknown as { _graphics: ReturnType<typeof makeFakeGraphics>[] })._graphics[0]!;
-    expect(terrainGfx.fillPoints.mock.calls.length).toBe(16);
+    expect(terrainGfx.fillPoints.mock.calls.length).toBe(17);
     // second graphics = nodes (2 nodes)：菱形 pip 用 fillPoints（每节点 2 个：描边+本体）+ 高光 fillCircle（每节点 1）
     const nodesGfx = (scene as unknown as { _graphics: ReturnType<typeof makeFakeGraphics>[] })._graphics[1]!;
     expect(nodesGfx.fillPoints).toHaveBeenCalledTimes(4);
@@ -494,6 +505,135 @@ describe('MapRenderer.recenter (Slice G hardening)', () => {
     for (let i = 0; i < 4; i++) {
       expect(gfx[i]!.setPosition).not.toHaveBeenCalled();
     }
+  });
+});
+
+describe('MapRenderer zoom floor + resize re-fit (DeepSeek Finding 1)', () => {
+  // 带状态的相机：支持 zoom / setZoom / scrollX/Y / 改尺寸，用于验证缩放下限与 resize 重夹。
+  function makeZoomScene(camW: number, camH: number) {
+    const cam = {
+      width: camW, height: camH, zoom: 1, scrollX: 0, scrollY: 0,
+      setZoom: vi.fn(function (this: { zoom: number }, z: number) { this.zoom = z; return this; }),
+      setBackgroundColor: vi.fn(),
+    };
+    return {
+      cameras: { main: cam },
+      textures: { exists: vi.fn(() => false) },
+      add: {
+        graphics: vi.fn(() => ({ ...makeFakeGraphics(), setPosition: vi.fn().mockReturnThis() })),
+        text: vi.fn(() => makeFakeText()),
+      },
+      tweens: { add: vi.fn(() => ({ stop: vi.fn() })) },
+      _setCamSize(w: number, h: number) { cam.width = w; cam.height = h; },
+      _cam: cam,
+    } as never;
+  }
+
+  it('v4: large map opens at default cover zoom (getDefaultZoom) and zoom-out floor is whole-map fit (min)', () => {
+    const scene = makeZoomScene(1366, 800);
+    const renderer = new MapRenderer(scene, new WorldMapAccessor(makeMap(80, 80)));
+    const cover = renderer.getDefaultZoom();
+    const fit = renderer.getMinZoom();
+    expect(cover).toBeGreaterThan(0.08);          // 受 floor 0.08 约束以上
+    expect(cover).toBeLessThan(1);                // 80×80 远大于视口 → cover < 1
+    expect(cover).toBeGreaterThanOrEqual(fit);    // 铺满档 ≥ 整图档（2:1 菱形 + 横屏 → 严格更大）
+    // 开局 = 铺满档（默认视图；v4 起可继续放大到近景，见下一条测试）
+    expect(renderer.getMapZoom()).toBeCloseTo(cover, 5);
+  });
+
+  it('v4: getMaxZoom is a close-up ceiling above cover (玩家可放大到近景), capped by MAP_ZOOM_MAX', () => {
+    const scene = makeZoomScene(1920, 1080);
+    const renderer = new MapRenderer(scene, new WorldMapAccessor(makeMap(80, 80)));
+    const cover = renderer.getDefaultZoom();
+    const maxIn = renderer.getMaxZoom();
+    expect(maxIn).toBeGreaterThan(cover);         // 近景上限严格高于铺满档 → 解锁了放大
+    expect(maxIn).toBeLessThanOrEqual(MAP_ZOOM_MAX + 1e-9);
+    expect(Number.isFinite(maxIn)).toBe(true);    // 永不为 NaN（渲染器对 NaN zoom 零容忍）
+    // 玩家放大到上限后，确实停在近景档而非铺满档
+    renderer.setMapZoom(99, 960, 540);
+    expect(renderer.getMapZoom()).toBeCloseTo(maxIn, 5);
+    expect(renderer.getMapZoom()).toBeGreaterThan(cover);
+  });
+
+  it('v2: setMapZoom cannot exceed getMaxZoom (max-zoom lock)', () => {
+    const scene = makeZoomScene(1366, 800);
+    const renderer = new MapRenderer(scene, new WorldMapAccessor(makeMap(80, 80)));
+    renderer.setMapZoom(99); // 尝试放到很大
+    expect(renderer.getMapZoom()).toBeCloseTo(renderer.getMaxZoom(), 5);
+    renderer.setMapZoom(0); // 尝试缩到很小
+    expect(renderer.getMapZoom()).toBeCloseTo(renderer.getMinZoom(), 5);
+  });
+
+  it('v2: rebuildAfterResize re-fits to the whole-map max zoom (a below-fit zoom is lifted back)', () => {
+    const scene = makeZoomScene(1366, 800);
+    const renderer = new MapRenderer(scene, new WorldMapAccessor(makeMap(80, 80)));
+    (scene as unknown as { _cam: { zoom: number } })._cam.zoom = 0.02;
+    (scene as unknown as { _setCamSize(w: number, h: number): void })._setCamSize(1920, 1080);
+    renderer.rebuildAfterResize();
+    expect(renderer.getMapZoom()).toBeCloseTo(renderer.getDefaultZoom(), 5);
+    expect(renderer.getMapZoom()).toBeGreaterThanOrEqual(renderer.getMinZoom() - 1e-6);
+  });
+
+  it('v2: rebuildAfterResize always re-fits to whole map (never keeps an above-fit zoom)', () => {
+    const scene = makeZoomScene(1366, 800);
+    const renderer = new MapRenderer(scene, new WorldMapAccessor(makeMap(80, 80)));
+    (scene as unknown as { _cam: { zoom: number } })._cam.zoom = 1.5;  // 强塞一个不可能的放大值
+    renderer.rebuildAfterResize();
+    expect(renderer.getMapZoom()).toBeCloseTo(renderer.getDefaultZoom(), 5);  // 始终回到铺满默认档
+  });
+
+  it('v2: ensureFittedToViewport re-fits + centers on size change, no-ops when size unchanged', () => {
+    const camW = 1920, camH = 1080;
+    const scene = makeZoomScene(1366, 800);
+    const cam = (scene as unknown as { _cam: { scrollX: number; scrollY: number; zoom: number } })._cam;
+    const renderer = new MapRenderer(scene, new WorldMapAccessor(makeMap(80, 80)));
+    // 模拟构造在配置尺寸、真实尺寸更大：心跳应在真实尺寸上重新 fit + 居中
+    (scene as unknown as { _setCamSize(w: number, h: number): void })._setCamSize(camW, camH);
+    renderer.ensureFittedToViewport();
+    const z = renderer.getMapZoom();
+    expect(z).toBeCloseTo(renderer.getDefaultZoom(), 5);
+    const w = renderer.gridToScreen(40, 40);
+    const sx = (w.x - cam.scrollX) * z;
+    const sy = (w.y - cam.scrollY) * z;
+    expect(sx).toBeGreaterThan(camW * 0.25); expect(sx).toBeLessThan(camW * 0.75);
+    expect(sy).toBeGreaterThan(camH * 0.25); expect(sy).toBeLessThan(camH * 0.75);
+    // 尺寸不变再调 → no-op（不动 scroll）
+    const beforeX = cam.scrollX;
+    renderer.ensureFittedToViewport();
+    expect(cam.scrollX).toBe(beforeX);
+  });
+
+  it('v2: ensureFittedToViewport skips a degenerate viewport (vp<=0), preserving prior camera state', () => {
+    const scene = makeZoomScene(1920, 1080);
+    const cam = (scene as unknown as { _cam: { scrollX: number; scrollY: number; zoom: number } })._cam;
+    const renderer = new MapRenderer(scene, new WorldMapAccessor(makeMap(80, 80)));
+    renderer.ensureFittedToViewport();          // 先在 1920 fit 一次
+    const beforeX = cam.scrollX, beforeZoom = cam.zoom;
+    (scene as unknown as { _setCamSize(w: number, h: number): void })._setCamSize(320, 240); // 退化帧
+    renderer.ensureFittedToViewport();
+    expect(cam.scrollX).toBe(beforeX);          // 不被退化帧污染
+    expect(cam.zoom).toBe(beforeZoom);
+  });
+
+  it('re-centres the camera after a startup maximize (no shove to a corner)', () => {
+    // 复现截图 bug：开局窗口从 1366×800 最大化到 1920×1080，recenter 只挪 origin 不挪 scroll
+    // → 地图缩到右下角、左上一片黑。修复后地图中心应仍落在屏幕中央带内。
+    const camW = 1920, camH = 1080;
+    const scene = makeZoomScene(1366, 800);
+    const cam = (scene as unknown as { _cam: { scrollX: number; scrollY: number; zoom: number } })._cam;
+    const renderer = new MapRenderer(scene, new WorldMapAccessor(makeMap(80, 80)));
+    (scene as unknown as { _setCamSize(w: number, h: number): void })._setCamSize(camW, camH);
+    renderer.rebuildAfterResize();
+    // 地图中心 tile 的屏幕坐标 = (世界坐标 - scroll) * zoom
+    const z = renderer.getMapZoom();
+    const w = renderer.gridToScreen(40, 40);
+    const screenX = (w.x - cam.scrollX) * z;
+    const screenY = (w.y - cam.scrollY) * z;
+    // 必须落在屏幕中央带（25%~75%），而不是被推到角落
+    expect(screenX).toBeGreaterThan(camW * 0.25);
+    expect(screenX).toBeLessThan(camW * 0.75);
+    expect(screenY).toBeGreaterThan(camH * 0.25);
+    expect(screenY).toBeLessThan(camH * 0.75);
   });
 });
 

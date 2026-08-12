@@ -16,6 +16,8 @@ export interface TransitionData {
   lines: string[];
   /** 结束后调用（推进章节 + resume 游戏）。 */
   onDone: () => void;
+  /** 2026-06-19：可选过场插画纹理 key（如结局图 'evt_art_ending_gong'）。缺图静默回退纯文字。 */
+  imageKey?: string;
 }
 
 export class TransitionScene extends Phaser.Scene {
@@ -27,6 +29,8 @@ export class TransitionScene extends Phaser.Scene {
   private onDone: (() => void) | null = null;
   private advancing = false;
   private layoutTimer: number | null = null;
+  private illus: Phaser.GameObjects.Image | null = null;
+  private imageKey: string | null = null;
 
   constructor() {
     super({ key: 'TransitionScene' });
@@ -45,12 +49,18 @@ export class TransitionScene extends Phaser.Scene {
     this.onDone = data?.onDone ?? null;
     this.idx = 0;
     this.advancing = false;
+    this.imageKey = (data?.imageKey && this.textures?.exists?.(data.imageKey)) ? data.imageKey : null;
 
     const W = this.scale.width;
     const H = this.scale.height;
     this.bg = this.add.graphics();
     this.bg.fillStyle(COLORS.BG_INK, 1);
     this.bg.fillRect(0, 0, W, H);
+
+    // 结局/过场插画（有图则置于上方，文字下移）
+    if (this.imageKey) {
+      this.illus = this.add.image(0, 0, this.imageKey).setOrigin(0.5, 0.5);
+    }
 
     this.lineText = this.add.text(0, 0, '', {
       ...FONTS.body,
@@ -80,7 +90,17 @@ export class TransitionScene extends Phaser.Scene {
     this.bg.clear();
     this.bg.fillStyle(COLORS.BG_INK, 1);
     this.bg.fillRect(0, 0, W, H);
-    this.lineText.setPosition(Math.floor(W / 2), Math.floor(H / 2));
+    // 插画居上、按比例缩放至上半屏；文字随之下移
+    let textY = Math.floor(H / 2);
+    if (this.illus && this.imageKey) {
+      const src = this.textures.get(this.imageKey).getSourceImage() as { width?: number; height?: number };
+      const natW = src?.width || 16, natH = src?.height || 9;
+      const maxW = Math.min(560, W - 160), maxH = H * 0.46;
+      const scale = Math.min(maxW / natW, maxH / natH);
+      this.illus.setScale(scale).setPosition(Math.floor(W / 2), Math.floor(H * 0.34));
+      textY = Math.floor(H * 0.72);
+    }
+    this.lineText.setPosition(Math.floor(W / 2), textY);
     this.lineText.setStyle({ wordWrap: { width: Math.min(760, W - 120), useAdvancedWrap: true } });
     this.hintText.setPosition(Math.floor(W / 2), H - 48);
   }
@@ -120,5 +140,7 @@ export class TransitionScene extends Phaser.Scene {
   shutdown(): void {
     this.scale.off('resize', this.scheduleLayout);
     if (this.layoutTimer !== null) { window.clearTimeout(this.layoutTimer); this.layoutTimer = null; }
+    // DeepSeek F-03：场景被强制 stop（存档重载/重置）而未走 finish() 时，pointerdown 监听会残留 → 引用已销毁对象
+    this.input?.removeAllListeners?.();
   }
 }

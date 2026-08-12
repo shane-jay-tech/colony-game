@@ -1,0 +1,30 @@
+[
+  {
+    "id": "bld_pottery_kiln",
+    "model": "wan2.7-image-pro",
+    "task_id": "addfb7e5-c42f-417b-b8fe-f979d32dea6a",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_pottery_kiln.png",
+    "error": null
+  },
+  {
+    "id": "bld_granary",
+    "model": "wan2.7-image-pro",
+    "task_id": "f433f6ac-8d8e-4ac0-86f0-98cfb7f946bc",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_granary.png",
+    "error": null
+  },
+  {
+    "id": "bld_nine_cauldrons",
+    "model": "wan2.7-image-pro",
+    "task_id": "eeb7f93c-647d-4fbe-adfd-e0aca6d6e434",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_nine_cauldrons.png",
+    "error": null
+  },
+  {
+    "id": "bld_city_wall",
+    "model": "wan2.7-image-pro",
+    "task_id": "d8d160bb-3528-418c-a35f-06831683cac2",
+    "saved": "D:\\code\\colony-game\\public\\art\\buildings\\bld_city_wall.png",
+    "error": null
+  }
+]

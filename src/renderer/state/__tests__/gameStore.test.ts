@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { EventEmitter } from 'eventemitter3';
 import { GameStore, STATE_EVENTS } from '../gameStore';
 import type { IEventEmitter } from '../gameStore';
-import type { ModifierInstance, BuildingDef } from '../../data/schema';
+import type { ModifierInstance, BuildingDef, BuildingInstance, PolicyNode } from '../../data/schema';
 import type { WorldMap } from '../../data/mapSchema';
 import { ModifierValidationError } from '../../data/modifierValidator';
 import * as buildingRegistry from '../../data/buildingRegistry';
@@ -82,6 +82,125 @@ describe('GameStore.addResource', () => {
   });
 });
 
+describe('GameStore.getResourceCap (BUG-B 仓廪上限接线)', () => {
+  function granaryInst(): BuildingInstance {
+    return { defId: 'bld_granary', position: { x: 0, y: 0 }, status: 'working', tier: 2, constructionProgress: 100, modifiers: [] };
+  }
+  it('无仓廪 → 上限 9999', () => {
+    const store = new GameStore(makeEmitter());
+    expect(store.getResourceCap('grain')).toBe(9999);
+  });
+  it('一座 working 仓廪 → 存储类资源上限 ×1.5', () => {
+    const store = new GameStore(makeEmitter(), { buildings: [granaryInst()] });
+    expect(store.getResourceCap('grain')).toBe(Math.round(9999 * 1.5));
+  });
+  it('多座仓廪线性叠加但封顶 ×3', () => {
+    const many = [granaryInst(), granaryInst(), granaryInst(), granaryInst(), granaryInst()]; // 5 座
+    const store = new GameStore(makeEmitter(), { buildings: many });
+    expect(store.getResourceCap('grain')).toBe(Math.round(9999 * 3)); // min(3, 1+5×0.5)=3
+  });
+  it('people 不受仓廪影响（其约束是住房上限）', () => {
+    const store = new GameStore(makeEmitter(), { buildings: [granaryInst()] });
+    expect(store.getResourceCap('people')).toBe(9999);
+  });
+  it('在建/废弃仓廪不计入', () => {
+    const constructing: BuildingInstance = { ...granaryInst(), status: 'constructing' };
+    const store = new GameStore(makeEmitter(), { buildings: [constructing] });
+    expect(store.getResourceCap('grain')).toBe(9999);
+  });
+});
+
+describe('GameStore 人口每日真实吃粮 (BUG-B)', () => {
+  it('一日 tick 后粮食被人口消耗（无产粮建筑时严格减少）', () => {
+    // 10 农民吃 10 粮/天；无任何建筑 → 无产出，grain 必减少
+    const store = new GameStore(makeEmitter(), { resources: { people: 10, grain: 100 } });
+    const before = store.getState().resources.grain ?? 0;
+    store.tickDay();
+    const after = store.getState().resources.grain ?? 0;
+    expect(after).toBeLessThan(before); // 消耗真实发生（旧 bug：只比较不扣，after===before）
+  });
+
+  it('长跑不会把粮食堆到 9999 爆仓（无产粮时反而走向枯竭）', () => {
+    const store = new GameStore(makeEmitter(), { resources: { people: 10, grain: 500 } });
+    for (let i = 0; i < 40; i++) store.tickDay();
+    expect(store.getState().resources.grain ?? 0).toBeLessThan(500); // 持续净消耗，不爆仓
+  });
+});
+
+describe('GameStore 阶层供养闭环 (P3：工要布/兵要铜/士要钱)', () => {
+  function staffedStore(res: Record<string, number>) {
+    return new GameStore(makeEmitter(), {
+      resources: { people: 25, ...res },
+      populationClasses: { farmer: 0, worker: 10, soldier: 10, scholar: 5 },
+    });
+  }
+  it('一日 tick 后 布/铜/钱 被阶层供养真实扣减（之前算了不扣→囤积）', () => {
+    const store = staffedStore({ grain: 9999, cloth: 100, bronze: 100, gold: 100 });
+    store.tickDay();
+    const r = store.getState().resources;
+    expect(r.cloth ?? 0).toBeLessThan(100); // 工 10×0.2 布
+    expect(r.bronze ?? 0).toBeLessThan(100); // 兵 10×0.3 铜
+    expect(r.gold ?? 0).toBeLessThan(100); // 士 5×1 钱
+  });
+  it('布/铜/钱短缺非致命：不饿死减员，仅民心轻微下滑', () => {
+    const store = staffedStore({ grain: 9999, cloth: 0, bronze: 0, gold: 0 });
+    const popBefore = store.getState().resources.people ?? 0;
+    const moraleBefore = store.getState().playerMorale;
+    store.tickDay();
+    // 粮足→无饥荒死亡；供养短缺不杀人（人口只会因增长上升，不下降）
+    expect(store.getState().resources.people ?? 0).toBeGreaterThanOrEqual(popBefore);
+    expect(store.getState().playerMorale).toBeLessThan(moraleBefore); // 短缺扣民心
+  });
+});
+
+describe('GameStore 军事+将领 (P4：接成可玩)', () => {
+  function barracks(): BuildingInstance {
+    return { defId: 'bld_barracks', position: { x: 0, y: 0 }, status: 'working', tier: 2, constructionProgress: 100, modifiers: [] };
+  }
+  it('军力由兵阶层派生：有兵 > 无兵（兵不再是摆设）', () => {
+    const noArmy = new GameStore(makeEmitter(), { grade: 1, buildings: [barracks()] });
+    const withArmy = new GameStore(makeEmitter(), {
+      grade: 1, buildings: [barracks()],
+      resources: { people: 20 }, populationClasses: { farmer: 0, worker: 0, soldier: 20, scholar: 0 },
+    });
+    expect(withArmy.computeCurrentMilitaryPower()).toBeGreaterThan(noArmy.computeCurrentMilitaryPower());
+  });
+
+  it('招募将领：扣金、入编、hasAvailableGeneral 变真', () => {
+    const store = new GameStore(makeEmitter(), { resources: { gold: 100 } });
+    expect(store.hasAvailableGeneral()).toBe(false);
+    const id = store.getRecruitableGenerals()[0]!.id;
+    expect(store.recruitGeneral(id)).toBe(true);
+    expect(store.getGenerals().some(g => g.id === id)).toBe(true);
+    expect(store.hasAvailableGeneral()).toBe(true);
+    expect(store.getState().resources.gold).toBe(60); // 100-40
+  });
+
+  it('出征：发兵进 activeExpeditions、扣粮；推进到期后结算清空、将领归队', () => {
+    const store = new GameStore(makeEmitter(), {
+      grade: 1, buildings: [barracks()],
+      resources: { people: 20, grain: 500, gold: 100 },
+      populationClasses: { farmer: 0, worker: 0, soldier: 20, scholar: 0 },
+    });
+    const npcId = store.getNpcCountries()[0]!.id; // 用真实初始 NPC
+    const gid = store.getRecruitableGenerals()[0]!.id;
+    store.recruitGeneral(gid);
+    const r = store.launchExpedition({ target: 'raid', npcId, units: { militia: 8 }, generalId: gid, grainAllocated: 120 });
+    expect(r.ok).toBe(true);
+    expect(store.getActiveExpeditions().length).toBe(1);
+    expect(store.getGenerals().find(g => g.id === gid)?.deployed).toBe(true);
+    for (let i = 0; i < 8; i++) store.tickDay(); // raid 3-5 日，足够结算
+    expect(store.getActiveExpeditions().length).toBe(0); // 已结算清空
+    expect(store.getGenerals().find(g => g.id === gid)?.deployed).toBe(false); // 将领归队
+  });
+
+  it('出征前置：无兵或兵种未解锁 → 被拒', () => {
+    const store = new GameStore(makeEmitter(), { grade: 0, resources: { grain: 500 } });
+    const r = store.launchExpedition({ target: 'raid', npcId: 'x', units: { militia: 5 }, grainAllocated: 60 });
+    expect(r.ok).toBe(false);
+  });
+});
+
 describe('GameStore.addModifier', () => {
   it('invalid modifier effect throws ModifierValidationError', () => {
     const ee = makeEmitter();
@@ -129,7 +248,52 @@ describe('GameStore.placeBuilding (Slice B)', () => {
     const result = store.placeBuilding(def, 0, 0, BIG_BOUNDS);
     expect(result).toEqual({ ok: true });
     expect(store.getState().resources.wood).toBe(80);
-    expect(store.getState().resources.people).toBe(5);
+    expect(store.getState().resources.people).toBe(10); // 占用制：民是劳力，不被造价消耗
+  });
+
+  it('rejects with insufficient_labor when idle labor < 占用 (占用制)', () => {
+    const store = newStorePlain({ resources: { wood: 100, people: 3 } });
+    const def = makeDef({ cost: { wood: 20, people: 5 } }); // 需占用 5 劳力，只有 3
+    const result = store.placeBuilding(def, 0, 0, BIG_BOUNDS);
+    expect(result).toEqual({ ok: false, reason: 'insufficient_labor' });
+    expect(store.getState().buildings).toHaveLength(0);
+    expect(store.getState().resources.wood).toBe(100); // 失败不扣材料
+  });
+
+  it('民不被建造消耗，闲置劳力 = 总人口 − 占用 (占用制)', () => {
+    const store = newStorePlain({ resources: { wood: 200, people: 10 } });
+    const def = makeDef({ cost: { wood: 20, people: 4 } });
+    store.placeBuilding(def, 0, 0, BIG_BOUNDS);
+    expect(store.getState().resources.people).toBe(10); // 总人口不变（未被造价消耗）
+    expect(store.getEmployedLabor()).toBeGreaterThan(0); // 建了占编制的建筑 → 占用>0
+    expect(store.getIdleLabor()).toBe(10 - store.getEmployedLabor()); // 闲置 = 总 − 占用
+  });
+
+  it('读档迁移：people < 已占用劳力 → 补足到已占用(解旧档软锁,占用制)', () => {
+    const store = newStorePlain({ resources: { wood: 200, people: 20 } });
+    store.placeBuilding(makeDef({ cost: { wood: 20 } }), 0, 0, BIG_BOUNDS);
+    const employed = store.getEmployedLabor();
+    expect(employed).toBeGreaterThan(0);
+    // 模拟旧档：people 被老 bug 吃到 0，建筑仍在
+    const tampered = { ...store.getState(), resources: { ...store.getState().resources, people: 0 } };
+    store.replaceState(tampered);
+    expect(store.getState().resources.people).toBe(employed); // 补足，闲置劳力回到 0 而非负/卡死
+    expect(store.getIdleLabor()).toBe(0);
+  });
+
+  it('removeBuilding：移除建筑 + 释放占用劳力 + 返还材料 (占用制收尾)', () => {
+    const store = newStorePlain({ resources: { wood: 200, people: 10 } });
+    const def = makeDef({ cost: { wood: 20, people: 5 } });
+    store.placeBuilding(def, 0, 0, BIG_BOUNDS);
+    const inst = store.getState().buildings[0]!;
+    expect(store.getEmployedLabor()).toBeGreaterThan(0);
+    const woodAfterBuild = store.getState().resources.wood ?? 0;
+    const ok = store.removeBuilding(inst);
+    expect(ok).toBe(true);
+    expect(store.getState().buildings).toHaveLength(0);
+    expect(store.getEmployedLabor()).toBe(0); // 劳力释放
+    expect(store.getState().resources.wood).toBeGreaterThanOrEqual(woodAfterBuild); // 返还部分材料(≥)
+    expect(store.removeBuilding(inst)).toBe(false); // 已移除，再拆同一引用 → false
   });
 
   it('rejects with insufficient_resources when cost cannot be paid', () => {
@@ -184,7 +348,7 @@ describe('GameStore.placeBuilding (Slice B)', () => {
     store.placeBuilding(def, 0, 0, BIG_BOUNDS);
     expect(cb).toHaveBeenCalledTimes(1);
     const payload = cb.mock.calls[0]?.[0] as { deltas: Record<string, number>; reason?: string };
-    expect(payload.deltas).toEqual({ wood: -20, people: -5 });
+    expect(payload.deltas).toEqual({ wood: -20 }); // 占用制：民不计入消耗 deltas
     expect(payload.reason).toBe('building_cost');
   });
 
@@ -212,17 +376,24 @@ describe('GameStore.placeBuilding (Slice B)', () => {
 describe('GameStore construction progress (Slice B)', () => {
   it('tickDay advances constructing building by 100/constructionTime', () => {
     const store = newStorePlain();
+    const spy = vi.spyOn(buildingRegistry, 'getBuildingDef').mockReturnValue(
+      makeDef({ id: 'bld_farm', constructionTime: 3 }),
+    );
     store.placeBuilding(makeDef({ constructionTime: 3 }), 0, 0, BIG_BOUNDS);
     store.tickDay();
     const b = store.getState().buildings[0];
     expect(b?.constructionProgress).toBeCloseTo(100 / 3, 5);
     expect(b?.status).toBe('constructing');
+    spy.mockRestore();
   });
 
   it('tickDay completes building when progress reaches 100, emits BUILDING_COMPLETED once', () => {
     const store = newStorePlain();
     const completedCb = vi.fn();
     store.on(STATE_EVENTS.BUILDING_COMPLETED, completedCb);
+    const spy = vi.spyOn(buildingRegistry, 'getBuildingDef').mockReturnValue(
+      makeDef({ id: 'bld_farm', constructionTime: 3 }),
+    );
     store.placeBuilding(makeDef({ constructionTime: 3 }), 0, 0, BIG_BOUNDS);
     store.tickDay();
     store.tickDay();
@@ -231,6 +402,7 @@ describe('GameStore construction progress (Slice B)', () => {
     expect(b?.status).toBe('working');
     expect(b?.constructionProgress).toBe(100);
     expect(completedCb).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
   });
 
   it('tickDay completes ct<=0 building instantly on first tick (degenerate static-content case)', () => {
@@ -481,6 +653,15 @@ describe('GameStore.replaceState / setLastSeenNow', () => {
       crisisCount: 0,
       vassalOf: null,
       storyFlags: null,
+      populationClasses: { farmer: 0, worker: 0, soldier: 0, scholar: 0 },
+      conversionQueue: [],
+      grainNegativeDays: 0,
+      factionState: { active: false, lastEventDay: -1, nextEventDay: -1, activeDemand: null, acceptedDemands: [], rejectedDemands: [] },
+      megaProjects: [],
+      exclusivePolicies: [],
+      generals: [],
+      activeExpeditions: [],
+      defenseAlerts: [],
     };
     store.replaceState(newState);
     expect(cb).toHaveBeenCalledTimes(1);
@@ -740,7 +921,10 @@ describe('GameStore Slice F integration', () => {
     const grainBefore = store.getResources().grain ?? 0;
     store.tickDay(); // first production tick post-completion
     const grainAfter = store.getResources().grain ?? 0;
-    expect(grainAfter - grainBefore).toBe(5);
+    // BUG-B（2026-06-19）：人口现在真实吃粮，且 minDailyGrowth 会让人口从 0 自然冒出并开始进食，
+    // 故净增 < 产出 5。这里只断言"working 农田让粮净增"（产 5 > 早期口粮）——精确收支由
+    // economyBalance.test 的 30 天模拟守护。
+    expect(grainAfter).toBeGreaterThan(grainBefore);
     spy.mockRestore();
   });
 });
@@ -941,6 +1125,7 @@ describe('Phase1 低谷危机（集成）', () => {
     const spy = vi.fn();
     ee.on(STATE_EVENTS.CRISIS_TRIGGERED, spy);
     // 注：双零期间存粮=0 → 人口同时在饥荒流失（population tick 先于 crisis）。
+    // B-0 新增：缺粮 > 5 日开始减员 + > 15 日扣士气（starvation tick）。
     // 只验"危机触发 + 人口确实降 + 民心挫"。§7 阈值 40 天。
     const peopleBefore = store.getResources().people ?? 0;
     for (let i = 0; i < 39; i++) store.tickDay();
@@ -949,7 +1134,8 @@ describe('Phase1 低谷危机（集成）', () => {
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0][0]).toMatchObject({ kind: 'unrest' });
     expect(store.getResources().people ?? 0).toBeLessThan(peopleBefore);
-    expect(store.getPlayerMorale()).toBe(30); // 50 - 20
+    // B-0：starvation morale penalty（日 15 后每日 -3）叠加 crisis penalty(-20)
+    expect(store.getPlayerMorale()).toBeLessThan(30);
   });
 
   it('§7 纳贡附庸：双零+军力远超的敌对强邻 → 成附庸，可赎身', () => {
@@ -1076,10 +1262,15 @@ describe('Phase1 NPC 动态成长（集成）', () => {
 describe('Phase1 人口增长（集成）', () => {
   it('有余粮 + 未满住房上限 → 人口随天数增长', () => {
     const ee = makeEmitter();
+    // BUG-B（2026-06-19）：人口真实吃粮后，"余粮"必须有可持续的产出来源，否则 500 存粮会被吃光
+    // 后人口饥荒回落到下限。注入 6 座 working 农田（产 60 粮/天 > 满员 45 口粮）保证真·余粮。
+    const farms: BuildingInstance[] = Array.from({ length: 6 }, (_, i) => ({
+      defId: 'bld_farm', position: { x: i * 3, y: 0 }, status: 'working', tier: 1, constructionProgress: 100, modifiers: [],
+    }));
     const store = new GameStore(ee, {
       worldMap: allPlainMap(),
       resources: { grain: 500, people: 5, gold: 100 }, // gold>0 防误触危机
-      buildings: [],
+      buildings: farms,
       npcCountries: [],
     });
     for (let i = 0; i < 80; i++) store.tickDay();
@@ -1102,12 +1293,13 @@ describe('Phase1 人口增长（集成）', () => {
     const ee = makeEmitter();
     const store = new GameStore(ee, {
       worldMap: allPlainMap(),
-      resources: { grain: 500, people: 14, gold: 100 }, // baseCap=15，无居住建筑
+      resources: { grain: 500, people: 14, gold: 100 }, // baseHousingCap=45，无居住建筑
       buildings: [],
       npcCountries: [],
     });
     for (let i = 0; i < 200; i++) store.tickDay();
-    expect((store.getResources().people ?? 0)).toBeLessThanOrEqual(15);
+    // "人口不超过住房上限"这一不变量；用动态 getHousingCap() 而非写死数字，配置再调也不挂
+    expect((store.getResources().people ?? 0)).toBeLessThanOrEqual(store.getHousingCap());
   });
 });
 
@@ -1239,9 +1431,9 @@ describe('Phase2 故事框架闭环（集成）', () => {
     expect(unified).toHaveBeenCalledTimes(1);
     // 模拟逐章达成目标推进（章节目标判定本身由 chapterGoalMet 单测覆盖）。一路推到第七章。
     for (let ch = 1; ch <= 7; ch++) store.advanceStoryChapter(ch);
-    // 第七章目标 = 解决 evt_s_ch7_war_vote；注入"已解决"再 tick → 终章判定结局
+    // 第七章目标 = 解决 evt_s_ch7_war_vote + stele + throne（全章关键剧情）；注入"已解决"再 tick → 终章判定结局
     const s7 = store.getState();
-    store.replaceState({ ...s7, storyFlags: { ...s7.storyFlags!, chapter: 7, storyEventsTriggered: ['evt_s_ch7_war_vote'] } });
+    store.replaceState({ ...s7, storyFlags: { ...s7.storyFlags!, chapter: 7, storyEventsTriggered: ['evt_s_ch7_war_vote', 'evt_s_ch7_stele', 'evt_s_ch7_throne'] } });
     for (let i = 0; i < 5 && ended.mock.calls.length === 0; i++) store.tickDay();
 
     expect(ended).toHaveBeenCalledTimes(1);
@@ -1278,7 +1470,7 @@ describe('Phase2 故事框架闭环（集成）', () => {
     store.tickDay();
     for (let ch = 1; ch <= 7; ch++) store.advanceStoryChapter(ch);
     const s7 = store.getState();
-    store.replaceState({ ...s7, storyFlags: { ...s7.storyFlags!, chapter: 7, storyEventsTriggered: ['evt_s_ch7_war_vote'] } });
+    store.replaceState({ ...s7, storyFlags: { ...s7.storyFlags!, chapter: 7, storyEventsTriggered: ['evt_s_ch7_war_vote', 'evt_s_ch7_stele', 'evt_s_ch7_throne'] } });
     for (let i = 0; i < 5; i++) store.tickDay();
     const callsAtEnd = ended.mock.calls.length;
     expect(callsAtEnd).toBe(1);
@@ -1294,11 +1486,11 @@ describe('Phase3 章节目标解锁（集成）', () => {
     store.startStoryMode();
     store.advanceStoryChapter(1); // 进第一章
     expect(store.getStoryFlags()?.chapter).toBe(1);
-    // 模拟第一章两个关键事件已解决（注入 storyEventsTriggered）
+    // 模拟第一章全部关键剧情事件已解决（注入 storyEventsTriggered）
     const snap = store.getState();
     store.replaceState({
       ...snap,
-      storyFlags: { ...snap.storyFlags!, chapter: 1, storyEventsTriggered: ['evt_s_ch1_dike', 'evt_s_ch1_cadre'] },
+      storyFlags: { ...snap.storyFlags!, chapter: 1, storyEventsTriggered: ['evt_s_ch1_dike', 'evt_s_ch1_cadre', 'evt_s_ch1_arrest', 'evt_s_ch1_oath'] },
     });
     store.tickDay();
     expect(store.getStoryFlags()?.chapter).toBe(2); // 目标达成 → 解锁第二章
@@ -1316,5 +1508,24 @@ describe('Phase3 章节目标解锁（集成）', () => {
     });
     for (let i = 0; i < 300; i++) store.tickDay(); // 久等也不进章（非时间驱动）
     expect(store.getStoryFlags()?.chapter).toBe(1);
+  });
+});
+
+describe('分阶段解锁判定 (isBuildingUnlocked / isPolicyUnlocked)', () => {
+  it('建筑无 upgradeRequires → 直接解锁', () => {
+    const { store } = makeStore();
+    expect(store.isBuildingUnlocked({ upgradeRequires: [] } as unknown as BuildingDef)).toBe(true);
+  });
+
+  it('建筑有未满足的前置（国策或建筑）→ 未解锁', () => {
+    const { store } = makeStore();
+    expect(store.isBuildingUnlocked({ upgradeRequires: ['pol_nonexist'] } as unknown as BuildingDef)).toBe(false);
+    expect(store.isBuildingUnlocked({ upgradeRequires: ['bld_nonexist'] } as unknown as BuildingDef)).toBe(false);
+  });
+
+  it('国策无 prerequisites → 直接解锁；有未满足前置 → 未解锁', () => {
+    const { store } = makeStore();
+    expect(store.isPolicyUnlocked({ prerequisites: [] } as unknown as PolicyNode)).toBe(true);
+    expect(store.isPolicyUnlocked({ prerequisites: ['pol_x'] } as unknown as PolicyNode)).toBe(false);
   });
 });

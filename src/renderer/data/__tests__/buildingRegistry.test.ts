@@ -27,9 +27,9 @@ describe('buildingRegistry', () => {
     expect(getBuildingDef('nope')).toBeUndefined();
   });
 
-  // J-3 v0.8：从 12 扩到 20（+8 新建筑：烽燧/驿道/水碓/冶铁坊/桑园/石碑场/学塾/客馆）
-  it('all 20 buildings registered with unique ids (v0.8 J-3 扩 +8)', () => {
-    expect(BUILDING_REGISTRY.size).toBe(20);
+  // J-3 v0.8 +8 → B-6 +12 + pottery kiln = 33 total
+  it('all 33 buildings registered with unique ids', () => {
+    expect(BUILDING_REGISTRY.size).toBe(33);
     const ids = new Set(BUILDINGS.map(b => b.id));
     expect(ids.size).toBe(BUILDINGS.length);
   });

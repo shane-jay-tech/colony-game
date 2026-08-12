@@ -33,21 +33,37 @@ export class JitHintManager {
   private onEvent = (): void => this.fire('first_event');
   private onCrisis = (): void => this.fire('first_crisis');
   private onNpcAction = (): void => this.fire('first_diplomacy');
+  private onPolicy = (): void => this.fire('first_policy');
+  private onDecree = (): void => this.fire('first_decree');
+  private onResources = (payload: unknown): void => {
+    if (!payload || typeof payload !== 'object') return;
+    const deltas = (payload as { deltas?: Record<string, number> }).deltas;
+    if (!deltas) return;
+    if ((deltas.gold ?? 0) > 0) this.fire('first_gold_income');
+    if ((deltas.cloth ?? 0) > 0) this.fire('first_cloth_income');
+    if ((deltas.bronze ?? 0) > 0) this.fire('first_bronze_income');
+    if ((deltas.rite ?? 0) > 0) this.fire('first_rite_income');
+  };
   private onGrade = (payload: unknown): void => {
     const reason = (payload && typeof payload === 'object') ? (payload as { reason?: string }).reason : undefined;
-    if (reason !== 'ascend') return; // 仅晋阶教学；降格不弹"晋阶"提示
+    if (reason !== 'ascend') return;
     this.fire('first_grade');
   };
 
   constructor(scene: Phaser.Scene, store: GameStore) {
     this.scene = scene;
     this.store = store;
+    // 开局提示（延迟 800ms 让玩家先看到画面）
+    scene.time.delayedCall(800, () => this.fire('game_start'));
     store.on(STATE_EVENTS.BUILDING_PLACED, this.onPlaced);
     store.on(STATE_EVENTS.BUILDING_COMPLETED, this.onCompleted);
     store.on(STATE_EVENTS.EVENT_TRIGGERED, this.onEvent);
     store.on(STATE_EVENTS.CRISIS_TRIGGERED, this.onCrisis);
     store.on(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
     store.on(STATE_EVENTS.GRADE_CHANGED, this.onGrade);
+    store.on(STATE_EVENTS.POLICY_ADOPTED, this.onPolicy);
+    store.on(STATE_EVENTS.DECREE_ADOPTED, this.onDecree);
+    store.on(STATE_EVENTS.RESOURCES_CHANGED, this.onResources);
   }
 
   destroy(): void {
@@ -59,5 +75,8 @@ export class JitHintManager {
     this.store.off(STATE_EVENTS.CRISIS_TRIGGERED, this.onCrisis);
     this.store.off(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
     this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onGrade);
+    this.store.off(STATE_EVENTS.POLICY_ADOPTED, this.onPolicy);
+    this.store.off(STATE_EVENTS.DECREE_ADOPTED, this.onDecree);
+    this.store.off(STATE_EVENTS.RESOURCES_CHANGED, this.onResources);
   }
 }

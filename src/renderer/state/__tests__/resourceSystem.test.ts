@@ -4,6 +4,7 @@ import type { GameState } from '../gameStore';
 import type { BuildingDef, ModifierInstance } from '../../data/schema';
 import type { ResourceId } from '../../data/resourceRegistry';
 import { generateMap } from '../mapGen';
+import { createFactionState } from '../factionSystem';
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
@@ -42,6 +43,15 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     crisisCount: 0,
     vassalOf: null,
     storyFlags: null,
+    populationClasses: { farmer: 0, worker: 0, soldier: 0, scholar: 0 },
+    conversionQueue: [],
+    grainNegativeDays: 0,
+    factionState: createFactionState(),
+    megaProjects: [],
+    exclusivePolicies: [],
+    generals: [],
+    activeExpeditions: [],
+    defenseAlerts: [],
     ...overrides,
   };
 }

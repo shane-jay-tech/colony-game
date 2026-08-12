@@ -1,0 +1,67 @@
+[
+  {
+    "id": "gen_hu_ben",
+    "saved": "D:\\code\\colony-game\\public\\art\\generals\\gen_hu_ben.png",
+    "error": null
+  },
+  {
+    "id": "gen_xie_changqing",
+    "saved": "D:\\code\\colony-game\\public\\art\\generals\\gen_xie_changqing.png",
+    "error": null
+  },
+  {
+    "id": "gen_tian_zhong",
+    "saved": "D:\\code\\colony-game\\public\\art\\generals\\gen_tian_zhong.png",
+    "error": null
+  },
+  {
+    "id": "gen_barbarian",
+    "saved": "D:\\code\\colony-game\\public\\art\\generals\\gen_barbarian.png",
+    "error": null
+  },
+  {
+    "id": "coronation",
+    "saved": "D:\\code\\colony-game\\public\\art\\events\\coronation.png",
+    "error": null
+  },
+  {
+    "id": "battle",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'f92a"
+  },
+  {
+    "id": "flood",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '15b5"
+  },
+  {
+    "id": "feast",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': '5d26"
+  },
+  {
+    "id": "diplomacy",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'c9f0"
+  },
+  {
+    "id": "rebellion",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'b865"
+  },
+  {
+    "id": "ending_gong",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'deb1"
+  },
+  {
+    "id": "ending_jia",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'b74d"
+  },
+  {
+    "id": "ending_huo",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'f297"
+  }
+]

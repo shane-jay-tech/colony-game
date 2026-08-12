@@ -178,3 +178,38 @@ describe('checkBuildAt (Critical perf lock)', () => {
     bldSpy.mockRestore();
   });
 });
+
+describe('BuildMode 拆除工具态', () => {
+  it('enterDemolish 进入拆除态、清空选中、isActive 为真', () => {
+    const bm = new BuildMode();
+    bm.select(farmDef);
+    bm.enterDemolish();
+    expect(bm.isDemolish()).toBe(true);
+    expect(bm.getSelected()).toBeNull();
+    expect(bm.isActive()).toBe(true);
+  });
+
+  it('select 建筑会退出拆除态', () => {
+    const bm = new BuildMode();
+    bm.enterDemolish();
+    bm.select(wellDef);
+    expect(bm.isDemolish()).toBe(false);
+    expect(bm.getSelected()).toBe(wellDef);
+  });
+
+  it('cancel 同时清空选中与拆除态', () => {
+    const bm = new BuildMode();
+    bm.enterDemolish();
+    bm.cancel();
+    expect(bm.isDemolish()).toBe(false);
+    expect(bm.isActive()).toBe(false);
+  });
+
+  it('enterDemolish 会广播 onChange', () => {
+    const bm = new BuildMode();
+    const spy = vi.fn();
+    bm.onChange(spy);
+    bm.enterDemolish();
+    expect(spy).toHaveBeenCalled();
+  });
+});

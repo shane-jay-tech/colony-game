@@ -99,6 +99,8 @@ export const PANEL_BOX_SHADOW =
 /** UI 几何常量（一处改全局生效） */
 export const UI = {
   topbarHeight: 48,
+  /** 2026-06-19：主功能工具栏（朝堂/邦交/军务/大业）行高，紧贴顶栏下方。参考钢铁雄心主菜单一排大按钮。 */
+  toolbarHeight: 40,
   buildPanelWidth: 256,
   rightPanelWidth: 280,
   iconCellSize: 56,

@@ -53,17 +53,13 @@ def process(src: Path) -> None:
                 px[x, y] = (r, g, b, 0)
                 cut += 1
 
-    # 投影:由 alpha 剪影生成
-    alpha = im.split()[3]
-    shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    shadow.paste(SHADOW_COLOR, (0, 0), alpha)
-    shadow = shadow.filter(ImageFilter.GaussianBlur(SHADOW_BLUR))
-
-    canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    canvas.alpha_composite(shadow, SHADOW_OFFSET)
-    canvas.alpha_composite(im, (0, 0))
-    canvas.save(src)
-    print(f"  {src.name}: cut {cut}/{w*h} px ({100*cut/(w*h):.0f}% 透明)")
+    # 等距修正：裁掉透明留白，让图片底边=建筑地基底边 → 渲染时 bottom-center 锚点正好落在地块前角，
+    # 建筑不再上浮。等距原画自带菱形地基，无需再加投影（保留 SHADOW_* 常量不用，避免破坏其他调用）。
+    bbox = im.getbbox()
+    if bbox:
+        im = im.crop(bbox)
+    im.save(src)
+    print(f"  {src.name}: cut {cut} px, trimmed -> {im.size[0]}x{im.size[1]}")
 
 
 def main() -> int:

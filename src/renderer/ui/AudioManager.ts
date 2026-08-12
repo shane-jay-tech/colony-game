@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
 import { selectBgmKey } from '../state/audioDirector';
+import { getAudioSettings, onSettingsChange, type AudioSettings } from './settingsStore';
 
 /**
  * AudioManager（Phaser 层）——解决"全程静音"（§11.A 头号短板）。
@@ -21,21 +22,28 @@ export class AudioManager {
   private destroyed = false;
   /** 进行中的淡入淡出 tween（destroy 时停掉，避免回调在销毁后触发） */
   private fadeTweens: Phaser.Tweens.Tween[] = [];
-  private static readonly BGM_VOL = 0.5;
   private static readonly FADE_MS = 900;
+  private offSettings: (() => void) | null = null;
 
   private onBgmRefresh = (): void => this.refreshBgm();
   private onBuildingDone = (): void => this.playSfx('sfx_chime', 0.4);
   private onPlaced = (): void => this.playSfx('sfx_place', 0.3);
   private onEvent = (): void => this.playSfx('sfx_bell', 0.6);
   private onCrisis = (): void => { this.playSfx('sfx_gong', 0.7); this.refreshBgm(); };
+  // 2026-06-19：补齐"警告/提醒"类音效——之前 sfx_warn 只能手动播，重要警报无声
+  private onDefenseAlert = (): void => this.playSfx('sfx_warn', 0.55);          // 邻邦来犯预警
+  private onFactionDemand = (): void => this.playSfx('sfx_bell', 0.5);          // 阶层上书（待决模态）
+  private onGradeSfx = (payload: unknown): void => {
+    const reason = (payload && typeof payload === 'object') ? (payload as { reason?: string }).reason : undefined;
+    this.playSfx(reason === 'ascend' ? 'sfx_gong' : 'sfx_warn', 0.5);           // 晋格庆祝 / 降格警示
+  };
 
   constructor(scene: Phaser.Scene, store: GameStore) {
     this.scene = scene;
     this.store = store;
     this.refreshBgm();
 
-    store.on(STATE_EVENTS.GRADE_CHANGED, this.onBgmRefresh);
+    store.on(STATE_EVENTS.GRADE_CHANGED, this.onBgmRefresh); // GRADE_CHANGED [1/2] 切 BGM（与下方 onGradeSfx 是两个独立监听，删除时务必成对处理）
     store.on(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onBgmRefresh);
     store.on(STATE_EVENTS.STORY_ENDING, this.onBgmRefresh);
     store.on(STATE_EVENTS.STATE_REPLACED, this.onBgmRefresh);
@@ -43,11 +51,34 @@ export class AudioManager {
     store.on(STATE_EVENTS.BUILDING_COMPLETED, this.onBuildingDone);
     store.on(STATE_EVENTS.BUILDING_PLACED, this.onPlaced);
     store.on(STATE_EVENTS.EVENT_TRIGGERED, this.onEvent);
+    store.on(STATE_EVENTS.DEFENSE_ALERT, this.onDefenseAlert);
+    store.on(STATE_EVENTS.FACTION_DEMAND_TRIGGERED, this.onFactionDemand);
+    store.on(STATE_EVENTS.GRADE_CHANGED, this.onGradeSfx); // GRADE_CHANGED [2/2] 晋格/降格音效（见上方 [1/2]）
+
+    this.offSettings = onSettingsChange(() => this.applyVolumeSettings());
   }
 
   /** 是否有该音频资产（缺则静音降级，不报错） */
   private has(key: string): boolean {
     return this.scene.cache.audio.exists(key);
+  }
+
+  private getBgmTarget(): number {
+    const s = getAudioSettings();
+    if (s.muted) return 0;
+    return (s.bgmVolume / 100) * 0.7; // 0.7 = max perceived BGM level (leave headroom for SFX)
+  }
+
+  private getSfxScale(): number {
+    const s = getAudioSettings();
+    if (s.muted) return 0;
+    return s.sfxVolume / 100;
+  }
+
+  private applyVolumeSettings(): void {
+    if (this.destroyed || !this.currentBgm) return;
+    const target = this.getBgmTarget();
+    this.fadeTween(this.currentBgm, target);
   }
 
   private refreshBgm(): void {
@@ -61,17 +92,15 @@ export class AudioManager {
     });
     if (key === this.currentBgmKey) return;
     this.currentBgmKey = key;
-    // 切歌：旧曲淡出后停（不再硬切），新曲从 0 淡入——过渡平滑。
     const old = this.currentBgm;
     this.currentBgm = null;
     if (old) this.fadeOutAndStop(old);
-    if (!this.has(key)) return; // 资产未就位 → 静音降级
-    // DeepSeek 复审：play() 在音频上下文被锁/解码失败时可能抛异常——包 try-catch，宁可静音不崩游戏。
+    if (!this.has(key)) return;
     try {
       const next = this.scene.sound.add(key, { loop: true, volume: 0 });
       next.play();
       this.currentBgm = next;
-      this.fadeTween(next, AudioManager.BGM_VOL); // 淡入
+      this.fadeTween(next, this.getBgmTarget());
     } catch {
       if (this.currentBgm) { this.currentBgm.destroy(); this.currentBgm = null; }
     }
@@ -82,7 +111,12 @@ export class AudioManager {
     try {
       const tw = this.scene.tweens.add({
         targets: sound, volume: vol, duration: AudioManager.FADE_MS, ease: 'Linear',
-        onComplete: () => { if (!this.destroyed && onDone) onDone(); },
+        // DeepSeek F-02：完成后把自己从 fadeTweens 移除，否则长会话里数组无限增长、已完成 tween 不被 GC
+        onComplete: () => {
+          const i = this.fadeTweens.indexOf(tw);
+          if (i >= 0) this.fadeTweens.splice(i, 1);
+          if (!this.destroyed && onDone) onDone();
+        },
       });
       this.fadeTweens.push(tw);
     } catch {
@@ -97,18 +131,27 @@ export class AudioManager {
     this.fadeTween(sound, 0, () => { try { sound.stop(); sound.destroy(); } catch { /* noop */ } });
   }
 
-  private playSfx(key: string, volume: number): void {
+  private playSfx(key: string, baseVolume: number): void {
     if (this.destroyed || !this.has(key)) return;
+    const vol = baseVolume * this.getSfxScale();
+    if (vol <= 0) return;
     try {
-      this.scene.sound.play(key, { volume });
+      this.scene.sound.play(key, { volume: vol });
     } catch {
       /* 音频上下文异常时静音降级，不崩 */
     }
   }
 
+  /** 供外部 UI 调用的公开音效接口（按钮点击、警告等非 store-event 驱动的音效）。 */
+  playUi(key: 'sfx_click' | 'sfx_warn'): void {
+    const vol = key === 'sfx_click' ? 0.25 : 0.5;
+    this.playSfx(key, vol);
+  }
+
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.offSettings?.();
     this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onBgmRefresh);
     this.store.off(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onBgmRefresh);
     this.store.off(STATE_EVENTS.STORY_ENDING, this.onBgmRefresh);
@@ -117,7 +160,9 @@ export class AudioManager {
     this.store.off(STATE_EVENTS.BUILDING_COMPLETED, this.onBuildingDone);
     this.store.off(STATE_EVENTS.BUILDING_PLACED, this.onPlaced);
     this.store.off(STATE_EVENTS.EVENT_TRIGGERED, this.onEvent);
-    // 先停所有淡入淡出 tween（避免 onComplete 在销毁后触发），再停 BGM
+    this.store.off(STATE_EVENTS.DEFENSE_ALERT, this.onDefenseAlert);
+    this.store.off(STATE_EVENTS.FACTION_DEMAND_TRIGGERED, this.onFactionDemand);
+    this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onGradeSfx);
     for (const tw of this.fadeTweens) { try { tw.stop(); } catch { /* noop */ } }
     this.fadeTweens = [];
     if (this.currentBgm) { try { this.currentBgm.stop(); this.currentBgm.destroy(); } catch { /* noop */ } this.currentBgm = null; }

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "battle",
+    "saved": "D:\\code\\colony-game\\public\\art\\events\\battle.png",
+    "error": null
+  },
+  {
+    "id": "flood",
+    "saved": "D:\\code\\colony-game\\public\\art\\events\\flood.png",
+    "error": null
+  },
+  {
+    "id": "feast",
+    "saved": "D:\\code\\colony-game\\public\\art\\events\\feast.png",
+    "error": null
+  },
+  {
+    "id": "diplomacy",
+    "saved": "D:\\code\\colony-game\\public\\art\\events\\diplomacy.png",
+    "error": null
+  },
+  {
+    "id": "rebellion",
+    "saved": "D:\\code\\colony-game\\public\\art\\events\\rebellion.png",
+    "error": null
+  },
+  {
+    "id": "ending_gong",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'ca0b"
+  },
+  {
+    "id": "ending_jia",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'c1b1"
+  },
+  {
+    "id": "ending_huo",
+    "saved": null,
+    "error": "submit 429: {'code': 'Throttling.RateQuota', 'message': 'Requests rate limit exceeded, please try again later. For details, see: https://help.aliyun.com/zh/model-studio/error-code#rate-limit', 'request_id': 'b53c"
+  }
+]

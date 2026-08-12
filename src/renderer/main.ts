@@ -83,6 +83,8 @@ function setupCrashDiagnostics(): void {
   });
   window.addEventListener('unhandledrejection', (e) => {
     const r = (e as PromiseRejectionEvent).reason;
+    const msg = String(r?.message ?? r ?? '');
+    if (msg.includes('decodeAudioData') || msg.includes('Unable to decode audio')) return;
     show('Promise 未捕获', String(r?.stack ?? r ?? '').slice(0, 1500));
   });
   game.events.once(Phaser.Core.Events.READY, () => {
@@ -170,6 +172,9 @@ const store = new GameStore(emitter, undefined, {
 const buildMode = new BuildMode();
 game.registry.set('store', store);
 game.registry.set('buildMode', buildMode);
+
+// 开局暂停：新游戏时暂停等玩家第一次操作；autoUnpause 会在首次 placeBuilding/adoptPolicy/setSpeed 时恢复
+store.setPaused(true);
 
 // Slice E：一次性初始资源（数值集中在 balanceConfig.BALANCE.startingResources）。
 // 放在这里而不是 GameScene.create 里：scene 重启或 STATE_REPLACED 加载存档不会再次触发，

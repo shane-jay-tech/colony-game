@@ -46,6 +46,8 @@ export class EventModal {
   private readonly toggleText: Phaser.GameObjects.Text;
   private readonly toggleZone: Phaser.GameObjects.Zone;
   private buttons: ChoiceButton[] = [];
+  /** 2026-06-19：事件插画（有 illustrationKey 且纹理存在时显示在标题上方）。 */
+  private illustration: Phaser.GameObjects.Image | null = null;
 
   private currentEvent: CourtEvent | null = null;
   private activeContext: CourtEventContext | null = null; // Phase3：按状态选中的文本变体（OQ-S3）
@@ -265,8 +267,14 @@ export class EventModal {
     const buttonsH = buttonsCount * 40 + (buttonsCount - 1) * 8;
     const padding = 20;
     const sectionGap = 16;
-    let panelH = padding + titleH + sectionGap + bodyH + sectionGap + buttonsH + padding + 24; // 24 留给 countdown
-    panelH = Math.min(PANEL_MAX_HEIGHT, Math.max(PANEL_MIN_HEIGHT, panelH));
+    // 2026-06-19：事件插画 banner（16:9，保持比例，高 ~150）。无插画或缺图则 illusH=0。
+    const key = this.currentEvent.illustrationKey;
+    const hasIllus = !!key && this.scene.textures.exists(key);
+    const illusH = hasIllus ? 150 : 0;
+    const illusW = Math.round(illusH * 16 / 9);
+    const imgBlock = illusH > 0 ? illusH + sectionGap : 0;
+    let panelH = padding + imgBlock + titleH + sectionGap + bodyH + sectionGap + buttonsH + padding + 24; // 24 留给 countdown
+    panelH = Math.min(PANEL_MAX_HEIGHT + imgBlock, Math.max(PANEL_MIN_HEIGHT, panelH));
 
     const panelX = Math.floor((sceneW - PANEL_WIDTH) / 2);
     const panelY = Math.floor((sceneH - panelH) / 2);
@@ -287,16 +295,28 @@ export class EventModal {
     this.panelBg.lineStyle(UI.panelInnerWoodWidth, COLORS.WOOD_LIGHT, 0.7);
     this.panelBg.strokeRect(panelX + 4, panelY + 4, PANEL_WIDTH - 8, panelH - 8);
 
-    // 标题
-    this.titleText.setPosition(panelX + padding, panelY + padding);
+    // 事件插画（顶部居中 banner）
+    if (hasIllus && key) {
+      if (!this.illustration) {
+        this.illustration = this.scene.add.image(0, 0, key).setOrigin(0.5, 0);
+        this.container.add(this.illustration);
+      }
+      this.illustration.setTexture(key).setDisplaySize(illusW, illusH)
+        .setPosition(panelX + PANEL_WIDTH / 2, panelY + padding).setVisible(true);
+    } else if (this.illustration) {
+      this.illustration.setVisible(false);
+    }
+
+    // 标题（插画下方）
+    this.titleText.setPosition(panelX + padding, panelY + padding + imgBlock);
     this.titleText.setColor(ctx ? '#3E2723' : '#3E2723');
 
     // 内容文本
-    this.bodyText.setPosition(panelX + padding, panelY + padding + titleH + sectionGap);
+    this.bodyText.setPosition(panelX + padding, panelY + padding + imgBlock + titleH + sectionGap);
     this.bodyText.setColor('#2B2118');
 
     // 倒计时（紧贴 body 下方）
-    this.countdownText.setPosition(panelX + padding, panelY + padding + titleH + sectionGap + bodyH + 4);
+    this.countdownText.setPosition(panelX + padding, panelY + padding + imgBlock + titleH + sectionGap + bodyH + 4);
     this.countdownText.setColor('#6D635B');
 
     // toggle 按钮（右上角）

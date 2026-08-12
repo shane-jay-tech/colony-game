@@ -53,28 +53,44 @@ export function checkBuildAt(
 
 export class BuildMode {
   private selected: BuildingDef | null = null;
+  private demolish = false; // 拆除工具模式（与放置互斥）：激活后点建筑即拆
   private listeners: Set<BuildModeListener> = new Set();
 
   getSelected(): BuildingDef | null {
     return this.selected;
   }
 
-  /** 选中一个 BuildingDef 进入"建造模式"。同 def 重复 select 是 no-op。 */
-  select(def: BuildingDef): void {
-    if (this.selected === def) return;
-    this.selected = def;
+  /** 是否处于拆除工具模式。 */
+  isDemolish(): boolean {
+    return this.demolish;
+  }
+
+  /** 进入拆除工具模式（退出放置）。 */
+  enterDemolish(): void {
+    if (this.demolish && this.selected === null) return;
+    this.selected = null;
+    this.demolish = true;
     this.emit();
   }
 
-  /** 退出建造模式（如点了取消、ESC、放置成功后自动取消）。 */
+  /** 选中一个 BuildingDef 进入"建造模式"。同 def 重复 select 是 no-op。 */
+  select(def: BuildingDef): void {
+    if (this.selected === def && !this.demolish) return;
+    this.selected = def;
+    this.demolish = false; // 进建造自动退拆除
+    this.emit();
+  }
+
+  /** 退出建造/拆除模式（点取消、ESC、放置成功后自动取消）。 */
   cancel(): void {
-    if (this.selected === null) return;
+    if (this.selected === null && !this.demolish) return;
     this.selected = null;
+    this.demolish = false;
     this.emit();
   }
 
   isActive(): boolean {
-    return this.selected !== null;
+    return this.selected !== null || this.demolish;
   }
 
   /** 订阅 selected 变化。返回 unsubscribe。 */

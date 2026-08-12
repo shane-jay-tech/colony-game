@@ -49,8 +49,8 @@ describe('v0.8 J-3 — 8 new buildings', () => {
       expect(BUILDINGS.some(b => b.id === id)).toBe(true);
     });
   }
-  it('total count is 20 (12 v0.7 + 8 J-3)', () => {
-    expect(BUILDINGS.length).toBe(20);
+  it('total count is 33 (12 v0.7 + 8 J-3 + 12 B-6 + 1 pottery kiln)', () => {
+    expect(BUILDINGS.length).toBe(33);
   });
   it('every new building has descPlain (Kimi 反审 #4 — 白话翻译)', () => {
     for (const id of NEW_BUILDING_IDS) {

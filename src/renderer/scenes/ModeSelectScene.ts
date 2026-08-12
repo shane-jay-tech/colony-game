@@ -29,7 +29,7 @@ interface ModeCard {
 }
 
 const CARD_W = 560;
-const CARD_H = 124;
+const CARD_H = 148;
 const CARD_GAP = 28;
 
 export class ModeSelectScene extends Phaser.Scene {
@@ -85,13 +85,15 @@ export class ModeSelectScene extends Phaser.Scene {
 
     this.sandboxCard = this.makeCard(
       '沙盒 · 经营天下',
-      '白手起家，养一邦国从聚落到天下共主。自由经营，永无尽头。',
+      '白手起家，养一邦国从聚落到天下共主。自由经营，永无尽头。\n'
+      + '玩法：建造产粮、采集资源、招兵扩军、外交结盟，一步步爬升国格。无固定剧情，随机事件调味。',
       true,
       null,
     );
     this.storyCard = this.makeCard(
       '故事 · 拆龙椅',
-      '循《天下人书记》七卷，从春秋一路走到撤去龙椅的长线叙事。',
+      '循《天下人书记》七卷，从春秋一路走到撤去龙椅的长线叙事。\n'
+      + '玩法：经营同沙盒，另有剧情事件、推荐目标、三条结局路线。你的每个决策影响最终走向。',
       true,
       '序章可玩',
     );

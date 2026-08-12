@@ -33,4 +33,4 @@ export const ALL_BGM_KEYS: readonly string[] = [
 ];
 
 /** 音效 key（事件触发用，对齐 data/audio.ts AUDIO_CUES）。 */
-export const SFX_KEYS: readonly string[] = ['sfx_bell', 'sfx_chime', 'sfx_gong', 'sfx_place'];
+export const SFX_KEYS: readonly string[] = ['sfx_bell', 'sfx_chime', 'sfx_gong', 'sfx_place', 'sfx_click', 'sfx_warn'];

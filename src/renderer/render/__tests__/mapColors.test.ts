@@ -12,11 +12,12 @@ describe('terrainColor', () => {
     }
   });
 
-  it('plain → PAPER_DIM', () => expect(terrainColor('plain')).toBe(COLORS.PAPER_DIM));
-  it('hills → GOLD_DIM', () => expect(terrainColor('hills')).toBe(COLORS.GOLD_DIM));
-  it('forest → STONE_GREEN', () => expect(terrainColor('forest')).toBe(COLORS.STONE_GREEN));
-  it('river → WOOD_LIGHT', () => expect(terrainColor('river')).toBe(COLORS.WOOD_LIGHT));
-  it('mountain → ASH', () => expect(terrainColor('mountain')).toBe(COLORS.ASH));
+  // 可辨识优先（用户反馈"认不出色块"）：5 型用清楚分开的色相，河泽=蓝水。
+  it('plain → warm millet', () => expect(terrainColor('plain')).toBe(0xd9c79a));
+  it('hills → ochre', () => expect(terrainColor('hills')).toBe(0xb07d3e));
+  it('forest → green', () => expect(terrainColor('forest')).toBe(0x4f7a45));
+  it('river → water blue', () => expect(terrainColor('river')).toBe(0x3f6f8f));
+  it('mountain → rock grey', () => expect(terrainColor('mountain')).toBe(0x8c8782));
 
   it('all five terrains map to distinct colors', () => {
     const set = new Set(TERRAIN_KINDS.map(terrainColor));
