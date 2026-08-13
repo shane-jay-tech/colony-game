@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GameStore, STATE_EVENTS } from '../state/gameStore';
+import type { GameStateEventMap } from '../state/stateEvents';
 import { MapRenderer, MAP_ZOOM_STEP_FACTOR } from '../render/MapRenderer';
 import { BuildMode, checkBuildAt } from '../state/buildMode';
 import type { BuildingInstance } from '../data/schema';
@@ -60,15 +61,13 @@ export class GameScene extends Phaser.Scene {
   private lastLeftPanY = 0;
 
   // Slice I：建筑落地额外触发 fade+scale 脉冲（与 BUILDING_PLACED 一起接线，建造瞬间给玩家反馈）
-  private placedListener = (...args: unknown[]): void => {
+  private placedListener = (b: GameStateEventMap['state:buildingPlaced']): void => {
     this.rerenderBuildings();
-    const b = args[0] as BuildingInstance | undefined;
     if (b && b.position) this.mapRenderer?.pulseBuildingPlacement(b);
   };
   // Slice H：建造完成额外触发金边脉冲（先重画再 pulse 顺序很重要——pulse 画在最上层）
-  private completedListener = (...args: unknown[]): void => {
+  private completedListener = (b: GameStateEventMap['state:buildingCompleted']): void => {
     this.rerenderBuildings();
-    const b = args[0] as BuildingInstance | undefined;
     if (b && b.position) {
       this.mapRenderer?.pulseBuildingCompleted(b);
       // Phase4 Juice：建成飘字（建筑名）——金色，与金边脉冲呼应
@@ -91,9 +90,9 @@ export class GameScene extends Phaser.Scene {
     this.invalidateHoverCache();
   };
   // v0.9：建筑升级完成 → 重画 + 金边脉冲
-  private upgradedListener = (...args: unknown[]): void => {
+  private upgradedListener = (payload: GameStateEventMap['state:buildingUpgraded']): void => {
     this.rerenderBuildings();
-    const b = args[0] as BuildingInstance | undefined;
+    const b = 'instance' in payload ? payload.instance : payload;
     if (b && b.position) {
       this.mapRenderer?.pulseBuildingCompleted(b);
       this.mapRenderer?.floatTextAtTile(b.position.x, b.position.y, '营建　升', 0xe0b94a);
@@ -125,9 +124,9 @@ export class GameScene extends Phaser.Scene {
 
   private endingShown = false;
   // Phase2：终章三结局兑现 → 暂停 + 全屏结局旁白（占位；结局后 resume 留在世界，重开流程 Phase4）
-  private storyEndingListener = (...args: unknown[]): void => {
+  private storyEndingListener = (payload: GameStateEventMap['state:storyEnding']): void => {
     if (this.endingShown) return; // 防重入（结局只放一次）
-    const ending = (args[0] as { ending?: EndingId } | undefined)?.ending;
+    const ending = payload.ending as EndingId;
     if (!ending || !ENDING_NARRATION[ending]) return;
     this.endingShown = true;
     this.scene.pause();
@@ -144,12 +143,9 @@ export class GameScene extends Phaser.Scene {
     this.scene.launch('TransitionScene', data);
   };
   // A-3/A-4：季节色调切换（散布层 tint + 农田色 + 雪花）
-  private seasonTintListener = (...args: unknown[]): void => {
-    const s = (args[0] as { season?: number } | undefined)?.season;
-    if (typeof s === 'number' && s >= 0 && s <= 3) {
-      this.mapRenderer?.setSeasonTint(s as 0 | 1 | 2 | 3);
-      this.rerenderBuildings();
-    }
+  private seasonTintListener = (payload: GameStateEventMap['state:seasonTick']): void => {
+    this.mapRenderer?.setSeasonTint(payload.season);
+    this.rerenderBuildings();
   };
   // v2 DeepSeek 复审[边界]：ESC 同时关掉可能开着的建筑 popover，避免残留悬浮 UI
   private escHandler = (): void => { this.buildMode?.cancel(); this.buildingPopover?.hide(); };

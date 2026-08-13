@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
+import type { GameStateEventMap } from '../state/stateEvents';
 import { selectBgmKey } from '../state/audioDirector';
 import { getAudioSettings, onSettingsChange, type AudioSettings } from './settingsStore';
 
@@ -33,9 +34,8 @@ export class AudioManager {
   // 2026-06-19：补齐"警告/提醒"类音效——之前 sfx_warn 只能手动播，重要警报无声
   private onDefenseAlert = (): void => this.playSfx('sfx_warn', 0.55);          // 邻邦来犯预警
   private onFactionDemand = (): void => this.playSfx('sfx_bell', 0.5);          // 阶层上书（待决模态）
-  private onGradeSfx = (payload: unknown): void => {
-    const reason = (payload && typeof payload === 'object') ? (payload as { reason?: string }).reason : undefined;
-    this.playSfx(reason === 'ascend' ? 'sfx_gong' : 'sfx_warn', 0.5);           // 晋格庆祝 / 降格警示
+  private onGradeSfx = (payload: GameStateEventMap['state:gradeChanged']): void => {
+    this.playSfx(payload.reason === 'ascend' ? 'sfx_gong' : 'sfx_warn', 0.5);   // 晋格庆祝 / 降格警示
   };
 
   constructor(scene: Phaser.Scene, store: GameStore) {

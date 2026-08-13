@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { COLORS, COLORS_HEX, FONTS, UI } from './palette';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
+import type { GameStateEventMap } from '../state/stateEvents';
 import type { FactionDemand, FactionEffect } from '../data/factions';
 
 /**
@@ -53,9 +54,9 @@ export class FactionDemandModal {
   private destroyed = false;
   private static readonly PAUSE_HOLDER = 'factionDemand';
 
-  private onTriggered = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { demand?: FactionDemand; factionName?: string } : {};
-    if (p.demand) this.show(p.demand, p.factionName ?? '');
+  private onTriggered = (payload: GameStateEventMap['state:factionDemandTriggered']): void => {
+    const demand = payload.demand as FactionDemand | undefined;
+    if (demand) this.show(demand, payload.factionName ?? '');
   };
   private onResolvedExternally = (): void => { if (this.current) this.hide(); };
   private onReplaced = (): void => { if (this.current) this.hide(); };

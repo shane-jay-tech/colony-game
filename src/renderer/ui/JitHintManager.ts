@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
+import type { GameStateEventMap } from '../state/stateEvents';
 import type { Toast } from './Toast';
 import { JIT_HINTS, type JitTrigger } from '../data/jitHints';
 
@@ -35,18 +36,15 @@ export class JitHintManager {
   private onNpcAction = (): void => this.fire('first_diplomacy');
   private onPolicy = (): void => this.fire('first_policy');
   private onDecree = (): void => this.fire('first_decree');
-  private onResources = (payload: unknown): void => {
-    if (!payload || typeof payload !== 'object') return;
-    const deltas = (payload as { deltas?: Record<string, number> }).deltas;
-    if (!deltas) return;
+  private onResources = (payload: GameStateEventMap['state:resourcesChanged']): void => {
+    const deltas = payload.deltas;
     if ((deltas.gold ?? 0) > 0) this.fire('first_gold_income');
     if ((deltas.cloth ?? 0) > 0) this.fire('first_cloth_income');
     if ((deltas.bronze ?? 0) > 0) this.fire('first_bronze_income');
     if ((deltas.rite ?? 0) > 0) this.fire('first_rite_income');
   };
-  private onGrade = (payload: unknown): void => {
-    const reason = (payload && typeof payload === 'object') ? (payload as { reason?: string }).reason : undefined;
-    if (reason !== 'ascend') return;
+  private onGrade = (payload: GameStateEventMap['state:gradeChanged']): void => {
+    if (payload.reason !== 'ascend') return;
     this.fire('first_grade');
   };
 

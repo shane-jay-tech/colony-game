@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { COLORS, COLORS_HEX, FONTS, UI } from './palette';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
+import type { GameStateEventMap } from '../state/stateEvents';
 
 /**
  * CrisisModal：低谷危机通告（Phase1 失败模型）。
@@ -34,7 +35,7 @@ export class CrisisModal {
   private destroyed = false;
   private static readonly PAUSE_HOLDER = 'crisis';
 
-  private onCrisis = (payload: unknown): void => this.handleCrisis(payload);
+  private onCrisis = (payload: GameStateEventMap['state:crisisTriggered']): void => this.handleCrisis(payload);
   private onReplaced = (): void => { if (this.visible) this.dismiss(); };
 
   constructor(scene: Phaser.Scene, store: GameStore) {
@@ -78,10 +79,9 @@ export class CrisisModal {
     store.on(STATE_EVENTS.STATE_REPLACED, this.onReplaced);
   }
 
-  private handleCrisis(payload: unknown): void {
-    const summary = (payload && typeof payload === 'object' && typeof (payload as { summary?: unknown }).summary === 'string')
-      ? (payload as { summary: string }).summary
-      : '国库空、仓廪罄，旷日六旬。民有流散、士气大挫。励精图治，尚可再起。';
+  private handleCrisis(payload: GameStateEventMap['state:crisisTriggered']): void {
+    const summary = payload.summary
+      || '国库空、仓廪罄，旷日六旬。民有流散、士气大挫。励精图治，尚可再起。';
     this.bodyText.setText(summary);
     if (!this.holdsPause) {
       this.store.requestPause(CrisisModal.PAUSE_HOLDER);
