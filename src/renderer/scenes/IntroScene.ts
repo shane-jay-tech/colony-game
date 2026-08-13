@@ -216,7 +216,7 @@ export class IntroScene extends Phaser.Scene {
 
     this.bgStoryText = this.add.text(0, 0, this.openingStoryText(), {
       ...FONTS.body,
-      fontSize: '13px',
+      fontSize: '14px', // P2-4 字号铁律 ≥14px
       color: COLORS_HEX.PAPER_DIM,
       wordWrap: { width: 760, useAdvancedWrap: true },
       lineSpacing: 4,

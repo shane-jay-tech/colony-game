@@ -101,7 +101,7 @@ export class ModeSelectScene extends Phaser.Scene {
 
     this.footerText = this.add.text(0, 0, '——选沙盒可即刻立国；故事一途，来日开放。', {
       ...FONTS.smallDim,
-      fontSize: '13px',
+      fontSize: '14px', // P2-4 字号铁律 ≥14px
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5, 0);
 
     // 沙盒卡片可点 → 写 mode → 进立国流程
@@ -151,7 +151,7 @@ export class ModeSelectScene extends Phaser.Scene {
     if (tag) {
       tagText = this.add.text(0, 0, tag, {
         ...FONTS.small,
-        fontSize: '13px',
+        fontSize: '14px', // P2-4 字号铁律 ≥14px
         color: COLORS_HEX.GOLD_DIM,
         fontStyle: 'bold',
       } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(1, 0);

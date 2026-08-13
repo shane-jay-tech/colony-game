@@ -72,7 +72,7 @@ export class TransitionScene extends Phaser.Scene {
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5, 0.5);
 
     this.hintText = this.add.text(0, 0, '— 点击继续 —', {
-      ...FONTS.smallDim, fontSize: '13px',
+      ...FONTS.smallDim, fontSize: '14px', // P2-4 字号铁律 ≥14px
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5, 0.5);
 
     this.layout();

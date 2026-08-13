@@ -31,7 +31,7 @@ export interface JitHint {
 }
 
 export const JIT_HINTS: Readonly<Record<JitTrigger, JitHint>> = {
-  game_start: { trigger: 'game_start', text: '先在左栏选建筑、点地图放下。建议：农田产粮、陶窑产钱、桑园产布。开局暂停中——放下第一座建筑后时间开始流动。' },
+  game_start: { trigger: 'game_start', text: '先在左栏选建筑、点地图放下。建议：农田产粮、桑园产布、陶窑产钱。开局暂停中——放下第一座建筑后时间开始流动。顶栏资源数字可点开「每日出入」、国格徽章可点开「升格之途」，随时查。' },
   first_build: { trigger: 'first_build', text: '已落子动工。营建需时日，建好才出产。建议先建农田和桑园，确保粮与布的产出。' },
   first_complete: { trigger: 'first_complete', text: '建筑已成！点击它可查看详情和升级选项。相邻建筑有加成——农田贴水井多产粮，陶窑靠市集多产钱。' },
   first_policy: { trigger: 'first_policy', text: '国策已采纳。国策是永久效果，解锁新建筑或增强产出。注意有些建筑需先采纳对应国策才能建造。' },
@@ -40,7 +40,7 @@ export const JIT_HINTS: Readonly<Record<JitTrigger, JitHint>> = {
   first_cloth_income: { trigger: 'first_cloth_income', text: '有布入账了。布从桑园来（每日+2），升级织官后更多。布用于科技建筑和外交。' },
   first_bronze_income: { trigger: 'first_bronze_income', text: '有铜入账了。铜从「铜冶坊」来（需先采纳相应国策解锁）。铜是士兵的装备来源——养兵、出征都靠铜，缺铜军力难以提升。' },
   first_rite_income: { trigger: 'first_rite_income', text: '有礼器入账了。礼器从「祖庙／太庙」等礼制建筑来。礼用于晋升国格、巨型工程（铸九鼎/作春秋）与高阶礼制——攒礼是通往诸侯、霸主的关键。' },
-  first_grade: { trigger: 'first_grade', text: '国格晋阶了！新的建筑和国策已解锁——看左栏和右栏，有新选项出现。' },
+  first_grade: { trigger: 'first_grade', text: '国格晋阶了！新的建筑和国策已解锁——点顶栏国格徽章，随时看下一格还差什么（人口/资源/标志建筑逐项打勾）。' },
   first_crisis: { trigger: 'first_crisis', text: '邦势跌入低谷。别慌——稳住口粮和民心，削减开支，假以时日可复元。不会直接结束游戏。' },
   first_event: { trigger: 'first_event', text: '朝堂有事待决。每个选项各有得失，没有绝对对错。留意选项下方的资源变动提示。' },
   first_diplomacy: { trigger: 'first_diplomacy', text: '邻邦来了。点顶栏"邦交"可看各国关系；通商需金50布2，出使需金30布5。先攒够资源再操作。' },
