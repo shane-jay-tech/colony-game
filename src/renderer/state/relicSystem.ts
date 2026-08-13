@@ -46,7 +46,7 @@ export const RELIC_CHAINS: readonly RelicChain[] = [
     stages: [
       {
         title: '荒丘埋骨',
-        desc: '牧竖报：野有枯骨，甲胄半腐，似百年前鏖战所遗。',
+        desc: '牧童报：野有枯骨，兵甲半腐，似百年前大战所遗。',
         descPlain: '城外发现古代战场遗骨，该如何处置？',
         choices: [
           { text: '收敛遗骨，立碑祭之', textPlain: '收敛祭之（民心 +5，怨愤 −3）', wrathDelta: -3, moraleDelta: 5, resources: {}, renownDelta: 2, summary: '古战场遗骨得敛，百姓称仁。' },
@@ -59,7 +59,7 @@ export const RELIC_CHAINS: readonly RelicChain[] = [
         descPlain: '出土一柄古断戟，如何处置？',
         choices: [
           { text: '交工坊重铸', textPlain: '重铸为器（耗木 5，青铜 +6）', wrathDelta: 0, moraleDelta: 0, resources: { wood: -5, bronze: 6 }, renownDelta: 0, summary: '断戟重铸，武库添新。' },
-          { text: '献于祖庙', textPlain: '献于祖庙（礼器 +3，信誉 +4）', wrathDelta: 0, moraleDelta: 0, resources: { rite: 3 }, renownDelta: 4, summary: '断戟入庙，克绍先武。' },
+          { text: '献于祖庙', textPlain: '献于祖庙（礼器 +3，信誉 +4）', wrathDelta: 0, moraleDelta: 0, resources: { rite: 3 }, renownDelta: 4, summary: '断戟入庙，克继先功。' },
         ],
       },
       {

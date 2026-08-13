@@ -7,7 +7,7 @@ export const BUILDINGS: BuildingDef[] = [
     name: '农田',
     category: '民生',
     tier: 1,
-    tierName: '耒耕',
+    tierName: '耕耘',
     cost: { wood: 20, people: 4 },
     constructionTime: 1,
     output: [{ resource: 'grain', perDay: 12 }],
@@ -431,7 +431,7 @@ export const BUILDINGS: BuildingDef[] = [
     name: '麻田',
     category: '民生',
     tier: 1,
-    tierName: '沤麻',
+    tierName: '种麻',
     cost: { wood: 12, people: 2 },
     constructionTime: 1,
     output: [{ resource: 'hemp', perDay: 3 }],
@@ -442,8 +442,8 @@ export const BUILDINGS: BuildingDef[] = [
     badgeRules: [
       { condition: 'self.output.hemp == 0', badge: 'badge_idle', priority: 10 },
     ],
-    description: '沤麻绩缕，以供机杼。',
-    descPlain: 'B3 加工链原料：种植沤麻，每日产 3 麻。麻供织官织布。建造耗木 12。',
+    description: '种麻绩缕，以供机杼。',
+    descPlain: 'B3 加工链原料：种植取麻，每日产 3 麻。麻供织官织布。建造耗木 12。',
   },
   {
     id: 'bld_stele_yard',
