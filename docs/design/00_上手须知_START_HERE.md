@@ -1,7 +1,7 @@
 # 邦国录 · 接手开发者上手须知（START HERE）
 
 > 你接手的是一款**春秋立国题材的策略经营游戏**（Electron + TypeScript + Phaser）。
-> 当前 = v0.9.0，**能跑、1021 测试绿、type-check 干净**；系统广度已铺得很开（见下方第 4 节"当前状态速览"已更新），完整愿景在设计稿里。
+> 当前 = v0.10.0，**能跑、1050 测试绿、type-check 干净**；系统广度已铺得很开（见下方第 4 节"当前状态速览"已更新），完整愿景在设计稿里。
 > **最大的债不是代码，是从未真人 playtest（好不好玩未验证）**。先花 30 分钟读完本页，再动手。
 
 ---
@@ -92,7 +92,16 @@ npm run electron:build:win   # 打包 Windows 桌面 exe → dist-out/win-unpack
 
 ---
 
-## 8. 2026-08 硬化与扩展批次（本轮已落地）
+## 8. 2026-08-14 信息可视化与目标感批次（本轮已落地）
+
+- **P1 信息可视化**：供需速率面板（点顶栏资源数字开「国计 · 每日出入」：日产/日耗/净变 + 入不敷出补阙因果链 + 民足系数行）；升格目标面板（点国格徽章开「升格之途」：下一格还差什么逐项打勾）；供应链提示纯函数 `state/supplyChain.ts`；`computeDailyRates` 与生产 tick 同源口径。
+- **P2 目标感**：终局记分牌（`state/scoreCard.ts` 多维功业计分 + `ui/ScoreCardPanel.ts`，HUD「记」入口；登顶/三结局自动结算；历史最高分存 localStorage 不进存档 schema）。
+- **P3 故事填肉**：七卷剧情事件 23→35（每卷恰 5 条，取材小说高光场景：公道站起/碑下之土/烧刀子/以人为镜/会跑的车/北境抢矿/偏殿一顿饭/少一笔的字/病中一问/书记官/七日七夜/定稿之册）；copyBias 禁偏字守护扩展到故事事件。
+- **无头模拟 harness 修复 + 多策略**：起始资源走 initialState 同步农民阶层（旧 harness 0 农民致农田建不了）；摆放死锁修复；均衡策略（产布）第 53 天到邦国——国格阶梯可达性有了实证。
+- 测试 1036 → 1050；版本 0.9.0 → 0.10.0。
+- **待办**：麻田/锡矿 2 张建筑图（缺 WANXIANG_API_KEY 未生成）；P1 架构剩余项；真人 playtest（P1+P2 落地后阶段验收）。
+
+## 8b. 2026-08 硬化与扩展批次（此前已落地）
 
 - **仓库/分发**：代码与存档已备份至私有仓库 `github.com/shane-jay-tech/colony-game`（分支 `codex/architecture-hardening` 领先 master）；`npm run electron:build:win` 全链路跑通，产出 `dist-out/` 下 0.9.0 安装版/便携版/win-unpacked。国内网络需显式注入镜像：
   `$env:ELECTRON_MIRROR='https://npmmirror.com/mirrors/electron/'; $env:ELECTRON_BUILDER_BINARIES_MIRROR='https://npmmirror.com/mirrors/electron-builder-binaries/'`
