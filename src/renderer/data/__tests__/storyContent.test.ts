@@ -23,17 +23,19 @@ describe('七卷剧情内容不变量', () => {
     expect(dangling).toEqual([]);
   });
 
-  it('每卷至少 3 个剧情事件（扩充后更饱满），且全部 tag 含"故事"', () => {
+  it('每卷恰 5 个剧情事件（P3 填肉目标 35 条锁定），且全部 tag 含"故事"', () => {
+    expect(chapterEvents.length).toBe(35); // 7 章 × 5
     for (let n = 1; n <= 7; n++) {
       const inChapter = chapterEvents.filter(e =>
         e.triggers.some(t => t.condition === `story_chapter == ${n}`),
       );
-      expect(inChapter.length, `第 ${n} 章事件数`).toBeGreaterThanOrEqual(3);
+      expect(inChapter.length, `第 ${n} 章事件数`).toBe(5);
       for (const e of inChapter) {
         expect(e.tags, `${e.id} 应带"故事"标签`).toContain('故事');
       }
     }
   });
+
 
   it('每个剧情事件都是双选抉择，选项含 effects 与隐性双轴', () => {
     for (const e of chapterEvents) {

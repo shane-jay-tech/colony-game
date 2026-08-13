@@ -8,6 +8,7 @@ import { POLICIES } from '../policies';
 import { DECREES } from '../decrees';
 import { RELIC_CHAINS } from '../../state/relicSystem';
 import { pickEndgameWave } from '../../state/endgameEscalation';
+import { STORY_EVENTS } from '../storyEvents';
 
 /** 铁律禁偏字（START_HERE 第 3 节 + 本批新增） */
 const BANNED_CHARS = ['畿', '耒', '耜', '胄', '黔', '嵎', '泌', '镞', '鏖', '诰', '敕', '漕', '窳', '筚', '沤'] as const;
@@ -42,5 +43,13 @@ describe('P3-4 文案禁偏字', () => {
     ]);
     const e = [0, 1, 2].map(i => pickEndgameWave(i, 1).text);
     expect(violationsOf([...r, ...e])).toEqual([]);
+  });
+
+  it('故事事件文案无禁偏字（P3 填肉新增 12 条一并守护）', () => {
+    const s = STORY_EVENTS.flatMap(ev => [
+      ...ev.contexts.flatMap(c => [c.title, c.desc, c.descPlain]),
+      ...(ev.choices ?? []).flatMap(ch => [ch.text, ch.textPlain]),
+    ]);
+    expect(violationsOf(s)).toEqual([]);
   });
 });

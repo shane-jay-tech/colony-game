@@ -1441,7 +1441,7 @@ describe('Phase2 故事框架闭环（集成）', () => {
     for (let ch = 1; ch <= 7; ch++) store.advanceStoryChapter(ch);
     // 第七章目标 = 解决 evt_s_ch7_war_vote + stele + throne（全章关键剧情）；注入"已解决"再 tick → 终章判定结局
     const s7 = store.getState();
-    store.replaceState({ ...s7, storyFlags: { ...s7.storyFlags!, chapter: 7, storyEventsTriggered: ['evt_s_ch7_war_vote', 'evt_s_ch7_stele', 'evt_s_ch7_throne'] } });
+    store.replaceState({ ...s7, storyFlags: { ...s7.storyFlags!, chapter: 7, storyEventsTriggered: ['evt_s_ch7_debate', 'evt_s_ch7_war_vote', 'evt_s_ch7_stele', 'evt_s_ch7_charter', 'evt_s_ch7_throne'] } });
     for (let i = 0; i < 5 && ended.mock.calls.length === 0; i++) store.tickDay();
 
     expect(ended).toHaveBeenCalledTimes(1);
@@ -1478,7 +1478,7 @@ describe('Phase2 故事框架闭环（集成）', () => {
     store.tickDay();
     for (let ch = 1; ch <= 7; ch++) store.advanceStoryChapter(ch);
     const s7 = store.getState();
-    store.replaceState({ ...s7, storyFlags: { ...s7.storyFlags!, chapter: 7, storyEventsTriggered: ['evt_s_ch7_war_vote', 'evt_s_ch7_stele', 'evt_s_ch7_throne'] } });
+    store.replaceState({ ...s7, storyFlags: { ...s7.storyFlags!, chapter: 7, storyEventsTriggered: ['evt_s_ch7_debate', 'evt_s_ch7_war_vote', 'evt_s_ch7_stele', 'evt_s_ch7_charter', 'evt_s_ch7_throne'] } });
     for (let i = 0; i < 5; i++) store.tickDay();
     const callsAtEnd = ended.mock.calls.length;
     expect(callsAtEnd).toBe(1);
@@ -1498,7 +1498,7 @@ describe('Phase3 章节目标解锁（集成）', () => {
     const snap = store.getState();
     store.replaceState({
       ...snap,
-      storyFlags: { ...snap.storyFlags!, chapter: 1, storyEventsTriggered: ['evt_s_ch1_dike', 'evt_s_ch1_cadre', 'evt_s_ch1_arrest', 'evt_s_ch1_oath'] },
+      storyFlags: { ...snap.storyFlags!, chapter: 1, storyEventsTriggered: ['evt_s_ch1_dike', 'evt_s_ch1_cadre', 'evt_s_ch1_arrest', 'evt_s_ch1_oath', 'evt_s_ch1_stand'] },
     });
     store.tickDay();
     expect(store.getStoryFlags()?.chapter).toBe(2); // 目标达成 → 解锁第二章

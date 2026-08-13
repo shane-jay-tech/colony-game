@@ -156,6 +156,41 @@ export const STORY_EVENTS: CourtEvent[] = [
     defaultTimeoutDays: 12,
   },
 
+  {
+    id: 'evt_s_ch1_stand',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 1' }],
+    contexts: [{
+      condition: 'default',
+      title: '公道不是跪出来的',
+      desc: '一个常州流民跪在营前，说他爹死在堤下时留话——天底下没公道。你伸手把他拉起来。',
+      descPlain: '一个逃难来的灾民跪在门口，说他爹临死前说这世上没有公道。你把他扶起来——然后呢？',
+    }],
+    choices: [
+      {
+        text: '授以锄镐，教他自立——公道不是跪出来的，是站出来的',
+        textPlain: '【先扶人站起来】发给他农具和地，让他自己站着挣回公道，不靠人施舍。民心+10、信誉+8。',
+        effects: [
+          { target: 'country_morale', op: 'add', value: 10 },
+          { target: 'country_renown', op: 'add', value: 8 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 12 },
+      },
+      {
+        text: '赐粮赐帛，好言抚慰',
+        textPlain: '【给鱼不给渔】赏些钱粮安抚，先别闹出事。民心+6、钱-1。',
+        effects: [
+          { target: 'country_morale', op: 'add', value: 6 },
+          { target: 'country_gold_output', op: 'add', value: -1 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -8 },
+      },
+    ],
+    defaultTimeoutDays: 12,
+  },
+
   // ============ 二 · 分田（立碑：阶级斗争初展） ============
   {
     id: 'evt_s_ch2_grievance',
@@ -295,6 +330,42 @@ export const STORY_EVENTS: CourtEvent[] = [
     defaultTimeoutDays: 14,
   },
 
+  {
+    id: 'evt_s_ch2_night_watch',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 2' }],
+    contexts: [{
+      condition: 'default',
+      title: '碑下的土还在喘气',
+      desc: '豪绅私兵夜袭湖州，砸碑吊人。你遣队入村，不搜不剿，只令守碑护夜。一老农深夜拉战士听碑底之土：「听见没？地底下的人还在喘气——他们等着看这块碑能不能立住。」',
+      descPlain: '豪绅半夜带人砸了分田的石碑，把带头的农户吊在树上。你派人进村——怎么处置？',
+    }],
+    choices: [
+      {
+        text: '守夜护碑，白日助耕，夜里讲课',
+        textPlain: '【碑在人在】不剿不杀，只守碑：白天帮种地，晚上给村民讲碑上的大白话。民心+12、信誉+10；耗粮守夜。',
+        effects: [
+          { target: 'country_morale', op: 'add', value: 12 },
+          { target: 'country_renown', op: 'add', value: 10 },
+          { target: 'country_grain_consumption', op: 'add', value: 1 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 15, production: 10 },
+      },
+      {
+        text: '调兵清剿，以儆效尤',
+        textPlain: '【立威镇场】把砸碑的人抓起来从重处置，杀鸡儆猴。军力+8、民心+2。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 8 },
+          { target: 'country_morale', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -12 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+
   // ============ 三 · 淬火（自噬：自我革命）—— OQ-S3 起：3 章加滤镜变体 ============
   {
     id: 'evt_s_ch3_corruption',
@@ -415,6 +486,75 @@ export const STORY_EVENTS: CourtEvent[] = [
     defaultTimeoutDays: 14,
   },
 
+  {
+    id: 'evt_s_ch3_last_drink',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 3' }],
+    contexts: [{
+      condition: 'default',
+      title: '一壶烧刀子',
+      desc: '裴绍围宅那夜，马援朝没有反抗，坐在中堂等他，两人喝了一顿烧刀子。「你也是苦出身，怎么走到这一步？」「记别人的仇太容易，记自己的——太难。」',
+      descPlain: '老将马援朝没跑没反抗，摆了一桌酒等裴绍来抓。两个老兄弟喝最后一顿——你要裴绍怎么收这个场？',
+    }],
+    choices: [
+      {
+        text: '听他把话说完，再按律收押',
+        textPlain: '【把账问明白】让他把十二年怎么一步步走错的说清楚，记下来做天下的镜子，然后照章办。信誉+10、民心+6。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 10 },
+          { target: 'country_morale', op: 'add', value: 6 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 12 },
+      },
+      {
+        text: '不必多言，就地收押，免生枝节',
+        textPlain: '【雷厉风行】这种人多说无益，直接押走，防他串供生变。军力+8、民心+2。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 8 },
+          { target: 'country_morale', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -10 },
+      },
+    ],
+    defaultTimeoutDays: 12,
+  },
+  {
+    id: 'evt_s_ch3_mirror',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 3' }],
+    contexts: [{
+      condition: 'default',
+      title: '以人为镜',
+      desc: '马援朝案结。有人谏言密办，保住朝廷体面；亦有人言：当把阵亡将士名册与克扣账册并刊天下，让所有人看看，钱是从谁的抚恤里抠出来的。',
+      descPlain: '贪案查完了。是悄悄办掉保住面子，还是把「阵亡将士名册」和「贪污账本」印在一起发往全国，让天下人都看见？',
+    }],
+    choices: [
+      {
+        text: '并刊天下，只题一字——鉴',
+        textPlain: '【阳光照账本】名册和账册印在一起发全国，封面只写一个字《鉴》，让后来者照照自己。信誉+15、民心+8。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 15 },
+          { target: 'country_morale', op: 'add', value: 8 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 15 },
+      },
+      {
+        text: '密存档案，内部通报，勿摇民心',
+        textPlain: '【家丑不外扬】只发各衙门内部通报，对外按下不表。军力+6、民心-2。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 6 },
+          { target: 'country_morale', op: 'add', value: -2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -10 },
+      },
+    ],
+    defaultTimeoutDays: 12,
+  },
+
   // ============ 四 · 铁与火（熔铸：生产力革命）🔀③技术归公/归私——生产资料轴关键 ============
   {
     id: 'evt_s_ch4_patent',
@@ -514,6 +654,75 @@ export const STORY_EVENTS: CourtEvent[] = [
         ],
         removeEffects: [],
         storyAxisDelta: { production: -20, power: -10 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+
+  {
+    id: 'evt_s_ch4_rail',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 4' }],
+    contexts: [{
+      condition: 'default',
+      title: '会跑的车',
+      desc: '蒸汽机车已成。首趟公开货运，从矿场到城邑，万人围观，车鸣一响，天下震动。有人惊惧：此物一出，夫役尽可歇矣，将生大变。',
+      descPlain: '蒸汽机车造出来了，第一次公开拉货，万人围观。有人害怕：这铁家伙要是遍地都是，靠力气吃饭的人怎么办？',
+    }],
+    choices: [
+      {
+        text: '令机车行于官道，广开货运，教民习之',
+        textPlain: '【把死力气省下来】推广机车货运，让更多人把力气的活儿交给机器，人去做更值当的事。研究+10%、信誉+10。',
+        effects: [
+          { target: 'country_research_speed', op: 'mul', value: 1.1 },
+          { target: 'country_renown', op: 'add', value: 10 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { production: 15 },
+      },
+      {
+        text: '暂限军用，缓行于市',
+        textPlain: '【怕变天】先只给军队运粮运械，民间缓一缓，稳住夫役生计。军力+8、钱+2。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 8 },
+          { target: 'country_gold_output', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { production: -12 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+  {
+    id: 'evt_s_ch4_frontier',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 4' }],
+    contexts: [{
+      condition: 'default',
+      title: '北境抢矿',
+      desc: '北方朔方汗国探得我技术渐强，屡犯边矿——不攻城不占地，只抢矿石、绑工匠。边军请战，亦有言：当建一支会修路架桥的工兵营，把边地种成铁打的江山。',
+      descPlain: '北方敌人不抢地，专抢矿石和抓工匠。是增兵死守，还是建一支「既会修路架桥、又能护矿」的新工兵队伍？',
+    }],
+    choices: [
+      {
+        text: '组建新式工兵营——修路筑闸，屯垦守矿',
+        textPlain: '【把边地种活】抽精锐组工兵营，能修路、能架桥、能屯田，把矿区变成守得住的产业。研究+10%、军力+6。',
+        effects: [
+          { target: 'country_research_speed', op: 'mul', value: 1.1 },
+          { target: 'country_military_power', op: 'add', value: 6 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { production: 12 },
+      },
+      {
+        text: '增派戍卒，死守矿脉',
+        textPlain: '【严防死守】多派兵、多修工事，把矿看死。军力+12、钱-1。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 12 },
+          { target: 'country_gold_output', op: 'add', value: -1 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -8 },
       },
     ],
     defaultTimeoutDays: 14,
@@ -619,6 +828,75 @@ export const STORY_EVENTS: CourtEvent[] = [
         ],
         removeEffects: [],
         storyAxisDelta: { power: -10, production: -8 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+
+  {
+    id: 'evt_s_ch5_cabinet',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 5' }],
+    contexts: [{
+      condition: 'default',
+      title: '偏殿一顿饭',
+      desc: '五位辅政首次齐聚，不在朝堂，在偏殿一顿粗茶淡饭。无人称万岁，彼此以名相称，议的是灯塔选址、工匠纠纷、学员去留。礼官皱眉：君不君，臣不臣。',
+      descPlain: '五个核心帮手第一次凑齐，没开朝会，就在小偏殿吃顿家常饭、直呼其名谈正事。管礼仪的人看不过去了——要不要立回规矩？',
+    }],
+    choices: [
+      {
+        text: '就这么坐——议事不议礼，务实在先',
+        textPlain: '【先把事办了】名字怎么叫不重要，把灯塔、工匠、学员的事议透才要紧。信誉+10、外交+8。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 10 },
+          { target: 'country_diplomacy_weight', op: 'add', value: 8 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 15 },
+      },
+      {
+        text: '重立君臣之礼，尊卑有序',
+        textPlain: '【规矩不能乱】议事可以，但礼数是纲，该跪的跪、该称的称。军力+6、民心+2。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 6 },
+          { target: 'country_morale', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -12 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+  {
+    id: 'evt_s_ch5_watcher',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 5' }],
+    contexts: [{
+      condition: 'default',
+      title: '少一笔的字',
+      desc: '北端海岬的倭人守塔者不写汉文，却把灯塔八言用毛笔歪歪扭扭摹在底座——有一字少了一笔。有臣请遣师以正其文；亦有言：心意既通，何拘笔划。',
+      descPlain: '邻国的守塔人不会写汉字，却照猫画虎把灯塔上的八个字摹了下来，有一个字少写了一笔。要不要派人去纠正？',
+    }],
+    choices: [
+      {
+        text: '不必纠笔——灯是众人共守的光，非我之赐',
+        textPlain: '【少一笔也没关系】字少一笔，心意不差；这灯不是谁的恩赐，是大家一起守的光。外交+12、信誉+10。',
+        effects: [
+          { target: 'country_diplomacy_weight', op: 'add', value: 12 },
+          { target: 'country_renown', op: 'add', value: 10 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 12, production: 10 },
+      },
+      {
+        text: '遣师正字，昭我文教',
+        textPlain: '【正本清源】派先生去把字写对，顺便传我文字教化，扬我国威。军力+6、外交+2。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 6 },
+          { target: 'country_diplomacy_weight', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -10 },
       },
     ],
     defaultTimeoutDays: 14,
@@ -746,7 +1024,144 @@ export const STORY_EVENTS: CourtEvent[] = [
     defaultTimeoutDays: 14,
   },
 
+  {
+    id: 'evt_s_ch6_sickbed',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 6' }],
+    contexts: [{
+      condition: 'default',
+      title: '病中一问',
+      desc: '任期之争最烈时，你两度病倒。周昭仪自南赶来，日夜守榻。你问：「朕是不是做错了？」她答：「您让出来的是权力，他们舍不得的也是权力。人和人争的从来都是同一个东西——只是有人用它压别人，有人用它扶别人。」',
+      descPlain: '让权之争最激烈的时候你病倒了。身边人劝：这事是不是做错了？有人却说——你让出去的是权力，他们不肯放的也是权力。你怎么办？',
+    }],
+    choices: [
+      {
+        text: '继续让——权力是用来扶人的，不是压人的',
+        textPlain: '【让到底】既已看清权力是怎么回事，就更不能让它在手里多留一天。民心+10、信誉+12。',
+        effects: [
+          { target: 'country_morale', op: 'add', value: 10 },
+          { target: 'country_renown', op: 'add', value: 12 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 15 },
+      },
+      {
+        text: '缓一缓——权力先稳在手里，待人心定再让',
+        textPlain: '【以稳为先】让权可以，但不能急，等局面稳了再说。军力+8、民心+2。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 8 },
+          { target: 'country_morale', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -10 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+  {
+    id: 'evt_s_ch6_title',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 6' }],
+    contexts: [{
+      condition: 'default',
+      title: '从天子到书记官',
+      desc: '任期之制既立，只差称谓。礼部拟了十来个尊号，你一个没看，只说：以后叫我公议书记。满殿愕然，唯沈逸尘点头。',
+      descPlain: '任期限制都定了，最后差个称呼。礼部拟了一堆尊号，你却让所有人以后直呼你「公议书记」。这称呼，改还是不改？',
+    }],
+    choices: [
+      {
+        text: '改称公议书记——与众人同为议席上写字的手',
+        textPlain: '【手和人一样多，才叫公议】不要尊号，自称公议书记，跟所有人一样只是议事的一员。信誉+15、民心+10。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 15 },
+          { target: 'country_morale', op: 'add', value: 10 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 25 },
+      },
+      {
+        text: '保留尊号，以安人心',
+        textPlain: '【名分是纲】制度可以变，天子的名分不能去，留着才能稳住人心。军力+8、民心+2。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 8 },
+          { target: 'country_morale', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -15 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+
   // ============ 七 · 归根（归去：个人退场，制度向前） ============
+  {
+    id: 'evt_s_ch7_debate',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 7' }],
+    contexts: [{
+      condition: 'default',
+      title: '七日七夜',
+      desc: '战和大计交付公议，大会议了七日七夜，几近吵翻。有人主战到底，有人主和不割地。终须立个章法：这一仗打不打、怎么打、打赢了之后怎么办。',
+      descPlain: '仗要不要打交给了大会。会上吵了七天七夜没结论。你得出面立规矩——这一仗的底线是什么？',
+    }],
+    choices: [
+      {
+        text: '立约：不割地、不赔款、所取之地归当地人民',
+        textPlain: '【打是为了不打】打得赢就守，打不赢就谈；不打不平等之约，打下的地归当地人民自决。信誉+15、民心+8。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 15 },
+          { target: 'country_morale', op: 'add', value: 8 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 15, production: 12 },
+      },
+      {
+        text: '授统帅全权，便宜行事，以胜为先',
+        textPlain: '【兵贵神速】议来议去误战机，把全权交给前线，打赢了再说。军力+15、民心+2。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 15 },
+          { target: 'country_morale', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -12 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
+  {
+    id: 'evt_s_ch7_charter',
+    tags: ['故事', '抉择'],
+    triggers: [{ condition: 'story_chapter == 7' }],
+    contexts: [{
+      condition: 'default',
+      title: '定稿之册',
+      desc: '《天下人公约》定稿在即。撰稿之人问：此册一经颁行，是否即为万世之法？你翻着那本夹满批注的册子，笔悬在扉页上。',
+      descPlain: '那本写满大白话的《天下人公约》要定稿了。有人问：是不是从今往后一个字都不能改？',
+    }],
+    choices: [
+      {
+        text: '每一条都注明来处与修订之次——仍待后人续改',
+        textPlain: '【制度是临时的，人才是长久的】每一条都写下「经过多少次公议实践修订、仍待后人完善」，制度要跟着人往前走。信誉+18、民心+10。',
+        effects: [
+          { target: 'country_renown', op: 'add', value: 18 },
+          { target: 'country_morale', op: 'add', value: 10 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: 20, production: 10 },
+      },
+      {
+        text: '立为万世之法，一字不易',
+        textPlain: '【定死了才稳】规矩定死不能改，江山才能万万年。军力+8、民心+2。',
+        effects: [
+          { target: 'country_military_power', op: 'add', value: 8 },
+          { target: 'country_morale', op: 'add', value: 2 },
+        ],
+        removeEffects: [],
+        storyAxisDelta: { power: -15, production: -8 },
+      },
+    ],
+    defaultTimeoutDays: 14,
+  },
   {
     id: 'evt_s_ch7_war_vote',
     tags: ['故事', '抉择'],

@@ -70,7 +70,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     // 取材卷一"江堤溃决查贪 + 组建教导队"，不喊口号、用情节起手
     intro: '王朝立国已久，堤决而万民溺，库银却不知所踪。有人说该查，有人说该压。你坐在大殿上，第一次觉得这把椅子硌人。',
     advanceAfterDays: 120,
-    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch1_dike', 'evt_s_ch1_cadre', 'evt_s_ch1_arrest', 'evt_s_ch1_oath'], hint: '查清江堤贪墨，定下办事的班底，再立起这支队伍的根。' },
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch1_dike', 'evt_s_ch1_cadre', 'evt_s_ch1_arrest', 'evt_s_ch1_oath', 'evt_s_ch1_stand'], hint: '查清江堤贪墨，定下办事的班底，再立起这支队伍的根。' },
   },
   {
     chapter: 2,
@@ -80,7 +80,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '封建鼎盛',
     intro: '田在世家手里，耕的人却吃不饱。有人请你把地分了、把规矩刻在石上让人人能看；也有人说，动了世家的田，根基就乱了。',
     advanceAfterDays: 120,
-    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch2_grievance', 'evt_s_ch2_stele', 'evt_s_ch2_shen', 'evt_s_ch2_zhou'], hint: '回应诉苦之会，把规矩刻上石头，护住推行新政的人，再让认字的光照进闺阁。' },
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch2_grievance', 'evt_s_ch2_stele', 'evt_s_ch2_shen', 'evt_s_ch2_zhou', 'evt_s_ch2_night_watch'], hint: '回应诉苦之会，把规矩刻上石头，护住推行新政的人，再让认字的光照进闺阁。' },
   },
   {
     chapter: 3,
@@ -90,7 +90,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '吏治成熟',
     intro: '当年随你起事的功臣，如今也学会了中饱私囊，且说得出一肚子苦衷。要不要查？查下去，先寒的是自己人的心。',
     advanceAfterDays: 120,
-    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch3_corruption', 'evt_s_ch3_arrest', 'evt_s_ch3_wang'], hint: '面对功臣之蠹，做出裁断，并决定这把刀要不要也对着自己。' },
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch3_corruption', 'evt_s_ch3_arrest', 'evt_s_ch3_last_drink', 'evt_s_ch3_wang', 'evt_s_ch3_mirror'], hint: '面对功臣之蠹，做出裁断，并决定这把刀要不要也对着自己。' },
   },
   {
     chapter: 4,
@@ -100,7 +100,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '工业前夜',
     intro: '匠人炸了七回炉，终于让铁器自己动了起来。这等利器，是该归一家独占、还是天下共用？一念之差，国势两途。',
     advanceAfterDays: 120,
-    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch4_patent', 'evt_s_ch4_smith', 'evt_s_ch4_spy'], hint: '护住炸了七回炉的匠人，决定机巧之利归公还是归私，再定技术外授之界。' },
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch4_patent', 'evt_s_ch4_smith', 'evt_s_ch4_rail', 'evt_s_ch4_spy', 'evt_s_ch4_frontier'], hint: '护住炸了七回炉的匠人，决定机巧之利归公还是归私，再定技术外授之界。' },
   },
   {
     chapter: 5,
@@ -110,7 +110,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '海洋通联',
     intro: '海上风高浪急，邻邦渔民屡遭劫掠。你可以遣师远征立威，也可以筑一串灯塔，让各邦之人共守这一点光。',
     advanceAfterDays: 120,
-    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch5_lighthouse', 'evt_s_ch5_gu', 'evt_s_ch5_ruan'], hint: '在远征立威与平等共守之间抉择，并决定这盏灯、这把稻种要不要照向异乡。' },
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch5_lighthouse', 'evt_s_ch5_gu', 'evt_s_ch5_cabinet', 'evt_s_ch5_watcher', 'evt_s_ch5_ruan'], hint: '在远征立威与平等共守之间抉择，并决定这盏灯、这把稻种要不要照向异乡。' },
   },
   {
     chapter: 6,
@@ -120,7 +120,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '制度成熟',
     intro: '公议日久，竟也生出新的权门。有人提议立下任期，连你自己也不例外。革到最后一刀，敢不敢落在自己身上？',
     advanceAfterDays: 120,
-    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch6_term_limit', 'evt_s_ch6_shen', 'evt_s_ch6_yifa'], hint: '在让权与集权回潮之间做最后一次自我革命，连"议席世家"也一并破掉。' },
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch6_term_limit', 'evt_s_ch6_shen', 'evt_s_ch6_sickbed', 'evt_s_ch6_title', 'evt_s_ch6_yifa'], hint: '在让权与集权回潮之间做最后一次自我革命，连"议席世家"也一并破掉。' },
   },
   {
     chapter: 7,
@@ -130,7 +130,7 @@ export const STORY_CHAPTERS: ChapterDef[] = [
     era: '终局',
     intro: '外敌压境，而你已老。这一回，把要不要打、怎么打，交给天下人自己定。你这一生，到底给后人留下了什么？',
     advanceAfterDays: 120,
-    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch7_war_vote', 'evt_s_ch7_stele', 'evt_s_ch7_throne'], hint: '把战和之权交付天下人，立一块护人自决的碑，最后决定那把龙椅——撤，还是传——终章见分晓。' },
+    advanceGoal: { kind: 'story_events', eventIds: ['evt_s_ch7_debate', 'evt_s_ch7_war_vote', 'evt_s_ch7_stele', 'evt_s_ch7_charter', 'evt_s_ch7_throne'], hint: '把战和之权交付天下人，立一块护人自决的碑，最后决定那把龙椅——撤，还是传——终章见分晓。' },
   },
 ];
 
