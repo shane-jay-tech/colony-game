@@ -94,32 +94,31 @@ export class UIScene extends Phaser.Scene {
     if (payload.text) this.toast?.show(`终局·${payload.severity ?? 1} 阶｜${payload.text}`, 'error', 6000);
   };
   // Phase2：史官氛围评语（双轴跨档）→ 轻 Toast
-  private onStoryNarration = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { text?: string } : {};
-    if (p.text) this.toast?.show(p.text, 'info', 3200);
+  private onStoryNarration = (payload: GameStateEventMap['state:storyNarration']): void => {
+    if (payload.text) this.toast?.show(payload.text, 'info', 3200);
   };
   // A-5：世界呼吸 toast
-  private onBreathingToast = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { entry?: { text?: string } } : {};
-    if (p.entry?.text) this.toast?.show(p.entry.text, 'info', 5000);
+  private onBreathingToast = (payload: GameStateEventMap['state:breathingToast']): void => {
+    const entry = payload.entry as { text?: string } | undefined;
+    if (entry?.text) this.toast?.show(entry.text, 'info', 5000);
   };
   // A-5：世界呼吸 bulletin（用长 Toast 代替独立面板）
-  private onBreathingBulletin = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { entry?: { text?: string } } : {};
-    if (p.entry?.text) this.toast?.show(p.entry.text, 'info', 8000);
+  private onBreathingBulletin = (payload: GameStateEventMap['state:breathingBulletin']): void => {
+    const entry = payload.entry as { text?: string } | undefined;
+    if (entry?.text) this.toast?.show(entry.text, 'info', 8000);
   };
   // A-6：史官谏言（长 Toast + 特殊前缀标识为史官）
-  private onHistorianAdvice = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { advice?: { text?: string } } : {};
-    if (p.advice?.text) this.toast?.show(`[史官] ${p.advice.text}`, 'info', 6000);
+  private onHistorianAdvice = (payload: GameStateEventMap['state:historianAdvice']): void => {
+    const advice = payload.advice as { text?: string } | undefined;
+    if (advice?.text) this.toast?.show(`[史官] ${advice.text}`, 'info', 6000);
   };
   // P4：来犯预警 / 出征结算 → toast 提醒（军务面板看详情）
-  private onDefenseAlert = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { alert?: { daysUntilAttack?: number } } : {};
-    const days = p.alert?.daysUntilAttack ?? 3;
+  private onDefenseAlert = (payload: GameStateEventMap['state:defenseAlert']): void => {
+    const alert = payload.alert as { daysUntilAttack?: number } | undefined;
+    const days = alert?.daysUntilAttack ?? 3;
     this.toast?.show(`⚠ 邻邦来犯，约 ${days} 日后兵临！速整军备战（军务）`, 'error', 6000);
   };
-  private onExpeditionResolved = (payload: unknown): void => {
+  private onExpeditionResolved = (payload: GameStateEventMap['state:expeditionResolved']): void => {
     const p = (payload && typeof payload === 'object') ? payload as { defense?: boolean; intercepted?: boolean; result?: { outcome?: string } } : {};
     if (p.defense) {
       this.toast?.show(p.intercepted ? '守土之战已结，详见军务' : '未及拦截，邦境遭劫掠！', p.intercepted ? 'info' : 'error', 5000);
@@ -147,9 +146,8 @@ export class UIScene extends Phaser.Scene {
     }
   };
   // Phase2：章节切换 → 长 Toast 当章节引子 banner
-  private onStoryChapter = (payload: unknown): void => {
-    const p = (payload && typeof payload === 'object') ? payload as { def?: { title?: string; subtitle?: string; intro?: string } } : {};
-    const def = p.def;
+  private onStoryChapter = (payload: GameStateEventMap['state:storyChapterChanged']): void => {
+    const def = payload.def;
     if (!def) return;
     const head = def.subtitle ? `${def.title}　${def.subtitle}` : (def.title ?? '');
     this.toast?.show(`${head}\n${def.intro ?? ''}`, 'info', 6000);
