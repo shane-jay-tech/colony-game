@@ -37,7 +37,8 @@ import {
   npcMilitaryGrowthStep, evaluatePlayerStrength, computeNpcAlliances, computeNpcActions,
   NPC_MP_GROWTH_INTERVAL, NPC_MP_CAP,
 } from './npcDynamics';
-import { checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand, checkEnding, type EndingId } from './storyDriver';
+import { checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand, checkEnding, SUBJUGATE_MP_THRESHOLD, type EndingId } from './storyDriver';
+import { computeScoreCard, type ScoreCard } from './scoreCard';
 import { chapterAt, chapterGoalMet } from '../data/storyChapters';
 import { getBulletinsForChapter, getHistorianComment } from '../data/storyGoals';
 import { assessNationState, shouldSampleEvent, filterEventsByState, DEFAULT_TEMPO_CONFIG, type NationStateInput } from './eventTempo';
@@ -373,6 +374,8 @@ export class GameStore {
   private storyTransitionPending = false;
   /** A-5 瞬态：世界呼吸系统状态（不持久化） */
   private breathingState: BreathingState = createBreathingState();
+  /** P2 瞬态：本会话扛过的终局波次数（记分牌用，不持久化） */
+  private endgameWavesSurvived = 0;
   /** A-6 瞬态：史官谏言追踪（不持久化，重载后从 0 开始累积） */
   private historianGrainNegDays = 0;
   private historianIdleDays = 0;
@@ -1542,6 +1545,35 @@ export class GameStore {
     };
   }
 
+  /**
+   * P2 目标感：终局记分牌快照（纯读）。沙盒登顶 / 故事结局 / 平时点 HUD「记」随时可查。
+   * 多维计分（群星胜利分启示）：里程碑事件权重高于存量数字。
+   */
+  getScoreCard(): ScoreCard {
+    const npcs = this.state.npcCountries;
+    const relics = this.state.relicSites;
+    const mega = this.state.megaProjects;
+    const sf = this.state.storyFlags;
+    return computeScoreCard({
+      grade: this.state.grade,
+      gradeReached: this.state.gradeReached,
+      population: this.state.resources['people'] ?? 0,
+      buildingCount: this.state.buildings.length,
+      allyCount: npcs.filter(n => n.stance >= 60).length,
+      friendlyCount: npcs.filter(n => n.stance >= 20).length,
+      subjugatedCount: npcs.filter(n => n.militaryPower <= SUBJUGATE_MP_THRESHOLD).length,
+      crisisCount: this.state.crisisCount,
+      relicsDone: relics.filter(r => r.done).length,
+      relicsTotal: relics.length,
+      megaProjectsDone: mega.filter(m => m.completed).length,
+      megaProjectsTotal: mega.length,
+      endgameWavesSurvived: this.endgameWavesSurvived,
+      ending: sf?.ending ?? null,
+      tianxia: this.state.tianxiaAcknowledged,
+      days: this.state.currentDay,
+    });
+  }
+
   /** NPC 邦交"友好"阈值：stance ≥ 20（与 stanceLabel 的"友好"档一致） */
   private static readonly NPC_FRIENDLY_STANCE = 20;
 
@@ -1619,6 +1651,7 @@ export class GameStore {
     }
 
     this.state.endgameLastWaveDay = this.state.currentDay;
+    this.endgameWavesSurvived++;
     // 盛名：每扛过一波给永久小额信誉（软奖励，不强制结束）
     this.addModifier({
       id: `mod_endgame_prestige_${this.state.currentDay}`,

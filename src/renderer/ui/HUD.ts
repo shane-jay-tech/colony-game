@@ -95,6 +95,10 @@ export class HUD {
   private saveBg: Phaser.GameObjects.Graphics | null = null;
   private saveLabel: Phaser.GameObjects.Text | null = null;
   private saveZone: Phaser.GameObjects.Zone | null = null;
+  // P2 目标感：终局记分牌入口（顶栏「记」按钮）
+  private scoreBg: Phaser.GameObjects.Graphics | null = null;
+  private scoreLabel: Phaser.GameObjects.Text | null = null;
+  private scoreZone: Phaser.GameObjects.Zone | null = null;
   // 2026-06-19：主功能工具栏（朝堂/邦交/军务/大业）——顶栏下方独立一排大按钮（参考钢铁雄心）。
   private toolbarBg: Phaser.GameObjects.Graphics | null = null;
   private toolbarBtns: { bg: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone }[] = [];
@@ -389,6 +393,33 @@ export class HUD {
       this.saveBg.lineStyle(1, COLORS.GOLD_DIM, 1);
       this.saveBg.strokeRect(saveBtnX, btnY, saveBtnW, btnSize);
       this.saveLabel.setPosition(saveBtnX + saveBtnW / 2, btnY + btnSize / 2);
+    }
+
+    // P2：功业记分牌按钮（顶栏右侧，档按钮左侧，28px）
+    const scoreBtnW = 28;
+    const scoreBtnX = saveBtnX - btnGap - scoreBtnW;
+    if (!this.scoreZone) {
+      this.scoreBg = this.scene.add.graphics();
+      this.scoreLabel = this.scene.add.text(0, 0, '记', {
+        ...FONTS.body, color: '#F5ECD7', fontStyle: 'bold',
+      } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5, 0.5);
+      this.scoreZone = this.scene.add.zone(0, 0, scoreBtnW, btnSize).setOrigin(0, 0)
+        .setInteractive({ useHandCursor: true });
+      this.scoreZone.on('pointerup', () => {
+        (this.scene.registry.get('audioManager') as { playUi?: (k: string) => void } | undefined)?.playUi?.('sfx_click');
+        const panel = this.scene.registry.get('scoreCardPanel') as { toggle?: () => void } | undefined;
+        panel?.toggle?.();
+      });
+      this.container.add([this.scoreBg, this.scoreLabel, this.scoreZone]);
+    }
+    if (this.scoreZone && this.scoreBg && this.scoreLabel) {
+      this.scoreZone.setPosition(scoreBtnX, btnY).setSize(scoreBtnW, btnSize);
+      this.scoreBg.clear();
+      this.scoreBg.fillStyle(COLORS.WOOD, 0.7);
+      this.scoreBg.fillRect(scoreBtnX, btnY, scoreBtnW, btnSize);
+      this.scoreBg.lineStyle(1, COLORS.GOLD_DIM, 1);
+      this.scoreBg.strokeRect(scoreBtnX, btnY, scoreBtnW, btnSize);
+      this.scoreLabel.setPosition(scoreBtnX + scoreBtnW / 2, btnY + btnSize / 2);
     }
 
     // 2026-06-19：主功能按钮（朝堂/邦交/军务/大业）移到顶栏下方独立工具栏（见 layoutFunctionToolbar）。

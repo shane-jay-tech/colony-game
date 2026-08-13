@@ -12,6 +12,7 @@ import { DiplomacyPanel } from '../ui/DiplomacyPanel';
 import { PopulationPanel } from '../ui/PopulationPanel';
 import { ProductionPanel } from '../ui/ProductionPanel';
 import { GradePanel } from '../ui/GradePanel';
+import { ScoreCardPanel } from '../ui/ScoreCardPanel';
 import { EventModal } from '../ui/EventModal';
 import { FactionDemandModal } from '../ui/FactionDemandModal';
 import { CrisisModal } from '../ui/CrisisModal';
@@ -53,6 +54,8 @@ export class UIScene extends Phaser.Scene {
   // P1 信息可视化：供需速率面板 + 升格目标面板
   private productionPanel: ProductionPanel | null = null;
   private gradePanel: GradePanel | null = null;
+  // P2 目标感：终局记分牌
+  private scoreCardPanel: ScoreCardPanel | null = null;
   private eventModal: EventModal | null = null;
   private factionDemandModal: FactionDemandModal | null = null;
   private crisisModal: CrisisModal | null = null;
@@ -79,6 +82,12 @@ export class UIScene extends Phaser.Scene {
   };
   private onTianxia = (): void => {
     this.toast?.show('天下共主 · 圆满。山河任君纵横，亦可继续经营，无有尽头。', 'info', 5000);
+    // P2：登顶即结算功业（软认可时刻弹记分牌）
+    this.scoreCardPanel?.open();
+  };
+  // P2：故事三结局 → 结算功业
+  private onStoryEnding = (payload: GameStateEventMap['state:storyEnding']): void => {
+    if (payload && payload.ending) this.scoreCardPanel?.open();
   };
   // Phase1：NPC 动态行动 → Toast。骚扰/围攻用 error 色（红），内斗用 info（棕）。
   private onNpcAction = (payload: GameStateEventMap['state:npcAction']): void => {
@@ -199,6 +208,9 @@ export class UIScene extends Phaser.Scene {
     this.registry.set('productionPanel', this.productionPanel);
     this.gradePanel = new GradePanel(this, store);
     this.registry.set('gradePanel', this.gradePanel);
+    // P2：终局记分牌（登顶/结局自动弹，HUD「记」随时查）
+    this.scoreCardPanel = new ScoreCardPanel(this, store);
+    this.registry.set('scoreCardPanel', this.scoreCardPanel);
     this.eventModal = new EventModal(this, store);
     this.factionDemandModal = new FactionDemandModal(this, store);
     // Phase1：低谷危机通告模态
@@ -227,6 +239,7 @@ export class UIScene extends Phaser.Scene {
     this.store = store;
     store.on(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
     store.on(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
+    store.on(STATE_EVENTS.STORY_ENDING, this.onStoryEnding);
     store.on(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
     store.on(STATE_EVENTS.STORY_NARRATION, this.onStoryNarration);
     store.on(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onStoryChapter);
@@ -301,6 +314,7 @@ export class UIScene extends Phaser.Scene {
     this.populationPanel?.layout();
     this.productionPanel?.layout();
     this.gradePanel?.layout();
+    this.scoreCardPanel?.layout();
     this.saveLoadPanel?.layout();
     this.influencePanel?.layout();
     this.storyBar?.layout();
@@ -319,6 +333,7 @@ export class UIScene extends Phaser.Scene {
     if (this.store) {
       this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
       this.store.off(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
+      this.store.off(STATE_EVENTS.STORY_ENDING, this.onStoryEnding);
       this.store.off(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
       this.store.off(STATE_EVENTS.STORY_NARRATION, this.onStoryNarration);
       this.store.off(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onStoryChapter);
@@ -343,6 +358,7 @@ export class UIScene extends Phaser.Scene {
     this.populationPanel?.destroy();
     this.productionPanel?.destroy();
     this.gradePanel?.destroy();
+    this.scoreCardPanel?.destroy();
     this.legend?.destroy();
     this.zoomControl?.destroy();
     this.eventModal?.destroy();
