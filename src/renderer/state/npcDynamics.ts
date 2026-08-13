@@ -11,6 +11,7 @@
 
 import type { NpcArchetype, NpcCountryDef, NpcCountryState } from '../data/schema';
 import type { ResourceId } from '../data/resourceRegistry';
+import type { ActNpcParams } from '../data/actTimeline';
 
 // ---- 常量（初版锚点，待 playtest）----
 /** 军力成长间隔（游戏日），每到点按 archetype 加一档 */
@@ -23,6 +24,14 @@ export const NPC_ACTION_COOLDOWN = 24;
 export const MAX_PLAYER_HOSTILE_PER_DAY = 2;
 
 export type PlayerStrengthTier = 'weak' | 'balanced' | 'strong';
+
+/** 三幕时间轴参数缺省（= 不调节，旧行为不变）。 */
+export const DEFAULT_ACT_PARAMS: ActNpcParams = { tribalRaidMul: 1, allianceBias: 0, assaultMul: 1 };
+
+/** clamp 概率到 [0, 0.95]（留 5% 余量防「必然发生」的机械感）。 */
+function clampProb(p: number): number {
+  return Math.max(0, Math.min(0.95, p));
+}
 
 export interface PlayerStrengthInput {
   grade: number;          // 0..5
@@ -70,6 +79,7 @@ export function computeNpcAlliances(
   defOf: (id: string) => NpcCountryDef | undefined,
   tier: PlayerStrengthTier,
   rng: () => number,
+  actParams: ActNpcParams = DEFAULT_ACT_PARAMS,
 ): AlliancePatch {
   const patch: AlliancePatch = {};
   if (tier !== 'strong') {
@@ -82,12 +92,13 @@ export function computeNpcAlliances(
     const d = defOf(s.id);
     return d && d.archetype !== 'tribal' && s.stance < 0;
   });
-  // 两两以概率结盟（确定性 rng）
+  // 两两以概率结盟（确定性 rng；三幕时间轴 allianceBias 调节）
+  const allyProb = clampProb(0.5 + actParams.allianceBias);
   for (let i = 0; i < candidates.length; i++) {
     for (let j = i + 1; j < candidates.length; j++) {
       const a = candidates[i]!; const b = candidates[j]!;
       if (a.allyIds.includes(b.id)) continue;
-      if (rng() < 0.5) {
+      if (rng() < allyProb) {
         patch[a.id] = [...(patch[a.id] ?? a.allyIds), b.id];
         patch[b.id] = [...(patch[b.id] ?? b.allyIds), a.id];
       }
@@ -129,6 +140,7 @@ export function computeNpcActions(
   tier: PlayerStrengthTier,
   currentDay: number,
   rng: () => number,
+  actParams: ActNpcParams = DEFAULT_ACT_PARAMS,
 ): NpcAction[] {
   const actions: NpcAction[] = [];
   let hostileCount = 0; // 当日对玩家敌对行动计数（上限保护）
@@ -140,7 +152,7 @@ export function computeNpcActions(
     const aggr = s.aggression / 100;
 
     if (d.archetype === 'tribal') {
-      if (hostileCount < MAX_PLAYER_HOSTILE_PER_DAY && rng() < 0.15 + aggr * 0.25) {
+      if (hostileCount < MAX_PLAYER_HOSTILE_PER_DAY && rng() < clampProb((0.15 + aggr * 0.25) * actParams.tribalRaidMul)) {
         actions.push({
           kind: 'harass_player', actorId: s.id,
           resourceRaid: { grain: -8, gold: -6 },
@@ -154,7 +166,7 @@ export function computeNpcActions(
     }
 
     if (tier === 'strong' && s.allyIds.length > 0 && s.stance < 0) {
-      if (hostileCount < MAX_PLAYER_HOSTILE_PER_DAY && rng() < 0.2 + aggr * 0.2) {
+      if (hostileCount < MAX_PLAYER_HOSTILE_PER_DAY && rng() < clampProb((0.2 + aggr * 0.2) * actParams.assaultMul)) {
         actions.push({
           kind: 'assault_player', actorId: s.id,
           playerMilitaryDelta: -10, playerMoraleDelta: -8,

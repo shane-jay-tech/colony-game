@@ -38,6 +38,7 @@ import {
   NPC_MP_GROWTH_INTERVAL, NPC_MP_CAP,
 } from './npcDynamics';
 import { checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand, checkEnding, SUBJUGATE_MP_THRESHOLD, type EndingId } from './storyDriver';
+import { actFor, type ActDef } from '../data/actTimeline';
 import { computeScoreCard, type ScoreCard } from './scoreCard';
 import { chapterAt, chapterGoalMet } from '../data/storyChapters';
 import { getBulletinsForChapter, getHistorianComment } from '../data/storyGoals';
@@ -128,6 +129,7 @@ export const STATE_EVENTS = {
   GRADE_CHANGED: 'state:gradeChanged',
   // Phase1：登顶天下共主软认可（仅一次）→ 长 Toast 祝贺，不暂停不结束
   TIANXIA_ACKNOWLEDGED: 'state:tianxiaAcknowledged',
+  ACT_CHANGED: 'state:actChanged',
   // Phase1：低谷危机触发（payload { summary, peopleDelta, moraleDelta, gradeFrom, gradeTo }）→ 居中通告模态
   CRISIS_TRIGGERED: 'state:crisisTriggered',
   // Phase1：NPC 动态行动（payload { kind, actorName, targetName?, text }）→ Toast 提示
@@ -376,6 +378,8 @@ export class GameStore {
   private breathingState: BreathingState = createBreathingState();
   /** P2 瞬态：本会话扛过的终局波次数（记分牌用，不持久化） */
   private endgameWavesSurvived = 0;
+  /** P2 瞬态：当前三幕时间轴幕 id（由 currentDay 推导；幕切换时发 banner，不持久化） */
+  private lastActId: string = 'act_barbarians';
   /** A-6 瞬态：史官谏言追踪（不持久化，重载后从 0 开始累积） */
   private historianGrainNegDays = 0;
   private historianIdleDays = 0;
@@ -2290,6 +2294,17 @@ export class GameStore {
    */
   private runNpcDynamicsTick(): void {
     const npcs = this.state.npcCountries;
+
+    // P2 三幕时间轴：按当前日取幕；幕切换时发 banner（一局至多两次），幕参数喂给结盟/犯边概率。
+    // 放在空 NPC 早退之前：即使无邻邦（读档/故事序章）幕也照常推进。
+    const act: ActDef = actFor(this.state.currentDay);
+    if (act.id !== this.lastActId) {
+      this.lastActId = act.id;
+      this.emitter.emit(STATE_EVENTS.ACT_CHANGED, {
+        id: act.id, name: act.name, subtitle: act.subtitle, day: this.state.currentDay,
+      });
+    }
+
     if (npcs.length === 0) return;
 
     let changed = false;
@@ -2320,7 +2335,7 @@ export class GameStore {
     const warinessTier = tier !== 'strong' && this.state.worldWariness >= WARINESS_COALITION_THRESHOLD
       ? 'strong'
       : tier;
-    const alliancePatch = computeNpcAlliances(npcs, getNpcDef, warinessTier, rng);
+    const alliancePatch = computeNpcAlliances(npcs, getNpcDef, warinessTier, rng, act.params);
     for (const s of npcs) {
       const next = alliancePatch[s.id];
       if (next && (next.length !== s.allyIds.length || next.some((id, i) => id !== s.allyIds[i]))) {
@@ -2342,7 +2357,7 @@ export class GameStore {
     }
 
     // 4) NPC 行动（骚扰 / 联军压境 / 内斗）
-    const actions = computeNpcActions(npcs, getNpcDef, tier, this.state.currentDay, rng);
+    const actions = computeNpcActions(npcs, getNpcDef, tier, this.state.currentDay, rng, act.params);
     for (const act of actions) {
       const actor = npcs.find(n => n.id === act.actorId);
       if (!actor) continue;

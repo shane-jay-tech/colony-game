@@ -1519,6 +1519,37 @@ describe('Phase3 章节目标解锁（集成）', () => {
   });
 });
 
+describe('P2 三幕时间轴（集成）', () => {
+  it('按日推进幕：0→第一幕（无事件）、240→诸侯会盟、480→末世裂变，各只发一次', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, { worldMap: allPlainMap(), resources: { grain: 9999, gold: 9999 } });
+    const events: string[] = [];
+    ee.on(STATE_EVENTS.ACT_CHANGED, (p: unknown) => {
+      events.push((p as { id: string }).id);
+    });
+    // 第一幕是开局幕：不发 banner（lastActId 初始即第一幕）
+    for (let i = 0; i < 239; i++) store.tickDay();
+    expect(events).toEqual([]);
+    store.tickDay(); // day 240 → 第二幕
+    expect(events).toEqual(['act_hegemony']);
+    for (let i = 0; i < 239; i++) store.tickDay();
+    expect(events).toEqual(['act_hegemony']); // 未到 480 不重复
+    store.tickDay(); // day 480 → 第三幕
+    expect(events).toEqual(['act_hegemony', 'act_collapse']);
+  });
+
+  it('读档（STATE_REPLACED）后按 currentDay 重新推导幕，不依赖会话状态', () => {
+    const ee = makeEmitter();
+    const store = new GameStore(ee, { worldMap: allPlainMap(), resources: { grain: 9999, gold: 9999 }, currentDay: 500 });
+    const events: string[] = [];
+    ee.on(STATE_EVENTS.ACT_CHANGED, (p: unknown) => {
+      events.push((p as { id: string }).id);
+    });
+    store.tickDay(); // 直接是第三幕
+    expect(events).toEqual(['act_collapse']);
+  });
+});
+
 describe('分阶段解锁判定 (isBuildingUnlocked / isPolicyUnlocked)', () => {
   it('建筑无 upgradeRequires → 直接解锁', () => {
     const { store } = makeStore();

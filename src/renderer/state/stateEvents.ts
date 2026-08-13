@@ -62,6 +62,7 @@ export interface GameStateEventMap {
   'state:worldWarinessChanged': { value: number; reason: string };
   'state:relicResolved': { name: string; summary: string };
   'state:endgameWave': { kind: string; severity: number; text: string };
+  'state:actChanged': { id: string; name: string; subtitle: string; day: number };
 }
 
 export type StateEventName = keyof GameStateEventMap;
@@ -119,4 +120,5 @@ export const STATE_EVENT_NAMES = [
   'state:worldWarinessChanged',
   'state:relicResolved',
   'state:endgameWave',
+  'state:actChanged',
 ] as const satisfies readonly StateEventName[];

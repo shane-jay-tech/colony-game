@@ -102,4 +102,37 @@ describe('computeNpcActions', () => {
     const hostile = acts.filter(a => a.kind === 'harass_player' || a.kind === 'assault_player');
     expect(hostile.length).toBeLessThanOrEqual(2);
   });
+
+  // P2 三幕时间轴参数
+  it('第一幕 tribalRaidMul 1.6：rng=0.2 时蛮夷犯边（base 0.15+0.5*0.25=0.275 本就命中，乘数加剧）', () => {
+    const base = computeNpcActions([st('r')], defOf, 'balanced', 100, () => 0.35); // base 0.275 → 0.35 不犯
+    expect(base).toHaveLength(0);
+    const boosted = computeNpcActions(
+      [st('r')], defOf, 'balanced', 100, () => 0.35,
+      { tribalRaidMul: 1.6, allianceBias: 0, assaultMul: 1 }, // 0.275*1.6=0.44 → 0.35 犯边
+    );
+    expect(boosted.some(a => a.kind === 'harass_player')).toBe(true);
+  });
+
+  it('allianceBias 负值压制结盟：rng=0.4 在 base 0.5 下结盟、bias -0.4（0.1）下不结盟', () => {
+    const states = [st('a'), st('b')];
+    const base = computeNpcAlliances(states, defOf, 'strong', () => 0.4);
+    expect(base['a']).toContain('b');
+    const damped = computeNpcAlliances(
+      states, defOf, 'strong', () => 0.4,
+      { tribalRaidMul: 1, allianceBias: -0.4, assaultMul: 1 },
+    );
+    expect(damped['a'] ?? []).not.toContain('b');
+  });
+
+  it('assaultMul 抬高联军压境：rng=0.35 在 base 0.2+0.5*0.2=0.3 下不压、×1.6=0.48 下压境', () => {
+    const states = [st('a', { allyIds: ['b'] }), st('b', { allyIds: ['a'] })];
+    const base = computeNpcActions(states, defOf, 'strong', 100, () => 0.35);
+    expect(base.some(a => a.kind === 'assault_player')).toBe(false);
+    const boosted = computeNpcActions(
+      states, defOf, 'strong', 100, () => 0.35,
+      { tribalRaidMul: 1, allianceBias: 0, assaultMul: 1.6 },
+    );
+    expect(boosted.some(a => a.kind === 'assault_player')).toBe(true);
+  });
 });

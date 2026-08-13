@@ -90,6 +90,10 @@ export class UIScene extends Phaser.Scene {
   private onStoryEnding = (payload: GameStateEventMap['state:storyEnding']): void => {
     if (payload && payload.ending) this.scoreCardPanel?.open();
   };
+  // P2：三幕时间轴幕启 banner（群狼环伺→诸侯会盟→末世裂变）
+  private onActChanged = (payload: GameStateEventMap['state:actChanged']): void => {
+    this.toast?.show(payload.name + '\n' + payload.subtitle, 'info', 7000);
+  };
   // Phase1：NPC 动态行动 → Toast。骚扰/围攻用 error 色（红），内斗用 info（棕）。
   private onNpcAction = (payload: GameStateEventMap['state:npcAction']): void => {
     if (!payload.text) return;
@@ -241,6 +245,7 @@ export class UIScene extends Phaser.Scene {
     store.on(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
     store.on(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
     store.on(STATE_EVENTS.STORY_ENDING, this.onStoryEnding);
+    store.on(STATE_EVENTS.ACT_CHANGED, this.onActChanged);
     store.on(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
     store.on(STATE_EVENTS.STORY_NARRATION, this.onStoryNarration);
     store.on(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onStoryChapter);
@@ -335,6 +340,7 @@ export class UIScene extends Phaser.Scene {
       this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onGradeChanged);
       this.store.off(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
       this.store.off(STATE_EVENTS.STORY_ENDING, this.onStoryEnding);
+      this.store.off(STATE_EVENTS.ACT_CHANGED, this.onActChanged);
       this.store.off(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
       this.store.off(STATE_EVENTS.STORY_NARRATION, this.onStoryNarration);
       this.store.off(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onStoryChapter);

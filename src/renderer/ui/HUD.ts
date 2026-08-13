@@ -6,6 +6,7 @@ import type { ResourceId } from '../data/resourceRegistry';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
 import { dayToCalendar } from '../state/calendar';
+import { actFor } from '../data/actTimeline';
 
 const SEASON_CN: readonly string[] = ['春', '夏', '秋', '冬'];
 
@@ -112,6 +113,8 @@ export class HUD {
   private sentimentX = 0;
   // B3：工具栏右侧的工坊物资（麻/锡）小字
   private craftText: Phaser.GameObjects.Text | null = null;
+  // P2 三幕时间轴：工具栏行中段的当前幕名（随 actChanged 刷新）
+  private actText: Phaser.GameObjects.Text | null = null;
   // P1 信息可视化：点击资源 token 打开供需面板；点击国格徽章打开升格目标面板
   private resourceTokenZones: Map<ResourceId, Phaser.GameObjects.Zone> = new Map();
   private gradeBadgeZone: Phaser.GameObjects.Zone | null = null;
@@ -168,7 +171,11 @@ export class HUD {
     this.craftText = scene.add.text(0, 0, '', {
       ...FONTS.small, color: '#E6DCC3',
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(1, 0.5);
-    this.container.add([this.moraleText, this.wrathText, this.craftText]);
+    // P2 三幕时间轴：幕名（工具栏中段）
+    this.actText = scene.add.text(0, 0, '', {
+      ...FONTS.small, color: '#C9A84C',
+    } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0, 0.5);
+    this.container.add([this.moraleText, this.wrathText, this.craftText, this.actText]);
 
     this.layout();
     this.refreshResources();
@@ -177,9 +184,11 @@ export class HUD {
     this.refreshGrade(false);
     this.refreshSentiment();
     this.refreshCraftResources();
+    this.refreshAct();
 
     store.on(STATE_EVENTS.RESOURCES_CHANGED, this.onResources);
     store.on(STATE_EVENTS.DAY_TICK, this.onDayTick);
+    store.on(STATE_EVENTS.ACT_CHANGED, this.onActChanged);
     store.on(STATE_EVENTS.SEASON_TICK, this.onSeasonTick);
     store.on(STATE_EVENTS.YEAR_TICK, this.onYearTick);
     store.on(STATE_EVENTS.PAUSED_CHANGED, this.onPaused);
@@ -477,6 +486,8 @@ export class HUD {
     this.refreshCraftResources();
 
     const btnW = 104, btnH = 30, gap = 8, padLeft = 12;
+    // P2 三幕时间轴：幕名放在按钮组与工坊物资之间的空档
+    this.actText?.setPosition(12 + 5 * (btnW + gap) + 16, tbY + tbH / 2);
     const y = tbY + Math.floor((tbH - btnH) / 2);
     defs.forEach((d, i) => {
       let b = this.toolbarBtns[i];
@@ -697,6 +708,14 @@ export class HUD {
     }
   }
 
+  /** P2 三幕：幕名刷到工具栏中段。 */
+  private refreshAct(): void {
+    if (!this.actText) return;
+    const act = actFor(this.store.getCurrentDay());
+    this.actText.setText(act.name);
+  }
+  private onActChanged = (): void => this.refreshAct();
+
   private refreshDate(): void {
     const day = this.store.getCurrentDay();
     const cal = dayToCalendar(day);
@@ -738,6 +757,7 @@ export class HUD {
   destroy(): void {
     this.store.off(STATE_EVENTS.RESOURCES_CHANGED, this.onResources);
     this.store.off(STATE_EVENTS.DAY_TICK, this.onDayTick);
+    this.store.off(STATE_EVENTS.ACT_CHANGED, this.onActChanged);
     this.store.off(STATE_EVENTS.SEASON_TICK, this.onSeasonTick);
     this.store.off(STATE_EVENTS.YEAR_TICK, this.onYearTick);
     this.store.off(STATE_EVENTS.PAUSED_CHANGED, this.onPaused);
