@@ -1148,6 +1148,24 @@ export class GameStore {
     const daysSinceLast = this.state.currentDay - this.state.lastEventDay;
     // Fast path: skip state assessment during anti-combo window (unless force-trigger)
     if (daysSinceLast < DEFAULT_TEMPO_CONFIG.antiComboDays && daysSinceLast < DEFAULT_TEMPO_CONFIG.forceMaxDays) return;
+
+    // P2 修正：故事模式剧情事件「无挂起即触发」（设计 §storyEvents 注释原意）——
+    // 只守 8 日防连击底线，不受沙盒 25-50 日状态节奏拖累；否则每章 5 事件要 200+ 天才凑齐，
+    // 七卷合计近 2000 天，故事节奏被沙盒节拍拖垮（无头试玩实测暴露）。
+    if (this.state.storyFlags && this.state.storyFlags.chapter >= 1 && this.state.storyFlags.ending === null) {
+      const chapter = this.state.storyFlags.chapter;
+      const nextStory = this.events.find(ev =>
+        ev.tags.includes('故事')
+        && ev.triggers.some(t => t.condition === `story_chapter == ${chapter}`)
+        && !this.state.storyFlags!.storyEventsTriggered.includes(ev.id)
+      );
+      if (nextStory) {
+        this.state.pendingEventId = nextStory.id;
+        this.state.pendingEventDayStart = this.state.currentDay;
+        this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, { eventId: nextStory.id });
+        return;
+      }
+    }
     const grain = this.state.resources['grain'] ?? 0;
     const grainCap = Math.max(1, (this.state.resources['people'] ?? 20) * 5);
     const nationInput: NationStateInput = {
