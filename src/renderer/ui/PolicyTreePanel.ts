@@ -681,9 +681,9 @@ export class PolicyTreePanel {
       const affordable = canAfford(resources, def.cost);
       let fill: number; let alpha = 0.95; let nameColor: string = COLORS_HEX.PAPER;
       if (isAdopted) { fill = COLORS.STONE_GREEN; }
-      else if (mutexLocked) { fill = COLORS.CINNABAR; alpha = 0.45; nameColor = '#C9B69E'; }
-      else if (prereqMissing) { fill = COLORS.ASH; alpha = 0.55; nameColor = '#A89A8A'; }
-      else if (!affordable) { fill = COLORS.WOOD_LIGHT; alpha = 0.7; nameColor = '#D8C9A8'; }
+      else if (mutexLocked) { fill = COLORS.CINNABAR; alpha = 0.45; nameColor = '#8A6E3E'; } // GOLD_DIM
+      else if (prereqMissing) { fill = COLORS.ASH; alpha = 0.55; nameColor = '#E6DCC3'; } // PAPER_DIM
+      else if (!affordable) { fill = COLORS.WOOD_LIGHT; alpha = 0.7; nameColor = '#E6DCC3'; } // PAPER_DIM
       else { fill = COLORS.GOLD_DIM; }
       const x = n.cx - NODE_W / 2; const y = n.cy - NODE_H / 2;
       n.box.clear();
@@ -716,23 +716,23 @@ export class PolicyTreePanel {
         const stageDays = stage?.days ?? 0;
         const stalled = stageDays > 0 && act.daysElapsed > stageDays;
         curStage = act.currentStage;
-        if (stalled) { fill = COLORS.CINNABAR; statusText = `第${act.currentStage + 1}阶 · 资源不足停滞`; statusColor = '#FFE6E1'; }
+        if (stalled) { fill = COLORS.CINNABAR; statusText = `第${act.currentStage + 1}阶 · 资源不足停滞`; statusColor = '#E6DCC3'; } // PAPER_DIM
         else {
           fill = COLORS.STONE_GREEN;
           stagePct = stageDays > 0 ? Math.min(100, Math.floor((act.daysElapsed / stageDays) * 100)) : 100;
           statusText = `第${act.currentStage + 1}阶 · ${act.daysElapsed}/${stageDays}日 (${stagePct}%)`;
         }
       } else if (completed) {
-        fill = COLORS.ASH; alpha = 0.5; nameColor = '#9AAB8E'; statusColor = '#9AAB8E';
+        fill = COLORS.ASH; alpha = 0.5; nameColor = '#4A7C59'; statusColor = '#4A7C59'; // STONE_GREEN
         statusText = '✓ 已颁行 永久生效'; curStage = def.stages.length;
       } else if (chainLocked) {
-        fill = COLORS.WOOD; alpha = 0.55; nameColor = '#A89A8A'; statusColor = '#C9B69E';
+        fill = COLORS.WOOD; alpha = 0.55; nameColor = '#E6DCC3'; statusColor = '#8A6E3E';
         const prev = def.chainPrev ? this.store.getDecrees().find(d => d.id === def.chainPrev) : null;
         statusText = prev ? `待「${prev.name}」颁成` : '前置未成';
       } else if (!stage0) {
-        fill = COLORS.ASH; alpha = 0.5; nameColor = '#A89A8A'; statusText = '数据缺失';
+        fill = COLORS.ASH; alpha = 0.5; nameColor = '#E6DCC3'; statusText = '数据缺失';
       } else if (!affordable) {
-        fill = COLORS.WOOD_LIGHT; alpha = 0.7; nameColor = '#D8C9A8';
+        fill = COLORS.WOOD_LIGHT; alpha = 0.7; nameColor = '#E6DCC3';
         statusText = `首阶 ${formatCost(stage0.cost)} · 资源不足`;
       } else {
         statusText = `首阶 ${formatCost(stage0.cost)} · ${stage0.days}日`;

@@ -621,7 +621,7 @@ export class HUD {
     const isPositive = delta > 0;
     const isLarge = Math.abs(delta) > 20;
     const text = isPositive ? `+${delta}` : `${delta}`;
-    const color = isPositive ? '#4CAF50' : '#E53935';
+    const color = isPositive ? '#4A7C59' : '#B71C1C'; // 色板：石绿/朱砂（P2-4 复扫）
     const fontSize = isLarge ? 18 : 13;
 
     const x = token.txt.x + 20;

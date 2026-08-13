@@ -554,7 +554,7 @@ export class BuildPanel {
         row.bg.fillRect(row.zone.x, row.zone.y, row.zone.width, row.zone.height);
         row.bg.lineStyle(1, COLORS.GOLD_DIM, 0.5);
         row.bg.strokeRect(row.zone.x, row.zone.y, row.zone.width, row.zone.height);
-        row.nameLabel.setColor('#8A8079');
+        row.nameLabel.setColor('#6D635B'); // 色板 ASH
         row.costLabel.setColor('#C9A84C').setText(info.reason);
         if (row.thumb) row.thumb.setAlpha(0.3);
         continue;
@@ -571,9 +571,9 @@ export class BuildPanel {
       row.bg.fillRect(row.zone.x, row.zone.y, row.zone.width, row.zone.height);
       row.bg.lineStyle(1, isSelected ? COLORS.GOLD : COLORS.GOLD_DIM, 1);
       row.bg.strokeRect(row.zone.x, row.zone.y, row.zone.width, row.zone.height);
-      row.nameLabel.setColor(isSelected ? '#1A1410' : (affordable ? '#F5ECD7' : '#A89A8A'));
+      row.nameLabel.setColor(isSelected ? '#1A1410' : (affordable ? '#F5ECD7' : '#E6DCC3'));
       // 从"灰显需国格"恢复为可建时，重置成本文案（grade_locked 改过 costLabel 文本）。
-      row.costLabel.setColor(isSelected ? '#1A1410' : (affordable ? '#E6DCC3' : '#857B71')).setText(this.formatCost(row.def));
+      row.costLabel.setColor(isSelected ? '#1A1410' : (affordable ? '#E6DCC3' : '#6D635B')).setText(this.formatCost(row.def));
       if (row.thumb) row.thumb.setAlpha(isSelected || affordable ? 1 : 0.45); // 买不起的图标变暗
     }
   }

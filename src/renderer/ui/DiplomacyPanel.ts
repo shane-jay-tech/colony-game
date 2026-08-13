@@ -370,9 +370,9 @@ export class DiplomacyPanel {
     card.tradeLabel.setText(state.tradeRoute ? '已通商' : '通商(金50布2)');
     card.envoyLabel.setText('出使(金30布5)');
 
-    this.paintButton(card.tradeBg, card.tradeZone, card.tradeLabel, tradeEnabled ? COLORS.GOLD : COLORS.ASH, tradeEnabled ? '#1A1410' : '#A89A8A');
-    this.paintButton(card.envoyBg, card.envoyZone, card.envoyLabel, envoyEnabled ? COLORS.GOLD : COLORS.ASH, envoyEnabled ? '#1A1410' : '#A89A8A');
-    this.paintButton(card.warBg, card.warZone, card.warLabel, warEnabled ? COLORS.CINNABAR : COLORS.ASH, warEnabled ? '#F5ECD7' : '#A89A8A');
+    this.paintButton(card.tradeBg, card.tradeZone, card.tradeLabel, tradeEnabled ? COLORS.GOLD : COLORS.ASH, tradeEnabled ? '#1A1410' : '#E6DCC3');
+    this.paintButton(card.envoyBg, card.envoyZone, card.envoyLabel, envoyEnabled ? COLORS.GOLD : COLORS.ASH, envoyEnabled ? '#1A1410' : '#E6DCC3');
+    this.paintButton(card.warBg, card.warZone, card.warLabel, warEnabled ? COLORS.CINNABAR : COLORS.ASH, warEnabled ? '#F5ECD7' : '#E6DCC3');
   }
 
   private paintButton(bg: Phaser.GameObjects.Graphics, zone: Phaser.GameObjects.Zone, label: Phaser.GameObjects.Text, fill: number, textColor: string): void {
