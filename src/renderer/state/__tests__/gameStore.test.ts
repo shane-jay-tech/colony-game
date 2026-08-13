@@ -653,6 +653,7 @@ describe('GameStore.replaceState / setLastSeenNow', () => {
       grade: 0,
       gradeReached: 0,
       tianxiaAcknowledged: false,
+      wrathUltimatumEndDay: null,
       dualZeroDays: 0,
       crisisActive: false,
       crisisRecoverDays: 0,

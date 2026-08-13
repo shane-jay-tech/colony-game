@@ -63,6 +63,9 @@ export interface GameStateEventMap {
   'state:relicResolved': { name: string; summary: string };
   'state:endgameWave': { kind: string; severity: number; text: string };
   'state:actChanged': { id: string; name: string; subtitle: string; day: number };
+  'state:ultimatumStarted': { endDay: number; days: number };
+  'state:ultimatumLifted': { wrath: number };
+  'state:ultimatumExploded': { lostPeople: number; moraleDrop: number; wrath: number };
 }
 
 export type StateEventName = keyof GameStateEventMap;
@@ -121,4 +124,7 @@ export const STATE_EVENT_NAMES = [
   'state:relicResolved',
   'state:endgameWave',
   'state:actChanged',
+  'state:ultimatumStarted',
+  'state:ultimatumLifted',
+  'state:ultimatumExploded',
 ] as const satisfies readonly StateEventName[];

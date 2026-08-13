@@ -94,6 +94,16 @@ export class UIScene extends Phaser.Scene {
   private onActChanged = (payload: GameStateEventMap['state:actChanged']): void => {
     this.toast?.show(payload.name + '\n' + payload.subtitle, 'info', 7000);
   };
+  // P2：通牒（Frostpunk 式倒计时压力）
+  private onUltimatumStarted = (payload: GameStateEventMap['state:ultimatumStarted']): void => {
+    this.toast?.show('民怨沸腾，限期压平！' + payload.days + ' 日内把怨愤压回安全线，否则民变爆发——宣扬德政、纳谏济民，都是出路。', 'error', 7000);
+  };
+  private onUltimatumLifted = (): void => {
+    this.toast?.show('怨愤渐息，通牒解除。人心已稳，望君长记此训。', 'info', 4000);
+  };
+  private onUltimatumExploded = (payload: GameStateEventMap['state:ultimatumExploded']): void => {
+    this.toast?.show('通牒到期，民变爆发——流散 ' + payload.lostPeople + ' 口，士气大挫。', 'error', 6000);
+  };
   // Phase1：NPC 动态行动 → Toast。骚扰/围攻用 error 色（红），内斗用 info（棕）。
   private onNpcAction = (payload: GameStateEventMap['state:npcAction']): void => {
     if (!payload.text) return;
@@ -246,6 +256,9 @@ export class UIScene extends Phaser.Scene {
     store.on(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
     store.on(STATE_EVENTS.STORY_ENDING, this.onStoryEnding);
     store.on(STATE_EVENTS.ACT_CHANGED, this.onActChanged);
+    store.on(STATE_EVENTS.ULTIMATUM_STARTED, this.onUltimatumStarted);
+    store.on(STATE_EVENTS.ULTIMATUM_LIFTED, this.onUltimatumLifted);
+    store.on(STATE_EVENTS.ULTIMATUM_EXPLODED, this.onUltimatumExploded);
     store.on(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
     store.on(STATE_EVENTS.STORY_NARRATION, this.onStoryNarration);
     store.on(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onStoryChapter);
@@ -341,6 +354,9 @@ export class UIScene extends Phaser.Scene {
       this.store.off(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, this.onTianxia);
       this.store.off(STATE_EVENTS.STORY_ENDING, this.onStoryEnding);
       this.store.off(STATE_EVENTS.ACT_CHANGED, this.onActChanged);
+      this.store.off(STATE_EVENTS.ULTIMATUM_STARTED, this.onUltimatumStarted);
+      this.store.off(STATE_EVENTS.ULTIMATUM_LIFTED, this.onUltimatumLifted);
+      this.store.off(STATE_EVENTS.ULTIMATUM_EXPLODED, this.onUltimatumExploded);
       this.store.off(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
       this.store.off(STATE_EVENTS.STORY_NARRATION, this.onStoryNarration);
       this.store.off(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onStoryChapter);

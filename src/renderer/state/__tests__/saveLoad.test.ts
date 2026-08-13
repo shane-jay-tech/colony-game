@@ -59,6 +59,7 @@ function makeGameState(): GameState {
     generals: [],
     activeExpeditions: [],
     defenseAlerts: [],
+    wrathUltimatumEndDay: null,
   };
 }
 
@@ -564,6 +565,8 @@ describe('P0-2 旧存档全链迁移回归（v1/v2 fixture → v8）', () => {
     // 7→8 终局波次
     expect(restored.endgameAscendDay).toBeNull();
     expect(restored.endgameLastWaveDay).toBeNull();
+    // 8→9 通牒
+    expect(restored.wrathUltimatumEndDay).toBeNull();
     // 业务字段原样保留
     expect(restored.resources.people).toBe(25);
     expect(restored.playerMorale).toBe(55);

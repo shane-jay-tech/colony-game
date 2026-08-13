@@ -82,7 +82,7 @@ describe('存档 v4 → v5 迁移', () => {
     const restored = deserialize(blob);
     expect(restored.worldWariness).toBe(WARINESS_BASELINE);
     expect(restored.lastWarinessReason).toBeNull();
-    expect(SAVE_SCHEMA_VERSION).toBe(8);
+    expect(SAVE_SCHEMA_VERSION).toBe(9); // v9 = P2 通牒
   });
 
   it('roundtrip 保留警惕值与原因', () => {

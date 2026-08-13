@@ -189,6 +189,9 @@ export class HUD {
     store.on(STATE_EVENTS.RESOURCES_CHANGED, this.onResources);
     store.on(STATE_EVENTS.DAY_TICK, this.onDayTick);
     store.on(STATE_EVENTS.ACT_CHANGED, this.onActChanged);
+    store.on(STATE_EVENTS.ULTIMATUM_STARTED, this.onUltimatum);
+    store.on(STATE_EVENTS.ULTIMATUM_LIFTED, this.onUltimatum);
+    store.on(STATE_EVENTS.ULTIMATUM_EXPLODED, this.onUltimatum);
     store.on(STATE_EVENTS.SEASON_TICK, this.onSeasonTick);
     store.on(STATE_EVENTS.YEAR_TICK, this.onYearTick);
     store.on(STATE_EVENTS.PAUSED_CHANGED, this.onPaused);
@@ -606,14 +609,16 @@ export class HUD {
     this.craftText.setText(`名望 ${inf}/${cap}　工坊物资　${parts.join(' · ')}`);
   }
 
-  /** A1：刷新 心/怨 双米（阈值处变红提示）。 */
+  /** A1：刷新 心/怨 双米（阈值处变红提示）；P2 通牒进行中在「怨」后追加倒计时。 */
   private refreshSentiment(): void {
     if (!this.moraleText || !this.wrathText) return;
     const morale = this.store.getPlayerMorale();
     const wrath = this.store.getPublicWrath();
     this.moraleText.setText(`心 ${morale}`);
     this.moraleText.setColor(morale <= 25 ? '#B71C1C' : '#4A7C59');
-    this.wrathText.setText(`怨 ${wrath}${wrath >= 70 ? '！' : ''}`);
+    const ult = this.store.getUltimatum();
+    const ultText = ult.active ? ` ⏳${ult.daysLeft}日` : '';
+    this.wrathText.setText(`怨 ${wrath}${wrath >= 70 ? '！' : ''}${ultText}`);
     this.wrathText.setColor('#B71C1C');
   }
 
@@ -715,6 +720,7 @@ export class HUD {
     this.actText.setText(act.name);
   }
   private onActChanged = (): void => this.refreshAct();
+  private onUltimatum = (): void => this.refreshSentiment();
 
   private refreshDate(): void {
     const day = this.store.getCurrentDay();
@@ -758,6 +764,9 @@ export class HUD {
     this.store.off(STATE_EVENTS.RESOURCES_CHANGED, this.onResources);
     this.store.off(STATE_EVENTS.DAY_TICK, this.onDayTick);
     this.store.off(STATE_EVENTS.ACT_CHANGED, this.onActChanged);
+    this.store.off(STATE_EVENTS.ULTIMATUM_STARTED, this.onUltimatum);
+    this.store.off(STATE_EVENTS.ULTIMATUM_LIFTED, this.onUltimatum);
+    this.store.off(STATE_EVENTS.ULTIMATUM_EXPLODED, this.onUltimatum);
     this.store.off(STATE_EVENTS.SEASON_TICK, this.onSeasonTick);
     this.store.off(STATE_EVENTS.YEAR_TICK, this.onYearTick);
     this.store.off(STATE_EVENTS.PAUSED_CHANGED, this.onPaused);

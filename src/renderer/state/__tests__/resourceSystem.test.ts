@@ -60,6 +60,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     generals: [],
     activeExpeditions: [],
     defenseAlerts: [],
+    wrathUltimatumEndDay: null,
     ...overrides,
   };
 }

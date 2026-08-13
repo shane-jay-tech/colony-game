@@ -82,6 +82,6 @@ describe('存档 v7 → v8 迁移', () => {
     const restored = deserialize(blob);
     expect(restored.endgameAscendDay).toBeNull();
     expect(restored.endgameLastWaveDay).toBeNull();
-    expect(SAVE_SCHEMA_VERSION).toBe(8);
+    expect(SAVE_SCHEMA_VERSION).toBe(9); // v9 = P2 通牒
   });
 });

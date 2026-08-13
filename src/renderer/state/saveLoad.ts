@@ -16,7 +16,7 @@ import { clampSentiment } from './publicSentiment';
 import { WARINESS_BASELINE, clampWariness } from './wariness';
 import type { RelicSite } from './relicSystem';
 
-export const SAVE_SCHEMA_VERSION = 8;
+export const SAVE_SCHEMA_VERSION = 9;
 
 export class SaveLoadError extends Error {
   constructor(message: string) {
@@ -68,6 +68,8 @@ export interface SerializedSave {
     /** C2：终局日期字段（旧档 null） */
     endgameAscendDay?: number | null;
     endgameLastWaveDay?: number | null;
+  /** P2 通牒到期日（可选，旧档缺省） */
+  wrathUltimatumEndDay?: number | null;
     /** Phase1 国格阶梯（旧存档缺则兜底 0 / false） */
     grade?: number;
     gradeReached?: number;
@@ -178,6 +180,14 @@ const migrations: Partial<Record<number, MigrationFn>> = {
     s['endgameAscendDay'] = null;
     s['endgameLastWaveDay'] = null;
     data.schemaVersion = 8;
+    return data;
+  },
+  8: (blob) => {
+    // P2 通牒：旧档无民愤通牒
+    const data = blob as { schemaVersion: number; state: Record<string, unknown> };
+    const s = data.state;
+    s['wrathUltimatumEndDay'] = null;
+    data.schemaVersion = 9;
     return data;
   },
 };
@@ -321,6 +331,7 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       relicSites: state.relicSites,
       endgameAscendDay: state.endgameAscendDay,
       endgameLastWaveDay: state.endgameLastWaveDay,
+    wrathUltimatumEndDay: state.wrathUltimatumEndDay,
       grade: state.grade,
       gradeReached: state.gradeReached,
       tianxiaAcknowledged: state.tianxiaAcknowledged,
@@ -468,6 +479,10 @@ export function deserialize(blob: unknown): GameState {
       : null,
     endgameLastWaveDay: typeof s.endgameLastWaveDay === 'number' && Number.isFinite(s.endgameLastWaveDay)
       ? Math.max(0, Math.floor(s.endgameLastWaveDay))
+      : null,
+    // P2 通牒：number 且有限 → 取整；否则 null（旧档/损坏兜底）
+    wrathUltimatumEndDay: typeof s.wrathUltimatumEndDay === 'number' && Number.isFinite(s.wrathUltimatumEndDay)
+      ? Math.max(0, Math.floor(s.wrathUltimatumEndDay))
       : null,
     playerMilitaryPower: typeof s.playerMilitaryPower === 'number' && Number.isFinite(s.playerMilitaryPower)
       ? Math.max(0, Math.min(500, s.playerMilitaryPower))

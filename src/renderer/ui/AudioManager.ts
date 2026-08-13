@@ -33,6 +33,7 @@ export class AudioManager {
   private onCrisis = (): void => { this.playSfx('sfx_gong', 0.7); this.refreshBgm(); };
   // 2026-06-19：补齐"警告/提醒"类音效——之前 sfx_warn 只能手动播，重要警报无声
   private onDefenseAlert = (): void => this.playSfx('sfx_warn', 0.55);          // 邻邦来犯预警
+  private onUltimatum = (): void => this.playSfx('sfx_warn', 0.6);                 // 民愤通牒倒计时开始
   private onFactionDemand = (): void => this.playSfx('sfx_bell', 0.5);          // 阶层上书（待决模态）
   private onGradeSfx = (payload: GameStateEventMap['state:gradeChanged']): void => {
     this.playSfx(payload.reason === 'ascend' ? 'sfx_gong' : 'sfx_warn', 0.5);   // 晋格庆祝 / 降格警示
@@ -52,6 +53,7 @@ export class AudioManager {
     store.on(STATE_EVENTS.BUILDING_PLACED, this.onPlaced);
     store.on(STATE_EVENTS.EVENT_TRIGGERED, this.onEvent);
     store.on(STATE_EVENTS.DEFENSE_ALERT, this.onDefenseAlert);
+    store.on(STATE_EVENTS.ULTIMATUM_STARTED, this.onUltimatum);
     store.on(STATE_EVENTS.FACTION_DEMAND_TRIGGERED, this.onFactionDemand);
     store.on(STATE_EVENTS.GRADE_CHANGED, this.onGradeSfx); // GRADE_CHANGED [2/2] 晋格/降格音效（见上方 [1/2]）
 
@@ -161,6 +163,7 @@ export class AudioManager {
     this.store.off(STATE_EVENTS.BUILDING_PLACED, this.onPlaced);
     this.store.off(STATE_EVENTS.EVENT_TRIGGERED, this.onEvent);
     this.store.off(STATE_EVENTS.DEFENSE_ALERT, this.onDefenseAlert);
+    this.store.off(STATE_EVENTS.ULTIMATUM_STARTED, this.onUltimatum);
     this.store.off(STATE_EVENTS.FACTION_DEMAND_TRIGGERED, this.onFactionDemand);
     this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onGradeSfx);
     for (const tw of this.fadeTweens) { try { tw.stop(); } catch { /* noop */ } }

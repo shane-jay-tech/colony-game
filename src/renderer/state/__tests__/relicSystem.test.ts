@@ -90,7 +90,7 @@ describe('存档 v6 → v7 迁移', () => {
     delete blob.state['relicSites'];
     const restored = deserialize(blob);
     expect(restored.relicSites).toEqual([]);
-    expect(SAVE_SCHEMA_VERSION).toBe(8);
+    expect(SAVE_SCHEMA_VERSION).toBe(9); // v9 = P2 通牒
   });
 
   it('roundtrip 保留古迹进度', () => {

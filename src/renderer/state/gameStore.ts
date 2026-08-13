@@ -39,6 +39,11 @@ import {
 } from './npcDynamics';
 import { checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand, checkEnding, SUBJUGATE_MP_THRESHOLD, type EndingId } from './storyDriver';
 import { actFor, type ActDef } from '../data/actTimeline';
+import {
+  ULTIMATUM_WRATH_THRESHOLD, ULTIMATUM_DAYS, ULTIMATUM_RECOVER_WRATH,
+  ULTIMATUM_EXPLOSION_WRATH_RESET, shouldStartUltimatum, shouldLiftUltimatum,
+  shouldExplodeUltimatum, ultimatumDaysLeft,
+} from './ultimatum';
 import { computeScoreCard, type ScoreCard } from './scoreCard';
 import { chapterAt, chapterGoalMet } from '../data/storyChapters';
 import { getBulletinsForChapter, getHistorianComment } from '../data/storyGoals';
@@ -130,6 +135,9 @@ export const STATE_EVENTS = {
   // Phase1：登顶天下共主软认可（仅一次）→ 长 Toast 祝贺，不暂停不结束
   TIANXIA_ACKNOWLEDGED: 'state:tianxiaAcknowledged',
   ACT_CHANGED: 'state:actChanged',
+  ULTIMATUM_STARTED: 'state:ultimatumStarted',
+  ULTIMATUM_LIFTED: 'state:ultimatumLifted',
+  ULTIMATUM_EXPLODED: 'state:ultimatumExploded',
   // Phase1：低谷危机触发（payload { summary, peopleDelta, moraleDelta, gradeFrom, gradeTo }）→ 居中通告模态
   CRISIS_TRIGGERED: 'state:crisisTriggered',
   // Phase1：NPC 动态行动（payload { kind, actorName, targetName?, text }）→ Toast 提示
@@ -229,6 +237,8 @@ export interface GameState {
   gradeReached: number;
   /** Phase1：登顶天下共主软认可是否已弹过（防重复祝贺） */
   tianxiaAcknowledged: boolean;
+  /** P2 通牒：民愤通牒到期日（null=无进行中通牒） */
+  wrathUltimatumEndDay: number | null;
   /** Phase1 低谷：国库+存粮双零的连续天数计数器 */
   dualZeroDays: number;
   /** Phase1 低谷：当前是否处于危机态（恢复 CRISIS_RECOVER_DAYS 天双正后复位，可再次触发） */
@@ -328,6 +338,7 @@ function makeDefaultState(): GameState {
     grade: 0,
     gradeReached: 0,
     tianxiaAcknowledged: false,
+    wrathUltimatumEndDay: null,
     dualZeroDays: 0,
     crisisActive: false,
     crisisRecoverDays: 0,
@@ -2193,6 +2204,65 @@ export class GameStore {
     }
   }
 
+  /**
+   * P2 通牒状态机（每日，在怨愤自然回落之前判定）：
+   * 无通牒 + 怨愤 ≥85 → 开启 10 日倒计时；
+   * 通牒中 + 怨愤 ≤55 → 解除（人心可挽回）；
+   * 通牒中 + 到期仍高企 → 民变爆发：掉人口（复用 planUnrestEffects）、挫士气、怨愤重置 60。
+   */
+  private runUltimatumPhase(): void {
+    const wrath = this.state.publicWrath;
+    const endDay = this.state.wrathUltimatumEndDay;
+
+    if (shouldStartUltimatum(wrath, endDay)) {
+      this.state.wrathUltimatumEndDay = this.state.currentDay + ULTIMATUM_DAYS;
+      this.emitter.emit(STATE_EVENTS.ULTIMATUM_STARTED, {
+        endDay: this.state.wrathUltimatumEndDay,
+        days: ULTIMATUM_DAYS,
+      });
+      return;
+    }
+
+    if (shouldLiftUltimatum(wrath, endDay)) {
+      this.state.wrathUltimatumEndDay = null;
+      this.emitter.emit(STATE_EVENTS.ULTIMATUM_LIFTED, { wrath });
+      return;
+    }
+
+    if (shouldExplodeUltimatum(this.state.currentDay, endDay)) {
+      const currentPeople = this.state.resources['people'] ?? 0;
+      const eff = planUnrestEffects(currentPeople, this.state.crisisCount);
+      // 流失必须落在阶层上（shrinkPopulationClasses 农→工→兵→士级联扣减）：
+      // 只减 people 资源会被次日人口阶段的阶层同步回写，等于没流失（与危机民变同源坑）。
+      if (eff.peopleDelta < 0) {
+        this.shrinkPopulationClasses(Math.min(currentPeople, -eff.peopleDelta));
+        this.setResourceClamped('people', totalPopulation(this.state.populationClasses));
+      }
+      this.adjustMorale(eff.moraleDelta, 'ultimatum_revolt');
+      this.state.publicWrath = ULTIMATUM_EXPLOSION_WRATH_RESET;
+      this.state.wrathUltimatumEndDay = null;
+      this.emitter.emit(STATE_EVENTS.ULTIMATUM_EXPLODED, {
+        lostPeople: -eff.peopleDelta,
+        moraleDrop: -eff.moraleDelta,
+        wrath: this.state.publicWrath,
+      });
+      this.emitter.emit(STATE_EVENTS.WRATH_CHANGED, {
+        value: this.state.publicWrath,
+        reason: 'ultimatum_revolt',
+      });
+    }
+  }
+
+  /** P2 通牒快照（HUD 倒计时 / UI 展示用；纯读）。 */
+  getUltimatum(): { active: boolean; daysLeft: number; endDay: number | null } {
+    const endDay = this.state.wrathUltimatumEndDay;
+    return {
+      active: endDay !== null,
+      daysLeft: ultimatumDaysLeft(this.state.currentDay, endDay),
+      endDay,
+    };
+  }
+
   /** A1：每日民心/怨愤沉淀——怨愤自然回落、颂声加成可逆、怨愤临界强推阶层诉求。 */
   private runSentimentSettlePhase(): void {
     // B2：名望每日产出（随国格递增；有上限，逼着玩家花，否则溢出浪费）
@@ -2208,6 +2278,9 @@ export class GameStore {
       this.state.factionState.nextEventDay = Math.min(this.state.factionState.nextEventDay, this.state.currentDay + 1);
       this.emitter.emit(STATE_EVENTS.WRATH_ALERT, { text: '民怨沸腾，举国侧目——不日必有诉求上达，速思抚民之策。' });
     }
+    // P2 通牒：怨愤 ≥85 → 限期倒计时；期内压回 55 解除；到期未解 → 民变爆发。
+    // 同样必须在自然回落之前判定（85 当天不能被 1 点回落吞掉）。
+    this.runUltimatumPhase();
     // 太平日子怨愤每天自然回落（危机期间不回落）
     if (!this.state.crisisActive && this.state.publicWrath > 0) {
       this.adjustWrath(-WRATH_PASSIVE_DECAY_PER_DAY, 'settle');
@@ -2664,7 +2737,11 @@ export class GameStore {
       // 民变（默认）：掉人口 + 挫士气 + 降格
       const currentPeople = this.state.resources['people'] ?? 0;
       const eff = planUnrestEffects(currentPeople, n);
-      if (eff.peopleDelta !== 0) this.addResource('people', eff.peopleDelta, 'crisis');
+      // 流失落阶层（否则次日人口阶段同步回写，掉人无效）
+      if (eff.peopleDelta < 0) {
+        this.shrinkPopulationClasses(Math.min(currentPeople, -eff.peopleDelta));
+        this.setResourceClamped('people', totalPopulation(this.state.populationClasses));
+      }
       this.adjustMorale(eff.moraleDelta, 'crisis_unrest');
       const gradeFrom = this.state.grade;
       let gradeTo = gradeFrom;
