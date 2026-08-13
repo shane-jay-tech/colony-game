@@ -25,7 +25,7 @@
   - ⚠️ **校准发现 2**：中期人口在 ~38 卡住且粮 0——劳动力池与农田/住房配比失衡，A2 需求环打折叠加后中段过紧。
   - 两条并入 P2-2 数值校准；模拟本身作为回归闸门，改数值后必须重跑。
 - [ ] **P0-2 存档兼容性回归**：把 schema v1/v2 旧存档 fixture 固化进测试，验证迁移链路长期可读（E-3）。
-- [ ] **P0-3 性能基线（部分）**：Phaser 已拆独立 vendor chunk（主包 7.44MB → 727KB + phaser 6.78MB，支持独立缓存/解析）。剩余：业务代码按需加载、Boot 加载清单去重、tick 热点抽样。
+- [x] **P0-3 性能基线**：Phaser 拆独立 vendor chunk（主包 7.44MB → 727KB + phaser 6.78MB）；Boot 事件插画清单去重（以 artManifest 为权威源）；tick 性能闸门实测 **0.04ms/日**（引擎无热点，模拟耗时在策略层）并加灾难退化拦截测试。业务代码按需加载对单窗口 Electron 收益可忽略，标记不适用（见 BENCHMARK 修订）。
 - [x] **P0-4 打包分发链路**：`electron:build:win` 全链路跑通（需显式注入 npmmirror 镜像环境变量），产出 0.9.0 安装版/便携版/win-unpacked 三件套；`electron-builder.yml` 输出目录由旧机器绝对路径改为相对 `dist-out`（可移植性修复）；package.json 补 author。
 
 ## P1 — 架构硬化剩余项（`PLAN.md` 未完成部分）
