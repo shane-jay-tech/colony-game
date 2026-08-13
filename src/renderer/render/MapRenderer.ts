@@ -6,7 +6,9 @@ import { COLORS, COLORS_HEX, UI } from '../ui/palette';
 import { terrainColor, resourceNodeColor, TILE_SIZE, NODE_MARKER_INSET } from './mapColors';
 import { getBuildingSigil } from './buildingSigils';
 import { getBuildingAnchor } from './buildingAnchorOverrides';
-import { ISO_TILE_W, ISO_TILE_H } from './iso';
+import { ISO_TILE_W, ISO_TILE_H, gridToIso, gridCenterToIso } from './iso';
+import { MAP_ZOOM_MAX } from './cameraMath';
+import { fitZoomFor, coverZoomFor, closeZoomFor, clampScrollFor, scrollForZoomAtAnchor, clampZoom } from './cameraMath';
 import { SCATTER_BY_TERRAIN, RIVER_EDGE, SCATTER_KEY_PREFIX, type ScatterSlot } from '../data/scatterConfig';
 import { createRng, type RngHandle } from '../state/rng';
 import { SMOKE_BUILDING_IDS, MARKET_BUILDING_IDS, FARM_BUILDING_IDS, FARM_SEASON_TINTS, SMOKE_TEX_KEY, SPARKLE_TEX_KEY } from './buildingAnims';
@@ -17,8 +19,7 @@ export const PANEL_COLLAPSED_WIDTH = 28;
 /** v1.0 #5：地图缩放范围。MAP_ZOOM_MAX 看细节；缩小**真实下限是 fitMinZoom()**（整张图刚好装进视口，
  *  随地图/视口大小动态变化），不是 MAP_ZOOM_MIN——后者只作为 ZoomControl 的名义参考，UI 实际锁止取
  *  getMinZoom()。中间档由 ZOOM_STEP 控制。 */
-export const MAP_ZOOM_MIN = 0.5;
-export const MAP_ZOOM_MAX = 2.0;
+export { MAP_ZOOM_MIN, MAP_ZOOM_MAX } from './cameraMath';
 export const MAP_ZOOM_STEP = 0.1;
 /** v2：缩放每档乘法因子（放大 ×、缩小 ÷）。适配 fit≈0.1 的小 zoom 量级——加法步进会一步越界。 */
 export const MAP_ZOOM_STEP_FACTOR = 1.2;
@@ -135,17 +136,16 @@ export class MapRenderer {
 
   private static readonly ISO_HW = ISO_TILE_W / 2;
   private static readonly ISO_HH = ISO_TILE_H / 2;
-  /** 等距：格子顶点 → 图层局部坐标（含 isoOffsetX，保证 local x ≥ 0）。 */
+  /** 等距：格子顶点 → 图层局部坐标（iso.ts 纯投影 + isoOffsetX 平移，保证 local x ≥ 0）。 */
   private isoVert(gx: number, gy: number): { x: number; y: number } {
-    return { x: (gx - gy) * MapRenderer.ISO_HW + this.isoOffsetX, y: (gx + gy) * MapRenderer.ISO_HH };
+    const p = gridToIso(gx, gy);
+    return { x: p.sx + this.isoOffsetX, y: p.sy };
   }
 
-  /** 等距：格子中心 → 图层局部坐标（菱形中心，比顶点低半个 tile 高，便于精灵 bottom-center 落位）。 */
+  /** 等距：格子中心 → 图层局部坐标（iso.ts 纯投影 + 平移，便于精灵 bottom-center 落位）。 */
   private isoCenter(gx: number, gy: number): { x: number; y: number } {
-    return {
-      x: (gx - gy) * MapRenderer.ISO_HW + this.isoOffsetX,
-      y: (gx + gy) * MapRenderer.ISO_HH + MapRenderer.ISO_HH,
-    };
+    const p = gridCenterToIso(gx, gy);
+    return { x: p.sx + this.isoOffsetX, y: p.sy };
   }
 
   /** footprint(wT×hT 格) 块的菱形：中心局部坐标 cx/cy + 相对中心的 4 顶点 rel（脉冲缩放用）。 */
@@ -207,20 +207,16 @@ export class MapRenderer {
     const cam = this.scene.cameras.main;
     const oldZoom = (cam.zoom as number | undefined) || 1;
     // v2：上限 = 整图 fit（最大化锁止，不能再放大）；下限 = fit×0.4（可往外缩，居中由 clampScroll 保证）。
-    const newZoom = Math.max(this.getMinZoom(), Math.min(this.getMaxZoom(), targetZoom));
+    const newZoom = clampZoom(targetZoom, this.getMinZoom(), this.getMaxZoom());
     if (Math.abs(newZoom - oldZoom) < 1e-4) return oldZoom;
     const vp = this.computeViewportRect(cam.width, cam.height);
     // DeepSeek 复审[安全]：锚点可能是异常 pointer 传来的 NaN——非有限值回退到视口中心，避免写 NaN scroll 崩渲染。
     const ax = (anchorScreenX !== undefined && Number.isFinite(anchorScreenX)) ? anchorScreenX : (vp.x + vp.w / 2);
     const ay = (anchorScreenY !== undefined && Number.isFinite(anchorScreenY)) ? anchorScreenY : (vp.y + vp.h / 2);
-    // 锚点在世界坐标的位置（缩放前后必须一致 → 算 scroll 偏移）
-    const sxOld = (cam.scrollX as number | undefined) || 0;
-    const syOld = (cam.scrollY as number | undefined) || 0;
-    const worldXAtAnchor = ax / oldZoom + sxOld;
-    const worldYAtAnchor = ay / oldZoom + syOld;
+    const next = scrollForZoomAtAnchor(ax, ay, oldZoom, newZoom, (cam.scrollX as number | undefined) || 0, (cam.scrollY as number | undefined) || 0);
     if (typeof cam.setZoom === 'function') cam.setZoom(newZoom);
-    cam.scrollX = worldXAtAnchor - ax / newZoom;
-    cam.scrollY = worldYAtAnchor - ay / newZoom;
+    cam.scrollX = next.x;
+    cam.scrollY = next.y;
     this.clampScroll();
     this.refreshViewportMask();
     return newZoom;
@@ -247,11 +243,7 @@ export class MapRenderer {
     // 一栋 AVG×AVG 建筑的等距包围盒（zoom=1）：宽 = AVG*ISO_TILE_W，高 = AVG*ISO_TILE_H。
     const bw = AVG_BUILDING_TILES * ISO_TILE_W;
     const bh = AVG_BUILDING_TILES * ISO_TILE_H;
-    // 让 N 栋填满视口面积（两轴几何均值）。
-    const closeZoom = Math.sqrt((vp.w * vp.h) / (BUILDINGS_ON_SCREEN_TARGET * bw * bh));
-    // NaN/Infinity 兜底：渲染器对 NaN zoom 零容忍（一旦写入会冻结画面）。
-    if (!Number.isFinite(closeZoom)) return Math.min(MAP_ZOOM_MAX, Math.max(cover, 1));
-    return Math.min(MAP_ZOOM_MAX, Math.max(cover, closeZoom));
+    return closeZoomFor(vp.w, vp.h, bw, bh, BUILDINGS_ON_SCREEN_TARGET, cover);
   }
 
   /** v3：缩小下限 = fitMinZoom（整张地图刚好完整可见）。往外缩到这一档可看全图（带黑边），供 ZoomControl 判"最远"。 */
@@ -259,22 +251,18 @@ export class MapRenderer {
     return this.fitMinZoom();
   }
 
-  /** 整张等距地图刚好装进可用视口的 fit 缩放（取较小比例 → 全图可见、四周留黑边；地图巨大→很小，floor 0.08）。 */
+  /** 整张等距地图刚好装进可用视口的 fit 缩放（公式在 cameraMath.fitZoomFor）。 */
   private fitMinZoom(): number {
     const cam = this.scene.cameras.main;
     const vp = this.computeViewportRect(cam.width, cam.height);
-    if (vp.w <= 0 || vp.h <= 0 || this.mapPxW <= 0 || this.mapPxH <= 0) return 0.2;
-    const fit = Math.min(vp.w / this.mapPxW, vp.h / this.mapPxH);
-    return Math.max(0.08, Math.min(MAP_ZOOM_MAX, fit));
+    return fitZoomFor(vp.w, vp.h, this.mapPxW, this.mapPxH);
   }
 
-  /** v3：铺满视口的缩放（取较大比例 → 较大维填满、另一维溢出可拖动）。开局/最大化档，黑边最小。 */
+  /** v3：铺满视口的缩放（公式在 cameraMath.coverZoomFor）。 */
   private coverZoom(): number {
     const cam = this.scene.cameras.main;
     const vp = this.computeViewportRect(cam.width, cam.height);
-    if (vp.w <= 0 || vp.h <= 0 || this.mapPxW <= 0 || this.mapPxH <= 0) return 0.2;
-    const cover = Math.max(vp.w / this.mapPxW, vp.h / this.mapPxH);
-    return Math.max(0.08, Math.min(MAP_ZOOM_MAX, cover));
+    return coverZoomFor(vp.w, vp.h, this.mapPxW, this.mapPxH);
   }
 
   /** v4：开局/重置/resize 的目标缩放 = 铺满整图并居中（= coverZoom）。
@@ -333,28 +321,14 @@ export class MapRenderer {
     const cam = this.scene.cameras.main;
     const vp = this.computeViewportRect(cam.width, cam.height);
     const z = (cam.zoom as number | undefined) || 1;
-    const mapLeft = this.originX;
-    const mapRight = this.originX + this.mapPxW;
-    const mapTop = this.originY;
-    const mapBottom = this.originY + this.mapPxH;
-    // X：地图比视口宽 → clamp 不露边；地图比视口窄(缩到很小时) → **居中**(不再锁 0，否则偏一边)
-    const minScrollX = mapLeft - vp.x / z;
-    const maxScrollX = mapRight - (vp.x + vp.w) / z;
-    if (minScrollX > maxScrollX) {
-      cam.scrollX = (mapLeft + mapRight) / 2 - (vp.x + vp.w / 2) / z;
-    } else {
-      const cur = (cam.scrollX as number | undefined) || 0;
-      cam.scrollX = Math.max(minScrollX, Math.min(maxScrollX, cur));
-    }
-    // Y
-    const minScrollY = mapTop - vp.y / z;
-    const maxScrollY = mapBottom - (vp.y + vp.h) / z;
-    if (minScrollY > maxScrollY) {
-      cam.scrollY = (mapTop + mapBottom) / 2 - (vp.y + vp.h / 2) / z;
-    } else {
-      const cur = (cam.scrollY as number | undefined) || 0;
-      cam.scrollY = Math.max(minScrollY, Math.min(maxScrollY, cur));
-    }
+    const next = clampScrollFor(
+      (cam.scrollX as number | undefined) || 0,
+      (cam.scrollY as number | undefined) || 0,
+      vp, z,
+      this.originX, this.originY, this.mapPxW, this.mapPxH,
+    );
+    cam.scrollX = next.x;
+    cam.scrollY = next.y;
   }
 
   /**
