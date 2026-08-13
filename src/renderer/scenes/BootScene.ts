@@ -3,12 +3,7 @@ import { validateStaticData, BUILDINGS } from '@/data';
 import { ALL_BGM_KEYS, SFX_KEYS } from '../state/audioDirector';
 import { ALL_SCATTER_IDS as SCATTER_IDS } from '../data/scatterConfig';
 import { GENERAL_POOL } from '../data/generals';
-
-/** 2026-06-19：事件插画 key（与 gen_portraits_events.py 的 EVENTS 对齐；缺图静默回退纯文字）。 */
-const EVENT_ART_NAMES = [
-  'unification', 'coronation', 'battle', 'flood', 'feast', 'diplomacy', 'rebellion',
-  'ending_gong', 'ending_jia', 'ending_huo',
-] as const;
+import { EVENT_ART } from '../data/artManifest';
 
 /**
  * BootScene：
@@ -55,8 +50,10 @@ export class BootScene extends Phaser.Scene {
     for (const g of GENERAL_POOL) {
       this.load.image(`portrait_${g.id}`, `art/generals/${g.id}.png`);
     }
-    for (const name of EVENT_ART_NAMES) {
-      this.load.image(`evt_art_${name}`, `art/events/${name}.png`);
+    // P0-3：事件插画清单以 artManifest.EVENT_ART 为唯一权威源（去重本地 EVENT_ART_NAMES）
+    for (const asset of EVENT_ART) {
+      const name = asset.key.startsWith('evt_art_') ? asset.key.slice('evt_art_'.length) : asset.key;
+      this.load.image(asset.key, `art/events/${name}.png`);
     }
 
     // Phase4 音频：试加载 BGM + 音效。同 sprite——缺文件 loaderror 静默，
