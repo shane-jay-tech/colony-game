@@ -18,7 +18,7 @@ import { canPlace } from './placementSystem';
 import type { MapBounds, PlacementResult } from './placementSystem';
 import { generateMap } from './mapGen';
 import { WorldMapAccessor } from './worldMap';
-import { computeProductionTick } from './productionSystem';
+import { computeProductionTick, computeDailyRates, type DailyRateRow } from './productionSystem';
 import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
 import { tryAdoptDecree, tickActiveDecree, type AdoptDecreeResult } from './decreeSystem';
 import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from './eventEngine';
@@ -612,6 +612,27 @@ export class GameStore {
 
   private setResourceClamped(id: ResourceId, value: number): void {
     this.state.resources[id] = Math.min(this.getResourceCap(id), Math.max(0, Math.floor(value)));
+  }
+
+  /**
+   * P1 信息可视化：每日出入快照（纯读、无副作用）。
+   * 复用 computeDailyRates（与每日生产 tick 同源口径）+ 当前人口阶层口粮/衣甲/俸钱消耗。
+   * 给 HUD 供需面板（ProductionPanel）用——生产面板即主战场（戴森球/纪元 1800 供需表启示）。
+   */
+  getDailyRates(): Partial<Record<ResourceId, DailyRateRow>> {
+    const factorFor = (defId: string): number => buildingFulfillmentFactor(
+      getBuildingDef(defId)?.classType,
+      this.state.buildings,
+      this.state.resources,
+    );
+    const cls = computeClassConsumption(this.state.populationClasses);
+    return computeDailyRates(
+      this.state.buildings,
+      getBuildingDef,
+      this.state.activeModifiers,
+      { grain: cls.totalGrain, cloth: cls.totalCloth, bronze: cls.totalBronze, gold: cls.totalGold },
+      factorFor,
+    );
   }
 
   addResource(id: ResourceId, amount: number, reason?: string): void {
@@ -1507,6 +1528,19 @@ export class GameStore {
   getGrade(): number { return this.state.grade; }
   getGradeReached(): number { return this.state.gradeReached; }
   getGradeDef() { return gradeDefAt(this.state.grade); }
+
+  /**
+   * P1 信息可视化：升格目标快照（纯读）。给 HUD 升格目标面板（GradePanel）用——
+   * 玩家点国格徽章即可看见「下一格还差什么」（人口/资源/标志成就），
+   * 修复「无头模拟 720 天卡国格 1」暴露的目标不可见问题。
+   */
+  getGradeProgress(): { current: ReturnType<typeof gradeDefAt>; next: ReturnType<typeof gradeDefAt> | null; input: GradeInput } {
+    return {
+      current: gradeDefAt(this.state.grade),
+      next: this.state.grade < MAX_GRADE ? gradeDefAt(this.state.grade + 1) : null,
+      input: this.buildGradeInput(),
+    };
+  }
 
   /** NPC 邦交"友好"阈值：stance ≥ 20（与 stanceLabel 的"友好"档一致） */
   private static readonly NPC_FRIENDLY_STANCE = 20;

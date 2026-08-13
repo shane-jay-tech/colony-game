@@ -10,6 +10,8 @@ import { MilitaryPanel } from '../ui/MilitaryPanel';
 import { CodexPanel } from '../ui/CodexPanel';
 import { DiplomacyPanel } from '../ui/DiplomacyPanel';
 import { PopulationPanel } from '../ui/PopulationPanel';
+import { ProductionPanel } from '../ui/ProductionPanel';
+import { GradePanel } from '../ui/GradePanel';
 import { EventModal } from '../ui/EventModal';
 import { FactionDemandModal } from '../ui/FactionDemandModal';
 import { CrisisModal } from '../ui/CrisisModal';
@@ -48,6 +50,9 @@ export class UIScene extends Phaser.Scene {
   private codexPanel: CodexPanel | null = null;
   private diplomacyPanel: DiplomacyPanel | null = null;
   private populationPanel: PopulationPanel | null = null;
+  // P1 信息可视化：供需速率面板 + 升格目标面板
+  private productionPanel: ProductionPanel | null = null;
+  private gradePanel: GradePanel | null = null;
   private eventModal: EventModal | null = null;
   private factionDemandModal: FactionDemandModal | null = null;
   private crisisModal: CrisisModal | null = null;
@@ -189,6 +194,11 @@ export class UIScene extends Phaser.Scene {
     // 2026-06-17：人口详情面板（点 HUD「民」token 打开）
     this.populationPanel = new PopulationPanel(this, store);
     this.registry.set('populationPanel', this.populationPanel);
+    // P1 信息可视化：供需速率面板（点 HUD 资源 token 打开）+ 升格目标面板（点国格徽章打开）
+    this.productionPanel = new ProductionPanel(this, store);
+    this.registry.set('productionPanel', this.productionPanel);
+    this.gradePanel = new GradePanel(this, store);
+    this.registry.set('gradePanel', this.gradePanel);
     this.eventModal = new EventModal(this, store);
     this.factionDemandModal = new FactionDemandModal(this, store);
     // Phase1：低谷危机通告模态
@@ -289,6 +299,8 @@ export class UIScene extends Phaser.Scene {
     this.tutorialModal?.layout();
     this.diplomacyPanel?.layout();
     this.populationPanel?.layout();
+    this.productionPanel?.layout();
+    this.gradePanel?.layout();
     this.saveLoadPanel?.layout();
     this.influencePanel?.layout();
     this.storyBar?.layout();
@@ -329,6 +341,8 @@ export class UIScene extends Phaser.Scene {
     this.codexPanel?.destroy();
     this.diplomacyPanel?.destroy();
     this.populationPanel?.destroy();
+    this.productionPanel?.destroy();
+    this.gradePanel?.destroy();
     this.legend?.destroy();
     this.zoomControl?.destroy();
     this.eventModal?.destroy();

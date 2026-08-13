@@ -107,6 +107,9 @@ export class HUD {
   private sentimentX = 0;
   // B3：工具栏右侧的工坊物资（麻/锡）小字
   private craftText: Phaser.GameObjects.Text | null = null;
+  // P1 信息可视化：点击资源 token 打开供需面板；点击国格徽章打开升格目标面板
+  private resourceTokenZones: Map<ResourceId, Phaser.GameObjects.Zone> = new Map();
+  private gradeBadgeZone: Phaser.GameObjects.Zone | null = null;
 
   // 监听器引用（destroy 解绑）
   private onResources = (): void => this.refreshResources();
@@ -234,11 +237,26 @@ export class HUD {
         token = { swatch, label, txt };
         this.resourceTokens.set(id, token);
       }
+      const tokenX = cursorX;
       token.swatch.setPosition(cursorX, tokenY);
       token.label.setPosition(cursorX + 18, tokenY - 9);
       token.txt.setPosition(cursorX + 36, tokenY - 9);
-      if (id === 'people') { this.peopleTokenX = cursorX; cursorX += peopleTokenW; }
-      else cursorX += tokenW;
+      const tokenSpan = id === 'people' ? peopleTokenW : tokenW;
+      if (id === 'people') { this.peopleTokenX = cursorX; }
+      else {
+        // P1：非「民」token 均可点 → 打开供需面板（民已有人口面板专属点击区）
+        let zone = this.resourceTokenZones.get(id);
+        if (!zone) {
+          zone = this.scene.add.zone(0, 0, tokenW, 28).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+          zone.on('pointerup', () => {
+            (this.scene.registry.get('productionPanel') as { toggle?: () => void } | undefined)?.toggle?.();
+          });
+          this.resourceTokenZones.set(id, zone);
+          this.container.add(zone);
+        }
+        zone.setPosition(tokenX, tokenY - 16).setSize(tokenW, 28);
+      }
+      cursorX += tokenSpan;
     }
 
     // A1：双轴民心（资源区右侧，日期左侧）
@@ -269,6 +287,16 @@ export class HUD {
     // 国格徽章：日期块右侧固定偏移处（为日期文本预留 ~175px，避免随日期长度抖动）
     this.gradeBadgeX = cursorX + dateGapX + 175;
     this.layoutGradeBadge(tokenY);
+
+    // P1：国格徽章点击区 → 升格目标面板（徽章宽随级名变化，点击区给固定 112px 安全宽度）
+    if (!this.gradeBadgeZone) {
+      this.gradeBadgeZone = this.scene.add.zone(0, 0, 112, 30).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      this.gradeBadgeZone.on('pointerup', () => {
+        (this.scene.registry.get('gradePanel') as { toggle?: () => void } | undefined)?.toggle?.();
+      });
+      this.container.add(this.gradeBadgeZone);
+    }
+    this.gradeBadgeZone.setPosition(this.gradeBadgeX, Math.floor(UI.topbarHeight / 2) - 15).setSize(112, 30);
 
     // 速度按钮（右侧）
     const btnSize = 32;

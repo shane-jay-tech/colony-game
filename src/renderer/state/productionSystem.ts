@@ -108,19 +108,15 @@ export function computeAdjacencyMul(
 }
 
 /**
- * 算单日产出 deltas。pure function — 不修改任何输入；调用方拿 result.deltas 自行
- * apply 到 store 的 resources（GameStore 内通过 applyDayDeltas 走 setResourceClamped 路径）。
+ * 共享累加：扫所有 working 建筑，汇总每种资源的 raw 产出（含相邻加成与阶层需求折扣）
+ * 与 raw 维护/原料消耗（不含 country modifier、不含人口口粮）。computeProductionTick 与
+ * computeDailyRates 共用，保证两个口径永不分裂。
  */
-export function computeProductionTick(
+function accumulateRawProduction(
   buildings: readonly BuildingInstance[],
   defLookup: (defId: string) => BuildingDef | undefined,
-  modifiers: readonly ModifierInstance[],
-  /** 上一 tick 留下的小数残差；首次调用传 {} */
-  prevCarry: Readonly<Partial<Record<ResourceId, number>>> = {},
-  /** A2：按建筑阶层需求满足度给的产出系数（0.5..1）；缺省 1 = 不启用 */
-  buildingFactor: (defId: string) => number = () => 1,
-): ProductionTickResult {
-  // 1) 累加 raw output / upkeep（不含 country modifier，但已应用相邻加成）
+  buildingFactor: (defId: string) => number,
+): { rawOutput: Partial<Record<ResourceId, number>>; rawUpkeep: Partial<Record<ResourceId, number>> } {
   const rawOutput: Partial<Record<ResourceId, number>> = {};
   const rawUpkeep: Partial<Record<ResourceId, number>> = {};
 
@@ -150,6 +146,24 @@ export function computeProductionTick(
       rawUpkeep[rid] = cur + amount;
     }
   }
+  return { rawOutput, rawUpkeep };
+}
+
+/**
+ * 算单日产出 deltas。pure function — 不修改任何输入；调用方拿 result.deltas 自行
+ * apply 到 store 的 resources（GameStore 内通过 applyDayDeltas 走 setResourceClamped 路径）。
+ */
+export function computeProductionTick(
+  buildings: readonly BuildingInstance[],
+  defLookup: (defId: string) => BuildingDef | undefined,
+  modifiers: readonly ModifierInstance[],
+  /** 上一 tick 留下的小数残差；首次调用传 {} */
+  prevCarry: Readonly<Partial<Record<ResourceId, number>>> = {},
+  /** A2：按建筑阶层需求满足度给的产出系数（0.5..1）；缺省 1 = 不启用 */
+  buildingFactor: (defId: string) => number = () => 1,
+): ProductionTickResult {
+  // 1) 累加 raw output / upkeep（不含 country modifier，但已应用相邻加成）
+  const { rawOutput, rawUpkeep } = accumulateRawProduction(buildings, defLookup, buildingFactor);
 
   // 2) 对每种资源：计算 effective output / upkeep，得到 net delta（带分数累加器）
   const deltas: Partial<Record<ResourceId, number>> = {};
@@ -200,4 +214,81 @@ export function applyDeltasToBag(bag: ResourceBag, deltas: Partial<Record<Resour
     out[r] = (out[r] ?? 0) + d;
   }
   return out;
+}
+
+/** 供需面板的单行数据（P1 信息可视化）。 */
+export interface DailyRateRow {
+  /** 日产：建筑产出 × 相邻加成 × 阶层折扣 × country 产出 modifier（浮点，展示时取 1 位小数） */
+  produced: number;
+  /** 日耗：建筑维护 + 原料消耗（× country 消耗 modifier）+ 人口口粮/布/铜/金 */
+  consumed: number;
+  /** 净变化 = produced - consumed（正盈负亏） */
+  net: number;
+}
+
+/** 人口阶层每日口粮/衣甲/俸钱消耗（computeClassConsumption 的口径子集）。 */
+export interface PopulationDailyConsumption {
+  grain: number;
+  cloth: number;
+  bronze: number;
+  gold: number;
+}
+
+/**
+ * P1 信息可视化：算「每日出入」快照（纯读、无副作用、不碰分数累加器）。
+ *
+ * 与 computeProductionTick 完全同源（同一 accumulateRawProduction + 同一 country modifier），
+ * 另把人口阶层消费（computeClassConsumption：粮/布/铜/金）并入 consumed——让 HUD 供需面板
+ * 看到的净变化与真实每日资源曲线一致（生产 tick 不含人口口粮，口粮在饥荒阶段另扣）。
+ *
+ * 设计（七游戏调研 P1）：生产面板即主战场（戴森球/纪元 1800 供需表）——玩家随时能看
+ * 「每种资源每天进多少、出多少、是盈是亏」，瓶颈一眼可见。
+ */
+export function computeDailyRates(
+  buildings: readonly BuildingInstance[],
+  defLookup: (defId: string) => BuildingDef | undefined,
+  modifiers: readonly ModifierInstance[],
+  populationConsumption: PopulationDailyConsumption,
+  buildingFactor: (defId: string) => number = () => 1,
+): Partial<Record<ResourceId, DailyRateRow>> {
+  const { rawOutput, rawUpkeep } = accumulateRawProduction(buildings, defLookup, buildingFactor);
+  const popConsumeOf: Partial<Record<ResourceId, number>> = {
+    grain: populationConsumption.grain,
+    cloth: populationConsumption.cloth,
+    bronze: populationConsumption.bronze,
+    gold: populationConsumption.gold,
+  };
+
+  const out: Partial<Record<ResourceId, DailyRateRow>> = {};
+  for (const r of RESOURCE_IDS) {
+    const ro = rawOutput[r] ?? 0;
+    const ru = rawUpkeep[r] ?? 0;
+    let effOutput = ro;
+    let effUpkeep = ru;
+
+    const oTarget = outputTargetFor(r);
+    if (oTarget) {
+      effOutput = ro * getMulFactor(oTarget, modifiers) + getAddDelta(oTarget, modifiers);
+    }
+    const cTarget = consumptionTargetFor(r);
+    if (cTarget) {
+      effUpkeep = ru * getMulFactor(cTarget, modifiers) + getAddDelta(cTarget, modifiers);
+    }
+
+    const popConsume = popConsumeOf[r] ?? 0;
+    const produced = effOutput;
+    const consumed = effUpkeep + popConsume;
+    const net = produced - consumed;
+    // 产耗双零的行不展示（面板只列有动静的资源，避免噪音）
+    if (Math.abs(produced) < 1e-9 && Math.abs(consumed) < 1e-9) continue;
+    out[r] = { produced, consumed, net };
+  }
+  return out;
+}
+
+/** 格式化速率展示：整数去小数、非整数保留 1 位（如 0.4/日、12/日）。 */
+export function formatRate(v: number): string {
+  const rounded = Math.round(v * 10) / 10;
+  if (Math.abs(rounded - Math.round(rounded)) < 1e-9) return String(Math.round(rounded));
+  return rounded.toFixed(1);
 }

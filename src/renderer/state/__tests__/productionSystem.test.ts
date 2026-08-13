@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeProductionTick, applyDeltasToBag } from '../productionSystem';
+import { computeProductionTick, applyDeltasToBag, computeDailyRates, formatRate } from '../productionSystem';
 import type { BuildingDef, BuildingInstance, ModifierInstance } from '../../data/schema';
 import type { ResourceId } from '../../data/resourceRegistry';
 
@@ -246,6 +246,74 @@ describe('computeProductionTick — adjacency bonus', () => {
     );
     // Manhattan 距离 = 0 ≤ 1 → 应 apply 1.50 → 15
     expect(result.deltas.grain).toBe(15);
+  });
+});
+
+// P1 信息可视化：每日出入快照（供需面板数据源）
+describe('computeDailyRates — 供需面板口径', () => {
+  const noPop = { grain: 0, cloth: 0, bronze: 0, gold: 0 };
+
+  it('产出与人口口粮合并进日耗，净额正确', () => {
+    const farm = def('farm', [{ resource: 'grain', perDay: 12 }]);
+    const rows = computeDailyRates([inst('farm')], lookup([farm]), [], { ...noPop, grain: 8 });
+    expect(rows.grain?.produced).toBe(12);
+    expect(rows.grain?.consumed).toBe(8);
+    expect(rows.grain?.net).toBe(4);
+  });
+
+  it('建筑维护计入日耗（布 2 维护 + 人口 1 布）', () => {
+    const camp = def('camp', [], { cloth: 2 });
+    const rows = computeDailyRates([inst('camp')], lookup([camp]), [], { ...noPop, cloth: 1 });
+    expect(rows.cloth?.consumed).toBe(3);
+    expect(rows.cloth?.net).toBe(-3);
+  });
+
+  it('country 产出/消耗 modifier 同时生效（与生产 tick 同源）', () => {
+    const farm = def('farm', [{ resource: 'grain', perDay: 10 }], { grain: 2 });
+    const mods: ModifierInstance[] = [
+      {
+        id: 'mo', name: 'mo', category: 'economy', stackable: true,
+        effects: [{ target: 'country_grain_output', op: 'mul', value: 1.5 }],
+        visualBadge: null, remainingDays: -1, description: '', descPlain: '',
+      },
+      {
+        id: 'mc', name: 'mc', category: 'economy', stackable: true,
+        effects: [{ target: 'country_grain_consumption', op: 'mul', value: 2 }],
+        visualBadge: null, remainingDays: -1, description: '', descPlain: '',
+      },
+    ];
+    const rows = computeDailyRates([inst('farm')], lookup([farm]), mods, { ...noPop, grain: 1 });
+    // produced = 10×1.5 = 15；consumed = 2×2 + 1 = 5；net = 10
+    expect(rows.grain?.produced).toBe(15);
+    expect(rows.grain?.consumed).toBe(5);
+    expect(rows.grain?.net).toBe(10);
+  });
+
+  it('产耗双零的资源不出现（噪音过滤）', () => {
+    const farm = def('farm', [{ resource: 'grain', perDay: 10 }]);
+    const rows = computeDailyRates([inst('farm')], lookup([farm]), [], noPop);
+    expect(rows.grain).toBeDefined();
+    expect(rows.gold).toBeUndefined();
+  });
+
+  it('相邻加成与阶层折扣同口径（农田贴水井 1.3×）', () => {
+    const farm = def('farm', [{ resource: 'grain', perDay: 10 }]);
+    farm.adjacencyBonus = [{ partnerDefId: 'well', range: 3, resource: 'grain', outputMul: 1.3, description: 't' }];
+    const well = def('well');
+    const rows = computeDailyRates(
+      [{ ...inst('farm'), position: { x: 0, y: 0 } }, { ...inst('well'), position: { x: 2, y: 0 } }],
+      lookup([farm, well]),
+      [],
+      noPop,
+    );
+    expect(rows.grain?.produced).toBeCloseTo(13);
+  });
+
+  it('formatRate：整数无小数、非整数 1 位小数', () => {
+    expect(formatRate(12)).toBe('12');
+    expect(formatRate(0.4)).toBe('0.4');
+    expect(formatRate(-3)).toBe('-3');
+    expect(formatRate(1.25)).toBe('1.3');
   });
 });
 
