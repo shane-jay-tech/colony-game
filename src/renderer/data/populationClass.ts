@@ -36,7 +36,7 @@ export interface ClassConsumption {
 }
 
 export const CLASS_CONSUMPTION: Record<PopulationClass, ClassConsumption> = {
-  farmer: { grain: 1 },
+  farmer: { grain: 0.8 },
   worker: { grain: 1.5, cloth: 0.2 },
   soldier: { grain: 2, bronze: 0.3 },
   scholar: { grain: 2, gold: 1 },

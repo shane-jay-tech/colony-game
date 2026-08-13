@@ -38,7 +38,7 @@ describe('populationClassSystem pure functions', () => {
       { defId: 'bld_smithy', position: { x: 0, y: 3 }, status: 'paused', tier: 2, constructionProgress: 100, modifiers: [] },
     ];
     const occ = computeClassOccupation(buildings, getBuildingDef);
-    expect(occ.farmer).toBe(5); // bld_farm: 5 farmer
+    expect(occ.farmer).toBe(4); // bld_farm: 4 farmer（P2 农田用工下调）
     expect(occ.worker).toBe(4); // bld_market: 4 worker (smithy paused, not counted)
     expect(occ.soldier).toBe(6); // bld_barracks: 6 soldier
     expect(occ.scholar).toBe(0);
@@ -86,7 +86,7 @@ describe('populationClassSystem pure functions', () => {
   it('computeClassConsumption totals per-class resource needs', () => {
     const pop = { farmer: 10, worker: 5, soldier: 3, scholar: 2 };
     const c = computeClassConsumption(pop);
-    expect(c.totalGrain).toBeCloseTo(10 * 1 + 5 * 1.5 + 3 * 2 + 2 * 2); // 10+7.5+6+4=27.5
+    expect(c.totalGrain).toBeCloseTo(10 * 0.8 + 5 * 1.5 + 3 * 2 + 2 * 2); // 8+7.5+6+4=25.5
     expect(c.totalCloth).toBeCloseTo(5 * 0.2); // 1
     expect(c.totalBronze).toBeCloseTo(3 * 0.3); // 0.9
     expect(c.totalGold).toBeCloseTo(2 * 1); // 2
@@ -271,7 +271,7 @@ describe('B-0 Population class system (GameStore integration)', () => {
       ],
     });
     const idle = store.getIdleByClass();
-    expect(idle.farmer).toBe(5); // 10 - 5(farm)
+    expect(idle.farmer).toBe(6); // 10 - 4(farm)
     expect(idle.worker).toBe(1); // 5 - 4(market)
     expect(idle.soldier).toBe(3); // no soldier buildings
     expect(idle.scholar).toBe(2);

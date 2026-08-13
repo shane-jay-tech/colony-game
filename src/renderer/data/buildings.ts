@@ -8,7 +8,7 @@ export const BUILDINGS: BuildingDef[] = [
     category: '民生',
     tier: 1,
     tierName: '耒耕',
-    cost: { wood: 20, people: 5 },
+    cost: { wood: 20, people: 4 },
     constructionTime: 1,
     output: [{ resource: 'grain', perDay: 12 }],
     upkeep: {},
@@ -19,7 +19,7 @@ export const BUILDINGS: BuildingDef[] = [
       { condition: 'self.output.grain == 0', badge: 'badge_idle', priority: 10 },
     ],
     description: '耕作之基，秋收满仓。',
-    descPlain: '基础粮食生产，每日产 12 粮，占用 5 民。临水井加 30% 粮，临水碓加 20% 粮（取最高）。',
+    descPlain: '基础粮食生产，每日产 12 粮，占用 4 民。临水井加 30% 粮，临水碓加 20% 粮（取最高）。',
     adjacencyBonus: [
       { partnerDefId: 'bld_well', range: 3, resource: 'grain', outputMul: 1.30, description: '近泉灌溉，禾稼倍丰' },
       { partnerDefId: 'bld_water_mill', range: 3, resource: 'grain', outputMul: 1.20, description: '水碓助耕，舂米省力' },
