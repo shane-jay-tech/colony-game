@@ -6,8 +6,9 @@ import { REGISTRY_KEYS, registrySet } from '../ui/registry';
  * ModeSelectScene — 进游戏第一屏（Phase 1 模式外壳）。
  *
  * 玩家二择一：
- *   - 沙盒（可玩）：自由经营，从聚落爬到天下共主，无限玩 → 进 IntroScene 立国。
- *   - 故事（敬请期待）：随《天下人书记》七卷的长线叙事，Phase 2 开放 → 当前灰显、不可点。
+ *   - 沙盒：自由经营，从聚落爬到天下共主，无限玩 → 进 IntroScene 立国。
+ *   - 故事：随《天下人书记》七卷的长线叙事（序章统一→七章→三结局，2026-06 已可玩）
+ *     → 进 IntroScene 立国后入序章。
  *
  * 视觉：纪元风考究排版（BG_INK 底 + 金色双框卡片 + 印章式标题），不是裸色块。
  * 万相主视觉原画留 Phase 4 替换；本场景纯引擎绘制，达"单看一帧不简陋"基线。
@@ -99,7 +100,7 @@ export class ModeSelectScene extends Phaser.Scene {
       '序章可玩',
     );
 
-    this.footerText = this.add.text(0, 0, '——选沙盒可即刻立国；故事一途，来日开放。', {
+    this.footerText = this.add.text(0, 0, '——沙盒无拘无束；故事有七卷长剧，两个都好，慢慢挑。', {
       ...FONTS.smallDim,
       fontSize: '14px', // P2-4 字号铁律 ≥14px
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5, 0);
