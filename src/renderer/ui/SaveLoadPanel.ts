@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, FONTS } from './palette';
+import { REGISTRY_KEYS, registryGet } from './registry';
 import { getSaveMeta, loadFromSlot, saveToSlot, type SaveMeta } from '../state/saveLoad';
 import type { GameStore } from '../state/gameStore';
 
@@ -223,7 +224,7 @@ export class SaveLoadPanel {
   }
 
   private toast(): { show: (m: string, kind?: 'info' | 'error', durationMs?: number) => void } | null {
-    return this.scene.registry.get('toast') as { show: (m: string, kind?: 'info' | 'error', durationMs?: number) => void } | undefined ?? null;
+    return registryGet(this.scene.registry, REGISTRY_KEYS.toast) as { show: (m: string, kind?: 'info' | 'error', durationMs?: number) => void } | undefined ?? null;
   }
 
   destroy(): void {

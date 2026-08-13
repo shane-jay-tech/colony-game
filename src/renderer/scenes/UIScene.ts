@@ -13,6 +13,7 @@ import { PopulationPanel } from '../ui/PopulationPanel';
 import { ProductionPanel } from '../ui/ProductionPanel';
 import { GradePanel } from '../ui/GradePanel';
 import { ScoreCardPanel } from '../ui/ScoreCardPanel';
+import { REGISTRY_KEYS, registryGet, registrySet } from '../ui/registry';
 import { EventModal } from '../ui/EventModal';
 import { FactionDemandModal } from '../ui/FactionDemandModal';
 import { CrisisModal } from '../ui/CrisisModal';
@@ -174,8 +175,8 @@ export class UIScene extends Phaser.Scene {
   create(): void {
     // 关键修复(2026-06-02)：Phaser 不自动调 scene.shutdown()，手动绑 SHUTDOWN 事件清理监听/计时器。
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
-    const store = this.registry.get('store') as GameStore | undefined;
-    const buildMode = this.registry.get('buildMode') as BuildMode | undefined;
+    const store = registryGet(this.registry, REGISTRY_KEYS.store);
+    const buildMode = registryGet(this.registry, REGISTRY_KEYS.buildMode);
     if (!store || !buildMode) {
       console.error('[UIScene] missing store or buildMode in registry');
       return;
@@ -185,32 +186,32 @@ export class UIScene extends Phaser.Scene {
     this.buildPanel = new BuildPanel(this, store, buildMode);
     // 2026-06-19：全屏国策树（HUD「朝堂」按钮打开，时停）取代了原右侧折叠 CourtPanel。
     this.policyTreePanel = new PolicyTreePanel(this, store);
-    this.registry.set('policyTreePanel', this.policyTreePanel);
+    registrySet(this.registry, REGISTRY_KEYS.policyTreePanel, this.policyTreePanel);
     this.megaProjectPanel = new MegaProjectPanel(this, store);
-    this.registry.set('megaProjectPanel', this.megaProjectPanel);
+    registrySet(this.registry, REGISTRY_KEYS.megaProjectPanel, this.megaProjectPanel);
     this.militaryPanel = new MilitaryPanel(this, store);
-    this.registry.set('militaryPanel', this.militaryPanel);
+    registrySet(this.registry, REGISTRY_KEYS.militaryPanel, this.militaryPanel);
     // 2026-06-19：典册（新手引导/百科），顶栏「?」按钮打开，时停
     this.codexPanel = new CodexPanel(this, store);
-    this.registry.set('codexPanel', this.codexPanel);
+    registrySet(this.registry, REGISTRY_KEYS.codexPanel, this.codexPanel);
     this.legend = new Legend(this, store);
     this.toast = new Toast(this);
     // Slice G：toast 必须先注册才能让 EventModal/CourtPanel 失败时回报
-    this.registry.set('toast', this.toast);
+    registrySet(this.registry, REGISTRY_KEYS.toast, this.toast);
     // v1.0 #6：邦交面板（中央模态，HUD 按钮触发开关）
     this.diplomacyPanel = new DiplomacyPanel(this, store);
-    this.registry.set('diplomacyPanel', this.diplomacyPanel);
+    registrySet(this.registry, REGISTRY_KEYS.diplomacyPanel, this.diplomacyPanel);
     // 2026-06-17：人口详情面板（点 HUD「民」token 打开）
     this.populationPanel = new PopulationPanel(this, store);
-    this.registry.set('populationPanel', this.populationPanel);
+    registrySet(this.registry, REGISTRY_KEYS.populationPanel, this.populationPanel);
     // P1 信息可视化：供需速率面板（点 HUD 资源 token 打开）+ 升格目标面板（点国格徽章打开）
     this.productionPanel = new ProductionPanel(this, store);
-    this.registry.set('productionPanel', this.productionPanel);
+    registrySet(this.registry, REGISTRY_KEYS.productionPanel, this.productionPanel);
     this.gradePanel = new GradePanel(this, store);
-    this.registry.set('gradePanel', this.gradePanel);
+    registrySet(this.registry, REGISTRY_KEYS.gradePanel, this.gradePanel);
     // P2：终局记分牌（登顶/结局自动弹，HUD「记」随时查）
     this.scoreCardPanel = new ScoreCardPanel(this, store);
-    this.registry.set('scoreCardPanel', this.scoreCardPanel);
+    registrySet(this.registry, REGISTRY_KEYS.scoreCardPanel, this.scoreCardPanel);
     this.eventModal = new EventModal(this, store);
     this.factionDemandModal = new FactionDemandModal(this, store);
     // Phase1：低谷危机通告模态
@@ -222,18 +223,18 @@ export class UIScene extends Phaser.Scene {
     this.storyBar = new StoryBar(this, store);
     // Phase4：音频引擎（动态 BGM + 音效；音频资产未就位时静音降级）
     this.audioManager = new AudioManager(this, store);
-    this.registry.set('audioManager', this.audioManager);
+    registrySet(this.registry, REGISTRY_KEYS.audioManager, this.audioManager);
     // Phase4：JIT 即时提示（首次遇到情境弹一句教学；toast 已在上方注册）
     this.jitHintManager = new JitHintManager(this, store);
     // Phase A-1：音量设置面板（HUD 设置按钮触发）
     this.settingsPanel = new SettingsPanel(this);
-    this.registry.set('settingsPanel', this.settingsPanel);
+    registrySet(this.registry, REGISTRY_KEYS.settingsPanel, this.settingsPanel);
     // 存档/读档面板（引擎已有 IPC + saveLoad.ts，这里补玩家可见入口）
     this.saveLoadPanel = new SaveLoadPanel(this, store);
-    this.registry.set('saveLoadPanel', this.saveLoadPanel);
+    registrySet(this.registry, REGISTRY_KEYS.saveLoadPanel, this.saveLoadPanel);
     // B2：史官/名望消费面板（宣传/斡旋/修史）
     this.influencePanel = new InfluencePanel(this, store);
-    this.registry.set('influencePanel', this.influencePanel);
+    registrySet(this.registry, REGISTRY_KEYS.influencePanel, this.influencePanel);
 
     // Phase1：国格晋阶 / 登顶 → Toast 软认可
     this.store = store;
@@ -254,7 +255,7 @@ export class UIScene extends Phaser.Scene {
     // v1.0 #5：缩放工具条。MapRenderer 由 GameScene 在 create 时注册到 registry，
     // ZoomControl 通过 lazy getter 拿引用——避免 UIScene 比 GameScene 先 create 时拿到 null。
     this.zoomControl = new ZoomControl(this, store, () => {
-      return (this.registry.get('mapRenderer') as MapRenderer | null) ?? null;
+      return registryGet(this.registry, REGISTRY_KEYS.mapRenderer) ?? null;
     });
 
     // A-9：暂停遮罩（灰色半透明 + "已暂停" 文字，depth 在 toast 之下、面板之上）
@@ -374,18 +375,18 @@ export class UIScene extends Phaser.Scene {
     this.toast?.destroy();
     this.pauseOverlay?.destroy();
     this.pauseText?.destroy();
-    this.registry.set('toast', undefined);
-    this.registry.set('policyTreePanel', undefined);
-    this.registry.set('megaProjectPanel', undefined);
-    this.registry.set('militaryPanel', undefined);
-    this.registry.set('codexPanel', undefined);
-    this.registry.set('treePanelOpen', false);
-    this.registry.set('diplomacyPanel', undefined);
-    this.registry.set('populationPanel', undefined);
-    this.registry.set('settingsPanel', undefined);
-    this.registry.set('saveLoadPanel', undefined);
-    this.registry.set('influencePanel', undefined);
-    this.registry.set('audioManager', undefined);
+    registrySet(this.registry, REGISTRY_KEYS.toast, undefined);
+    registrySet(this.registry, REGISTRY_KEYS.policyTreePanel, undefined);
+    registrySet(this.registry, REGISTRY_KEYS.megaProjectPanel, undefined);
+    registrySet(this.registry, REGISTRY_KEYS.militaryPanel, undefined);
+    registrySet(this.registry, REGISTRY_KEYS.codexPanel, undefined);
+    registrySet(this.registry, REGISTRY_KEYS.treePanelOpen, false);
+    registrySet(this.registry, REGISTRY_KEYS.diplomacyPanel, undefined);
+    registrySet(this.registry, REGISTRY_KEYS.populationPanel, undefined);
+    registrySet(this.registry, REGISTRY_KEYS.settingsPanel, undefined);
+    registrySet(this.registry, REGISTRY_KEYS.saveLoadPanel, undefined);
+    registrySet(this.registry, REGISTRY_KEYS.influencePanel, undefined);
+    registrySet(this.registry, REGISTRY_KEYS.audioManager, undefined);
     this.hud = null;
     this.buildPanel = null;
     this.policyTreePanel = null;

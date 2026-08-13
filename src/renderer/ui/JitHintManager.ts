@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
 import type { GameStateEventMap } from '../state/stateEvents';
-import type { Toast } from './Toast';
+import { REGISTRY_KEYS, registryGet } from './registry';
 import { JIT_HINTS, type JitTrigger } from '../data/jitHints';
 
 /**
@@ -25,7 +25,7 @@ export class JitHintManager {
     if (!this.store.markJitHintSeen(trigger)) return; // 早已弹过
     const hint = JIT_HINTS[trigger];
     if (!hint) return;
-    const toast = this.scene.registry.get('toast') as Toast | undefined;
+    const toast = registryGet(this.scene.registry, REGISTRY_KEYS.toast);
     toast?.show(hint.text, 'info', 5200);
   }
 

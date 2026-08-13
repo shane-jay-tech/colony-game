@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, FONTS, UI } from './palette';
+import { REGISTRY_KEYS, registryGet } from './registry';
 
 /**
  * Toast：屏幕**正中偏上**的悬浮提示（2026-06-19 从右下角挪来——用户反馈右下角太不显眼）。
@@ -20,7 +21,7 @@ export class Toast {
   show(message: string, kind: 'info' | 'error' = 'info', durationMs = 2200): void {
     // A-2：error toast 播放警告音效
     if (kind === 'error') {
-      const am = this.scene.registry.get('audioManager') as { playUi?: (k: string) => void } | undefined;
+      const am = registryGet(this.scene.registry, REGISTRY_KEYS.audioManager);
       am?.playUi?.('sfx_warn');
     }
     this.clearCurrent();

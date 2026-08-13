@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { validateStaticData, BUILDINGS } from '@/data';
+import { REGISTRY_KEYS, registryGet } from '../ui/registry';
 import { ALL_BGM_KEYS, SFX_KEYS } from '../state/audioDirector';
 import { ALL_SCATTER_IDS as SCATTER_IDS } from '../data/scatterConfig';
 import { GENERAL_POOL } from '../data/generals';
@@ -79,7 +80,7 @@ export class BootScene extends Phaser.Scene {
 
     // Phase1：先进 ModeSelectScene 选模式（沙盒/故事）→ IntroScene 选国号身份楔子 → GameScene
     // 若注册表已有 introDone 标志（hot reload / dev 重启），直接进 GameScene 避免重复展示
-    if (this.registry.get('introDone')) {
+    if (registryGet(this.registry, REGISTRY_KEYS.introDone)) {
       this.scene.start('GameScene');
     } else {
       this.scene.start('ModeSelectScene');

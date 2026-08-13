@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, COLORS_HEX, FONTS } from './palette';
+import { REGISTRY_KEYS, registryGet } from './registry';
 import { drawDecorativePanelFrame } from './panelDecoration';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
@@ -97,7 +98,7 @@ export class MilitaryPanel {
   isVisible(): boolean { return this.isOpen; }
 
   private toast(msg: string, kind: 'info' | 'error' = 'info'): void {
-    (this.scene.registry.get('toast') as { show?: (m: string, k?: string) => void } | undefined)?.show?.(msg, kind);
+    registryGet(this.scene.registry, REGISTRY_KEYS.toast)?.show?.(msg, kind);
   }
 
   layout(): void {

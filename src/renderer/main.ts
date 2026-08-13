@@ -13,6 +13,7 @@ import { BuildMode } from './state/buildMode';
 import { POLICIES, EVENTS, DECREES, validateStaticData } from './data';
 import { BALANCE } from './data/balanceConfig';
 import type { ResourceId } from './data/resourceRegistry';
+import { REGISTRY_KEYS, registrySet } from './ui/registry';
 
 /**
  * Renderer 入口。
@@ -170,8 +171,8 @@ const store = new GameStore(emitter, undefined, {
   decrees: DECREES,
 });
 const buildMode = new BuildMode();
-game.registry.set('store', store);
-game.registry.set('buildMode', buildMode);
+registrySet(game.registry, REGISTRY_KEYS.store, store);
+registrySet(game.registry, REGISTRY_KEYS.buildMode, buildMode);
 
 // 开局暂停：新游戏时暂停等玩家第一次操作；autoUnpause 会在首次 placeBuilding/adoptPolicy/setSpeed 时恢复
 store.setPaused(true);

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GameStore, STATE_EVENTS } from '../state/gameStore';
+import { REGISTRY_KEYS, registryGet, registrySet } from '../ui/registry';
 import type { GameStateEventMap } from '../state/stateEvents';
 import { MapRenderer, MAP_ZOOM_STEP_FACTOR } from '../render/MapRenderer';
 import { BuildMode, checkBuildAt } from '../state/buildMode';
@@ -163,8 +164,8 @@ export class GameScene extends Phaser.Scene {
     // 关键修复(2026-06-02)：Phaser 不自动调 scene.shutdown()——必须手动绑 SHUTDOWN 事件，
     // 否则 scene 重启/停止后 store 监听 + scale 'resize' 监听全部残留泄漏。
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
-    const store = this.registry.get('store') as GameStore | undefined;
-    const buildMode = this.registry.get('buildMode') as BuildMode | undefined;
+    const store = registryGet(this.registry, REGISTRY_KEYS.store);
+    const buildMode = registryGet(this.registry, REGISTRY_KEYS.buildMode);
     if (!store || !buildMode) {
       console.error('[GameScene] missing store or buildMode in registry');
       this.add.text(16, 16, '初始化失败：找不到 GameStore', {
@@ -184,7 +185,7 @@ export class GameScene extends Phaser.Scene {
       isRightCollapsed: () => true,
     });
     // v1.0 #5：注册到 registry，让 UIScene 的 ZoomControl 能拿到引用
-    this.registry.set('mapRenderer', this.mapRenderer);
+    registrySet(this.registry, REGISTRY_KEYS.mapRenderer, this.mapRenderer);
     this.rerenderBuildings();
     // A-3：初始季节色调
     const initSeason = dayToCalendar(store.getCurrentDay()).season;
@@ -193,7 +194,7 @@ export class GameScene extends Phaser.Scene {
     this.timeSystem = new TimeSystem(store);
 
     // v0.9 Pillar 2.4：升级 popover 在 toast 之后挂；popover 失败时 toast.show 反馈
-    const toastForPopover = (this.registry.get('toast') as Toast | undefined) ?? null;
+    const toastForPopover = registryGet(this.registry, REGISTRY_KEYS.toast) ?? null;
     this.buildingPopover = new BuildingPopover(this, store, toastForPopover);
 
     store.on(STATE_EVENTS.BUILDING_PLACED, this.placedListener);
@@ -307,7 +308,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.mapRenderer) return;
     if (this.isPointerOverPanel(pointer)) return;
     // 2026-06-19：全屏国策树打开时，滚轮归它缩放树，不缩放底层地图。
-    if (this.registry.get('treePanelOpen')) return;
+    if (registryGet(this.registry, REGISTRY_KEYS.treePanelOpen)) return;
     const cur = this.mapRenderer.getMapZoom();
     // v2：乘法步进（每档 ×/÷ MAP_ZOOM_STEP_FACTOR）。开局 zoom 很小（fit≈0.1），加法步进会一步越界。
     const target = dy < 0 ? cur * MAP_ZOOM_STEP_FACTOR : cur / MAP_ZOOM_STEP_FACTOR;
@@ -333,7 +334,7 @@ export class GameScene extends Phaser.Scene {
               if (inst) {
                 const name = getBuildingDef(inst.defId)?.name ?? '建筑';
                 store.removeBuilding(inst);
-                (this.registry.get('toast') as Toast | undefined)?.show(`已拆除${name}，返还半数材料`, 'info');
+                registryGet(this.registry, REGISTRY_KEYS.toast)?.show(`已拆除${name}，返还半数材料`, 'info');
               }
             } else if (inst) {
               // popover 锚到建筑地基中心的屏幕位置（而非鼠标点——点高屋顶会离地基很远导致飘）。
@@ -359,7 +360,7 @@ export class GameScene extends Phaser.Scene {
     const bm = this.buildMode;
     if (!renderer || !store || !bm) return;
     // 2026-06-19：全屏国策树打开时，所有地图交互（平移/hover/放置预览）让位给它。
-    if (this.registry.get('treePanelOpen')) return;
+    if (registryGet(this.registry, REGISTRY_KEYS.treePanelOpen)) return;
     // v1.0 #5：中键拖动平移。需要在 build hover 之前，因为 pan 时不该再画 hover preview。
     const middleDown = typeof pointer.middleButtonDown === 'function' && pointer.middleButtonDown();
     if (middleDown) {
@@ -438,7 +439,7 @@ export class GameScene extends Phaser.Scene {
     const bm = this.buildMode;
     if (!renderer || !store || !bm) return;
     // 2026-06-19：全屏国策树打开时，点击归它处理，不在底层地图放置建筑/平移。
-    if (this.registry.get('treePanelOpen')) return;
+    if (registryGet(this.registry, REGISTRY_KEYS.treePanelOpen)) return;
     const def = bm.getSelected();
     // 右键统一释义：建造模式下取消选中；空闲态下若 popover 开着也关掉
     if (pointer.rightButtonDown()) {
@@ -455,7 +456,7 @@ export class GameScene extends Phaser.Scene {
       if (inst) {
         const name = getBuildingDef(inst.defId)?.name ?? '建筑';
         store.removeBuilding(inst);
-        (this.registry.get('toast') as Toast | undefined)?.show(`已拆除${name}，返还半数材料`, 'info');
+        registryGet(this.registry, REGISTRY_KEYS.toast)?.show(`已拆除${name}，返还半数材料`, 'info');
         return; // 拆掉了才结束；点空地继续往下走平移
       }
     }
@@ -505,7 +506,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private toastFailure(reason: string): void {
-    const toast = this.registry.get('toast') as Toast | undefined;
+    const toast = registryGet(this.registry, REGISTRY_KEYS.toast);
     if (!toast) return;
     const msg: Record<string, string> = {
       insufficient_resources: '资源不足，无法建造',
@@ -594,7 +595,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.buildingPopover?.destroy();
     this.buildingPopover = null;
-    this.registry.set('mapRenderer', null);
+    registrySet(this.registry, REGISTRY_KEYS.mapRenderer, undefined);
     this.mapRenderer?.destroy();
     this.mapRenderer = null;
     this.store = null;

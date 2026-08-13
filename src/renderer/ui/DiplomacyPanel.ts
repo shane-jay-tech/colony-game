@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, FONTS } from './palette';
+import { REGISTRY_KEYS, registryGet } from './registry';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
 import { getNpcDef } from '../data/npcCountries';
@@ -384,8 +385,9 @@ export class DiplomacyPanel {
   }
 
   private toast(msg: string, kind: 'success' | 'error' = 'success'): void {
-    const t = this.scene.registry.get('toast') as { show?: (m: string, k?: string) => void } | undefined;
-    t?.show?.(msg, kind);
+    const t = registryGet(this.scene.registry, REGISTRY_KEYS.toast);
+    // Toast kind 只有 info/error：success 归入 info 样式（此前的 'success' 一直被默认样式兜底）
+    t?.show?.(msg, kind === 'success' ? 'info' : 'error');
   }
 
   destroy(): void {

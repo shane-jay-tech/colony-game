@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, COLORS_HEX, FONTS, UI } from './palette';
+import { REGISTRY_KEYS, registryGet } from './registry';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
 import type { BuildMode } from '../state/buildMode';
@@ -513,7 +514,7 @@ export class BuildPanel {
     // 仅差国格的建筑不可选建，点了给提示（别让玩家以为没反应）。
     const info = this.store.getBuildingUnlockInfo(def);
     if (info.state === 'grade_locked') {
-      (this.scene.registry.get('toast') as { show?: (m: string, k?: string) => void } | undefined)
+      registryGet(this.scene.registry, REGISTRY_KEYS.toast)
         ?.show?.(`${def.name}：${info.reason}方可营建`, 'info');
       return;
     }

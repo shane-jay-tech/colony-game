@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, COLORS_HEX, FONTS, UI } from './palette';
+import { REGISTRY_KEYS, registryGet } from './registry';
 import { drawDecorativePanelFrame } from './panelDecoration';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
@@ -130,7 +131,7 @@ export class MegaProjectPanel {
 
   private onStartClick(def: MegaProjectDef): void {
     const ok = this.store.startMegaProject(def.id);
-    const toast = this.scene.registry.get('toast') as { show?: (m: string, k?: string) => void } | undefined;
+    const toast = registryGet(this.scene.registry, REGISTRY_KEYS.toast);
     if (ok) toast?.show?.(`已兴「${def.name}」之役，国之大业自此始`, 'info');
     else toast?.show?.(this.startFailReason(def), 'error');
     this.layout();

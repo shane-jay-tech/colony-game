@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, FONTS, UI } from './palette';
+import { REGISTRY_KEYS, registryGet } from './registry';
 import { TOP_BAR_RESOURCE_IDS, INTERMEDIATE_RESOURCE_IDS } from '../data/resourceRegistry';
 import type { ResourceId } from '../data/resourceRegistry';
 import type { GameStore } from '../state/gameStore';
@@ -253,7 +254,7 @@ export class HUD {
         if (!zone) {
           zone = this.scene.add.zone(0, 0, tokenW, 28).setOrigin(0, 0).setInteractive({ useHandCursor: true });
           zone.on('pointerup', () => {
-            (this.scene.registry.get('productionPanel') as { toggle?: () => void } | undefined)?.toggle?.();
+            registryGet(this.scene.registry, REGISTRY_KEYS.productionPanel)?.toggle?.();
           });
           this.resourceTokenZones.set(id, zone);
           this.container.add(zone);
@@ -276,7 +277,7 @@ export class HUD {
         .setInteractive({ useHandCursor: true });
       // pointerup（非 pointerdown）：否则打开的那一下"松手"会落到刚弹出的面板遮罩上→秒关（"按着才看得见"bug）
       this.populationZone.on('pointerup', () => {
-        const panel = this.scene.registry.get('populationPanel') as { toggle?: () => void } | undefined;
+        const panel = registryGet(this.scene.registry, REGISTRY_KEYS.populationPanel);
         panel?.toggle?.();
       });
       this.container.add(this.populationZone);
@@ -296,7 +297,7 @@ export class HUD {
     if (!this.gradeBadgeZone) {
       this.gradeBadgeZone = this.scene.add.zone(0, 0, 112, 30).setOrigin(0, 0).setInteractive({ useHandCursor: true });
       this.gradeBadgeZone.on('pointerup', () => {
-        (this.scene.registry.get('gradePanel') as { toggle?: () => void } | undefined)?.toggle?.();
+        registryGet(this.scene.registry, REGISTRY_KEYS.gradePanel)?.toggle?.();
       });
       this.container.add(this.gradeBadgeZone);
     }
@@ -324,8 +325,8 @@ export class HUD {
         .setInteractive({ useHandCursor: true });
       // 2026-06-19：「?」改为打开「典册」（新手引导/百科），比重放一次性欢迎引导更有用、可随时查
       this.helpZone.on('pointerup', () => {
-        (this.scene.registry.get('audioManager') as { playUi?: (k: string) => void } | undefined)?.playUi?.('sfx_click');
-        const codex = this.scene.registry.get('codexPanel') as { toggle?: () => void } | undefined;
+        registryGet(this.scene.registry, REGISTRY_KEYS.audioManager)?.playUi?.('sfx_click');
+        const codex = registryGet(this.scene.registry, REGISTRY_KEYS.codexPanel);
         codex?.toggle?.();
       });
       this.container.add([this.helpBg, this.helpLabel, this.helpZone]);
@@ -351,8 +352,8 @@ export class HUD {
       this.settingsZone = this.scene.add.zone(0, 0, settingsBtnW, btnSize).setOrigin(0, 0)
         .setInteractive({ useHandCursor: true });
       this.settingsZone.on('pointerup', () => {
-        (this.scene.registry.get('saveLoadPanel') as { hide?: () => void } | undefined)?.hide?.();
-        const panel = this.scene.registry.get('settingsPanel') as { toggle?: () => void } | undefined;
+        registryGet(this.scene.registry, REGISTRY_KEYS.saveLoadPanel)?.hide?.();
+        const panel = registryGet(this.scene.registry, REGISTRY_KEYS.settingsPanel);
         panel?.toggle?.();
       });
       this.container.add([this.settingsBg, this.settingsLabel, this.settingsZone]);
@@ -378,9 +379,9 @@ export class HUD {
       this.saveZone = this.scene.add.zone(0, 0, saveBtnW, btnSize).setOrigin(0, 0)
         .setInteractive({ useHandCursor: true });
       this.saveZone.on('pointerup', () => {
-        (this.scene.registry.get('audioManager') as { playUi?: (k: string) => void } | undefined)?.playUi?.('sfx_click');
-        (this.scene.registry.get('settingsPanel') as { hide?: () => void } | undefined)?.hide?.();
-        const panel = this.scene.registry.get('saveLoadPanel') as { toggle?: () => void } | undefined;
+        registryGet(this.scene.registry, REGISTRY_KEYS.audioManager)?.playUi?.('sfx_click');
+        registryGet(this.scene.registry, REGISTRY_KEYS.settingsPanel)?.hide?.();
+        const panel = registryGet(this.scene.registry, REGISTRY_KEYS.saveLoadPanel);
         panel?.toggle?.();
       });
       this.container.add([this.saveBg, this.saveLabel, this.saveZone]);
@@ -406,8 +407,8 @@ export class HUD {
       this.scoreZone = this.scene.add.zone(0, 0, scoreBtnW, btnSize).setOrigin(0, 0)
         .setInteractive({ useHandCursor: true });
       this.scoreZone.on('pointerup', () => {
-        (this.scene.registry.get('audioManager') as { playUi?: (k: string) => void } | undefined)?.playUi?.('sfx_click');
-        const panel = this.scene.registry.get('scoreCardPanel') as { toggle?: () => void } | undefined;
+        registryGet(this.scene.registry, REGISTRY_KEYS.audioManager)?.playUi?.('sfx_click');
+        const panel = registryGet(this.scene.registry, REGISTRY_KEYS.scoreCardPanel);
         panel?.toggle?.();
       });
       this.container.add([this.scoreBg, this.scoreLabel, this.scoreZone]);
@@ -452,7 +453,7 @@ export class HUD {
 
   /** 2026-06-19：主功能工具栏——顶栏正下方一排大按钮（朝堂/邦交/军务/大业），参考钢铁雄心主菜单的醒目布局。 */
   private layoutFunctionToolbar(w: number): void {
-    const defs: { text: string; reg: string }[] = [
+    const defs: { text: string; reg: 'policyTreePanel' | 'diplomacyPanel' | 'militaryPanel' | 'megaProjectPanel' | 'influencePanel' }[] = [
       { text: '朝堂', reg: 'policyTreePanel' },
       { text: '邦交', reg: 'diplomacyPanel' },
       { text: '军务', reg: 'militaryPanel' },
@@ -487,8 +488,8 @@ export class HUD {
         const zone = this.scene.add.zone(0, 0, btnW, btnH).setOrigin(0, 0).setInteractive({ useHandCursor: true });
         // pointerup：朝堂/邦交/军务/大业面板都会"点遮罩关闭"，若用 pointerdown，开面板那一下的松手会落在遮罩上秒关（军务 bug）
         zone.on('pointerup', () => {
-          (this.scene.registry.get('audioManager') as { playUi?: (k: string) => void } | undefined)?.playUi?.('sfx_click');
-          const panel = this.scene.registry.get(d.reg) as { toggle?: () => void } | undefined;
+          registryGet(this.scene.registry, REGISTRY_KEYS.audioManager)?.playUi?.('sfx_click');
+          const panel = registryGet(this.scene.registry, REGISTRY_KEYS[d.reg]);
           panel?.toggle?.();
         });
         this.container.add([bg, label, zone]);

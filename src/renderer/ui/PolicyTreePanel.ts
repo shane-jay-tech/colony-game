@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, COLORS_HEX, FONTS } from './palette';
+import { REGISTRY_KEYS, registryGet, registrySet } from './registry';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
 import type { PolicyNode, RoyalDecree } from '../data/schema';
@@ -283,7 +284,7 @@ export class PolicyTreePanel {
     if (this.isOpen) return;
     this.isOpen = true;
     if (!this.holdsPause) { this.store.requestPause(PolicyTreePanel.PAUSE_HOLDER); this.holdsPause = true; }
-    this.scene.registry.set('treePanelOpen', true); // GameScene 据此跳过地图滚轮缩放
+    registrySet(this.scene.registry, REGISTRY_KEYS.treePanelOpen, true); // GameScene 据此跳过地图滚轮缩放
     this.resetView();
     this.layout();
     this.container.setVisible(true);
@@ -294,7 +295,7 @@ export class PolicyTreePanel {
     this.isOpen = false;
     this.hideTip();
     this.container.setVisible(false);
-    this.scene.registry.set('treePanelOpen', false);
+    registrySet(this.scene.registry, REGISTRY_KEYS.treePanelOpen, false);
     if (this.holdsPause) { this.store.releasePause(PolicyTreePanel.PAUSE_HOLDER); this.holdsPause = false; }
   }
 
@@ -453,7 +454,7 @@ export class PolicyTreePanel {
   }
 
   private toast(msg: string): void {
-    const t = this.scene.registry.get('toast') as { show?: (m: string, k?: string) => void } | undefined;
+    const t = registryGet(this.scene.registry, REGISTRY_KEYS.toast);
     t?.show?.(msg, 'error');
   }
 
@@ -769,7 +770,7 @@ export class PolicyTreePanel {
     if (this.destroyed) return;
     this.destroyed = true;
     // 防御：即便未走 close() 直接被拆解（场景重启），也复位地图交互标志，避免地图永久卡死。
-    this.scene.registry.set('treePanelOpen', false);
+    registrySet(this.scene.registry, REGISTRY_KEYS.treePanelOpen, false);
     this.store.off(STATE_EVENTS.RESOURCES_CHANGED, this.onResources);
     this.store.off(STATE_EVENTS.POLICY_ADOPTED, this.onPolicyAdopted);
     this.store.off(STATE_EVENTS.DECREE_ADOPTED, this.onDecreeChanged);

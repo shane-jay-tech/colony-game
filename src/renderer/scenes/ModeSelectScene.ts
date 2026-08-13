@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, COLORS_HEX, FONTS } from '../ui/palette';
+import { REGISTRY_KEYS, registrySet } from '../ui/registry';
 
 /**
  * ModeSelectScene — 进游戏第一屏（Phase 1 模式外壳）。
@@ -188,12 +189,12 @@ export class ModeSelectScene extends Phaser.Scene {
   }
 
   private chooseSandbox(): void {
-    this.registry.set(MODE_REGISTRY_KEY, 'sandbox');
+    registrySet(this.registry, REGISTRY_KEYS.gameMode, 'sandbox');
     this.scene.start('IntroScene');
   }
 
   private chooseStory(): void {
-    this.registry.set(MODE_REGISTRY_KEY, 'story');
+    registrySet(this.registry, REGISTRY_KEYS.gameMode, 'story');
     this.scene.start('IntroScene');
   }
 

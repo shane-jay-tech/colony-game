@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, COLORS_HEX, FONTS } from '../ui/palette';
+import { REGISTRY_KEYS, registryGet, registrySet } from '../ui/registry';
 import type { GameStore } from '../state/gameStore';
 import type { ModifierInstance } from '../data/schema';
 
@@ -132,12 +133,8 @@ const IDENTITIES: IdentityChoice[] = [
   },
 ];
 
-/** 标志位 — main.ts 启动种子资源时 IntroScene 写一份永久 modifier，避免 STATE_REPLACED 时再次注入 */
-export const REGISTRY_KEYS = {
-  COUNTRY_NAME: 'introCountryName',
-  IDENTITY: 'introIdentity',
-  INTRO_DONE: 'introDone',
-} as const;
+// 标志位（COUNTRY_NAME/IDENTITY/INTRO_DONE）已并入 ui/registry.ts 的中央 REGISTRY_KEYS（P1-2 硬化）
+export { REGISTRY_KEYS } from '../ui/registry';
 
 interface CandidateButton {
   container: Phaser.GameObjects.Container;
@@ -557,14 +554,14 @@ export class IntroScene extends Phaser.Scene {
     if (!identity) return;
     const countryName = this.getCurrentCountryName();
 
-    this.registry.set(REGISTRY_KEYS.COUNTRY_NAME, countryName);
-    this.registry.set(REGISTRY_KEYS.IDENTITY, identity.id);
+    registrySet(this.registry, REGISTRY_KEYS.countryName, countryName);
+    registrySet(this.registry, REGISTRY_KEYS.identity, identity.id);
 
-    const store = this.registry.get('store') as GameStore | undefined;
+    const store = registryGet(this.registry, REGISTRY_KEYS.store);
     if (store) {
       store.addModifier(structuredClone(identity.startingModifier));
       // Phase1/2：按 ModeSelectScene 选定的模式落进 state
-      const mode = this.registry.get('gameMode');
+      const mode = registryGet(this.registry, REGISTRY_KEYS.gameMode);
       if (mode === 'story') {
         store.startStoryMode(); // 设 mode='story' + 初始化 storyFlags（序章态）
       } else {
@@ -574,7 +571,7 @@ export class IntroScene extends Phaser.Scene {
       store.startNewGameNpcs(Math.floor(Math.random() * 0x7fffffff));
     }
 
-    this.registry.set(REGISTRY_KEYS.INTRO_DONE, true);
+    registrySet(this.registry, REGISTRY_KEYS.introDone, true);
     this.scene.start('GameScene');
   }
 
