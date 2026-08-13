@@ -530,6 +530,65 @@ describe('B-0 人口阶层存档迁移', () => {
   });
 });
 
+describe('P0-2 旧存档全链迁移回归（v1/v2 fixture → v8）', () => {
+  /** 最简 v1 存档：只有当时 schema 的字段（其余全部靠迁移链补默认值）。 */
+  const v1Fixture = () => ({
+    schemaVersion: 1, savedAt: 1700000000000,
+    state: {
+      resources: { grain: 100, wood: 50, people: 25 },
+      buildings: [], policies: [], activeModifiers: [], activeDecrees: [],
+      eventHistory: [], tutorialStepId: null, lastSeenTimestamp: 0, currentDay: 10,
+      rngSeed: 1, speed: 1 as const,
+      playerMorale: 55,
+    },
+  });
+
+  it('v1 旧档一路迁到 v8：逐段迁移字段全部就位', () => {
+    const restored = deserialize(v1Fixture());
+    // 1→2 人口阶层
+    expect(restored.populationClasses).toEqual({ farmer: 25, worker: 0, soldier: 0, scholar: 0 });
+    expect(restored.conversionQueue).toEqual([]);
+    expect(restored.grainNegativeDays).toBe(0);
+    // 2→3 阶层博弈/大工程/互斥
+    expect(restored.factionState).toBeDefined();
+    expect(restored.megaProjects).toEqual([]);
+    expect(restored.exclusivePolicies).toEqual([]);
+    // 3→4 双轴民心
+    expect(restored.publicWrath).toBe(0);
+    // 4→5 列国警惕
+    expect(restored.worldWariness).toBeGreaterThanOrEqual(0);
+    // 5→6 影响力
+    expect(restored.lastPropagandaDay).toBeNull();
+    // 6→7 古迹
+    expect(restored.relicSites).toEqual([]);
+    // 7→8 终局波次
+    expect(restored.endgameAscendDay).toBeNull();
+    expect(restored.endgameLastWaveDay).toBeNull();
+    // 业务字段原样保留
+    expect(restored.resources.people).toBe(25);
+    expect(restored.playerMorale).toBe(55);
+    expect(restored.currentDay).toBe(10);
+  });
+
+  it('v2 fixture（已有阶层字段）同样可迁到 v8，且人口阶层不被覆盖', () => {
+    const blob = v1Fixture() as Record<string, unknown>;
+    blob.schemaVersion = 2;
+    (blob.state as Record<string, unknown>)['populationClasses'] = { farmer: 20, worker: 3, soldier: 2, scholar: 0 };
+    (blob.state as Record<string, unknown>)['conversionQueue'] = [];
+    (blob.state as Record<string, unknown>)['grainNegativeDays'] = 2;
+    const restored = deserialize(blob);
+    expect(restored.populationClasses).toEqual({ farmer: 20, worker: 3, soldier: 2, scholar: 0 });
+    expect(restored.grainNegativeDays).toBe(2);
+    expect(restored.relicSites).toEqual([]); // 6→7 仍补默认
+  });
+
+  it('越版本异常（version=0 或缺省）→ 报 SaveLoadError，不静默读坏档', () => {
+    const blob = v1Fixture() as Record<string, unknown>;
+    blob.schemaVersion = 0;
+    expect(() => deserialize(blob)).toThrow(SaveLoadError);
+  });
+});
+
 describe('Phase2 故事 storyFlags 存档', () => {
   it('story 存档 round-trip 保真', () => {
     const s = makeGameState();
