@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron';
 import { join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
 import { readFile, writeFile, readdir, mkdir, stat, rename, copyFile } from 'fs/promises';
@@ -109,7 +109,10 @@ function createWindow(): void {
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    // 协议白名单：只放行 http/https 外链，file:/javascript:/自定义协议一律不交给系统
+    if (/^https?:\/\//i.test(details.url)) {
+      shell.openExternal(details.url);
+    }
     return { action: 'deny' };
   });
 
@@ -126,6 +129,11 @@ function createWindow(): void {
       }
     } else if (crashRetryCount >= MAX_CRASH_RETRIES) {
       console.error('[main] crash retry limit reached, leaving window blank for user inspection');
+      // 用户可见提示：纯 console 用户看不到，弹系统错误框（最小侵入）
+      dialog.showErrorBox(
+        '邦国录',
+        '游戏引擎连续崩溃，自动重载已达上限。\n存档未受影响，请关闭窗口后重新启动；若反复出现请反馈日志（user-data/logs）。'
+      );
     }
   });
 
