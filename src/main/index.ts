@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
-import { readFile, writeFile, readdir, mkdir, stat } from 'fs/promises';
+import { readFile, writeFile, readdir, mkdir, stat, rename, copyFile } from 'fs/promises';
 
 const D_DRIVE_USER_DATA = 'D:/colony-game/user-data';
 const D_DRIVE_TEMP = 'D:/colony-game/user-data/temp';
@@ -149,7 +149,14 @@ ipcMain.handle('save-game', async (_event, slot: unknown, json: unknown): Promis
   if (json.length > MAX_SAVE_BYTES) throw new Error('save data exceeds 10 MB cap');
   const savesDir = join(app.getPath('userData'), 'saves');
   await mkdir(savesDir, { recursive: true });
-  await writeFile(join(savesDir, `${slot}.json`), json, 'utf-8');
+  // 原子写：先落 .tmp 再 rename 替换，进程中断不会留下半截存档；
+  // 覆盖前把旧档复制为 .bak，每槽保留前一代以便回退。
+  const target = join(savesDir, `${slot}.json`);
+  const tmp = join(savesDir, `${slot}.json.tmp`);
+  const bak = join(savesDir, `${slot}.json.bak`);
+  await writeFile(tmp, json, 'utf-8');
+  if (existsSync(target)) await copyFile(target, bak);
+  await rename(tmp, target);
   return true;
 });
 

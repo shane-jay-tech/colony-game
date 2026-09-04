@@ -17,7 +17,7 @@ if not exist "D:\electron-download" mkdir "D:\electron-download"
 
 echo.
 echo ====================================================
-echo  邦国录 v0.7  安装依赖
+echo  邦国录 v0.10  安装依赖
 echo  缓存全走 D 盘，C 盘不会被占
 echo  首次安装大约 200 MB，下载几分钟
 echo ====================================================

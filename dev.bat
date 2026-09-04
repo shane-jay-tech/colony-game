@@ -24,7 +24,7 @@ if not exist "node_modules" (
 
 echo.
 echo ====================================================
-echo  邦国录 v0.7 dev mode  日志写到 D:\colony-game\.logs\
+echo  邦国录 v0.10 dev mode  日志写到 D:\colony-game\.logs\
 echo ====================================================
 echo.
 
