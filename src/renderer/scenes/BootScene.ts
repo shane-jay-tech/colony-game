@@ -1,10 +1,9 @@
 import Phaser from 'phaser';
-import { validateStaticData, BUILDINGS } from '@/data';
+import { validateStaticData } from '@/data';
 import { REGISTRY_KEYS, registryGet } from '../ui/registry';
 import { ALL_BGM_KEYS, SFX_KEYS } from '../state/audioDirector';
 import { ALL_SCATTER_IDS as SCATTER_IDS } from '../data/scatterConfig';
-import { GENERAL_POOL } from '../data/generals';
-import { EVENT_ART } from '../data/artManifest';
+import { EVENT_ART, getBootLoadList } from '../data/artManifest';
 
 /**
  * BootScene：
@@ -35,21 +34,35 @@ export class BootScene extends Phaser.Scene {
       // 仅打 debug，不污染 console.error——大量缺图属预期状态
       console.debug('[BootScene] sprite missing (fallback to sigil):', file.key);
     });
-    for (const def of BUILDINGS) {
-      this.load.image(def.assetKey, `art/buildings/${def.id}.png`);
+    // v0.9 Pillar 3.2 + h912-11 批次一：建筑加载清单改由 artManifest 派生（PLAN.md：manifest
+    // 已描述的资产以 manifest 为权威 boot-loading 源）。键与顺序经单测与旧手写清单逐项相等。
+    // 缺图不崩——loaderror 事件上报后 textures.exists(key) 返 false，
+    // MapRenderer 据此自动回退到现有 fillRect+沙印渲染。审核通过的 baseline
+    // 落在 public/art/buildings/<defId>.png；尚未生成的 defId 直接走 fallback。
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      // 仅打 debug，不污染 console.error——大量缺图属预期状态
+      console.debug('[BootScene] sprite missing (fallback to sigil):', file.key);
+    });
+    for (const item of getBootLoadList('building')) {
+      this.load.image(item.key, item.url);
     }
 
     // W3：手绘地貌贴图（缺图 loaderror 静默 → MapRenderer 回退色块）。
+    // h912-11：manifest TERRAIN_ART 仅 3 型且命名与实际落盘不等价（hills vs hill、缺
+    // forest/river/mountain）——语义不等价项按批次口径保留硬编码，见批次报告。
     for (const terr of ['plain', 'hills', 'forest', 'river', 'mountain']) {
       this.load.image(`terrain_${terr}`, `art/terrain/${terr}.png`);
     }
     // W4：2.5D 散布素材（树/石/灌木/芦苇；缺则 MapRenderer 跳过散布）。
+    // h912-11：manifest 无 scatter 类目，保留原清单。
     for (const id of SCATTER_IDS) {
       this.load.image(`scatter_${id}`, `art/scatter/${id}.png`);
     }
     // 2026-06-19：将领立绘（军务面板）+ 事件插画（朝议弹窗/结局）。缺图静默 → 回退文字。
-    for (const g of GENERAL_POOL) {
-      this.load.image(`portrait_${g.id}`, `art/generals/${g.id}.png`);
+    // h912-11 批次一：将领加载清单改由 artManifest.GENERAL_ART 派生（键=portrait_${id}，
+    // 与旧 GENERAL_POOL 派生序列经单测逐项相等）。
+    for (const item of getBootLoadList('general')) {
+      this.load.image(item.key, item.url);
     }
     // P0-3：事件插画清单以 artManifest.EVENT_ART 为唯一权威源（去重本地 EVENT_ART_NAMES）
     for (const asset of EVENT_ART) {

@@ -21,15 +21,16 @@ export interface ArtAssetDef {
 // ====================== Buildings (35) =====================================
 
 export const BUILDING_ART: ArtAssetDef[] = [
+  // h912-11：条目顺序与 data/buildings.ts 权威序对齐（原 hemp_field/tin_mine 排在末尾，
+  // 与数据表顺序不一致会导致派生加载序漂移；仅调序，条目内容零改动）
   'bld_farm', 'bld_well', 'bld_house', 'bld_market', 'bld_woodcutter',
-  'bld_quarry', 'bld_pottery_kiln', 'bld_loom_house', 'bld_smithy', 'bld_ancestor_shrine',
-  'bld_barracks', 'bld_academy', 'bld_palace', 'bld_beacon_tower',
-  'bld_post_road', 'bld_water_mill', 'bld_iron_forge', 'bld_mulberry_grove',
+  'bld_quarry', 'bld_tin_mine', 'bld_pottery_kiln', 'bld_loom_house', 'bld_smithy',
+  'bld_ancestor_shrine', 'bld_barracks', 'bld_academy', 'bld_palace', 'bld_beacon_tower',
+  'bld_post_road', 'bld_water_mill', 'bld_iron_forge', 'bld_mulberry_grove', 'bld_hemp_field',
   'bld_stele_yard', 'bld_village_school', 'bld_envoy_lodge',
   'bld_training_ground', 'bld_stable', 'bld_chariot_works', 'bld_city_wall',
   'bld_imperial_guard', 'bld_granary', 'bld_watchtower', 'bld_censor',
   'bld_grand_temple', 'bld_observatory', 'bld_relay_station', 'bld_nine_cauldrons',
-  'bld_hemp_field', 'bld_tin_mine',
 ].map(id => ({
   key: id,
   path: `assets/buildings/${id}.webp`,
@@ -94,6 +95,28 @@ export const ART_MANIFEST: ArtAssetDef[] = [
 
 export function getArtByCategory(category: ArtAssetDef['category']): ArtAssetDef[] {
   return ART_MANIFEST.filter(a => a.category === category);
+}
+
+// ====================== Boot 启动加载清单派生（h912-11 批次一） ======================
+//
+// PLAN.md：manifest 已描述的资产以 manifest 为权威 boot-loading 源，删除重复加载列表。
+// URL 约定说明：仓库真实落盘为 public/art/<类别>/<id>.png；本表 path 字段（assets/*.webp）
+// 是 Phase D 占位约定、与实际文件不对应——故派生只取「键与顺序」，URL 模板在此固化。
+// 地形/散布/音频 manifest 未等价描述（TERRAIN_ART 仅 3 型且命名不一），仍由 BootScene 保留。
+
+export interface BootLoadItem {
+  key: string;
+  url: string;
+}
+
+export function getBootLoadList(category: 'building' | 'general'): BootLoadItem[] {
+  if (category === 'building') {
+    return BUILDING_ART.map(a => ({ key: a.key, url: `art/buildings/${a.key}.png` }));
+  }
+  return GENERAL_ART.map(a => {
+    const id = a.key.startsWith('portrait_') ? a.key.slice('portrait_'.length) : a.key;
+    return { key: a.key, url: `art/generals/${id}.png` };
+  });
 }
 
 export function isArtAvailable(key: string, loadedKeys: ReadonlySet<string>): boolean {
