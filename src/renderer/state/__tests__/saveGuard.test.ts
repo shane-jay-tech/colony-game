@@ -89,18 +89,15 @@ describe('b) 损坏与类型错乱对抗', () => {
     expect(deserialize(validV9({ rngSeed: '42' })).rngSeed).toBe(12345);
   });
 
-  it('必填字段整体缺失（state 为 undefined）现状：抛错', () => {
-    // 现行 deserialize 解构 s = data.state 后立即读 s.speed → TypeError 而非 SaveLoadError。
-    // TODO(日间)：把"缺 state"纳入 SaveLoadError 通道，而非让 TypeError 冒泡。
+  it('必填字段整体缺失（state 为 undefined）：抛 SaveLoadError（020c 已收口）', () => {
     const blob = { schemaVersion: 9 };
-    expect(() => deserialize(blob)).toThrow(TypeError);
+    expect(() => deserialize(blob)).toThrow(SaveLoadError);
+    expect(() => deserialize(blob)).toThrow('missing state field');
   });
 
-  it('resources 为字符串：现状被原样保留（可疑）', () => {
-    // TODO(日间)：resources 缺 shape 校验，字符串会流入渲染层；
-    // 现钉住现状：不抛错且原样带出。
-    const gs = deserialize(validV9({ resources: 'oops' }));
-    expect(gs.resources as unknown).toBe('oops');
+  it('resources 为字符串：抛 SaveLoadError（p911r-40 shape 校验已收口原「可疑」项）', () => {
+    // 原 TODO(日间) 已由 p911r-40 落地：resources 必须是有限数值记录，否则 SaveLoadError。
+    expect(() => deserialize(validV9({ resources: 'oops' }))).toThrow(SaveLoadError);
   });
 
   it('currentDay 超大数：现状不做 clamp 原样带出（可疑）', () => {
@@ -124,5 +121,19 @@ describe('d) 迁移幂等', () => {
     const a = deserialize(JSON.parse(JSON.stringify(blob)));
     const b = deserialize(JSON.parse(JSON.stringify(blob)));
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+  });
+});
+
+// ---------------- 020c：异常语义统一 SaveLoadError（两处收口回归） ----------------
+
+describe('020c：SaveLoadError 通道统一', () => {
+  it('截断档（非法 JSON 字符串）→ SaveLoadError 而非裸 SyntaxError', () => {
+    // deserialize 入口层面的表征：截断 JSON 在 parse 阶段即失败，
+    // deserialize 收到非对象输入时走同一条 SaveLoadError 通道。
+    expect(() => deserialize('{ "schemaVersion": 9, "state": { "spe')).toThrow(SaveLoadError);
+  });
+
+  it('缺 state 的档 → SaveLoadError 且信息明确（不再是裸 TypeError）', () => {
+    expect(() => deserialize({ schemaVersion: 9 })).toThrow(/missing state field/);
   });
 });

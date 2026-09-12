@@ -389,6 +389,10 @@ export function deserialize(blob: unknown): GameState {
   }
 
   const data = migrated as { schemaVersion: number; state: SerializedSave['state'] };
+  if (typeof data.state !== 'object' || data.state === null) {
+    // 020c：缺 state 不再裸抛 TypeError，统一 SaveLoadError 通道
+    throw new SaveLoadError('Save data missing state field');
+  }
   const s = data.state;
 
   // clamp speed to the literal union 0|1|2|3; a corrupted save shouldn't be able to
@@ -411,9 +415,19 @@ export function deserialize(blob: unknown): GameState {
   // Slice G hardening：buildings 必走 shape 校验（损坏 status/tier 会让 productionTick 静默不产出）
   const buildings = s.buildings === undefined ? [] : validateBuildingsArray(s.buildings);
 
+  // p911r-40：resources shape 校验——必须是「有限数值」记录，异常统一 SaveLoadError
+  const rawResources = (s.resources ?? {}) as Record<string, unknown>;
+  if (
+    typeof rawResources !== 'object' ||
+    Array.isArray(rawResources) ||
+    !Object.values(rawResources).every(v => typeof v === 'number' && Number.isFinite(v))
+  ) {
+    throw new SaveLoadError('resources must be a record of finite numbers');
+  }
+
   // reconstruct GameState, adding runtime-only defaults
   const gameState: GameState = {
-    resources: s.resources ?? {},
+    resources: rawResources as GameState['resources'],
     buildings,
     policies: s.policies ?? [],
     activeModifiers: s.activeModifiers ?? [],
@@ -705,9 +719,12 @@ function validateBuildingsArray(raw: unknown): BuildingInstance[] {
     if (typeof rec['tier'] !== 'number' || !VALID_BUILDING_TIER.has(rec['tier'] as BuildingTier)) {
       throw new SaveLoadError(`buildings[${i}].tier invalid: "${String(rec['tier'])}"`);
     }
-    if (typeof rec['constructionProgress'] !== 'number' || !Number.isFinite(rec['constructionProgress'])) {
+    const rawProgress = rec['constructionProgress'];
+    if (typeof rawProgress !== 'number' || !Number.isFinite(rawProgress)) {
       throw new SaveLoadError(`buildings[${i}].constructionProgress must be finite number`);
     }
+    // p911r-40：钳制到 [0,100]（游戏语义为百分比，gameStore productionTick 同口径；越界值来自损坏档）
+    const progress = Math.min(100, Math.max(0, rawProgress));
     if (!Array.isArray(rec['modifiers']) || (rec['modifiers'] as unknown[]).some(m => typeof m !== 'string')) {
       throw new SaveLoadError(`buildings[${i}].modifiers must be array of string ids`);
     }
@@ -724,7 +741,7 @@ function validateBuildingsArray(raw: unknown): BuildingInstance[] {
       position: { x: px as number, y: py as number },
       status: rec['status'] as BuildingStatus,
       tier: rec['tier'] as BuildingTier,
-      constructionProgress: rec['constructionProgress'] as number,
+      constructionProgress: progress,
       modifiers: rec['modifiers'] as string[],
       ...(upgradingTo !== undefined ? { upgradingTo } : {}),
     });
@@ -768,7 +785,16 @@ export async function loadFromSlot(slot: string): Promise<GameState | null> {
   validateSlot(slot);
   const raw = await getColonyApi().loadGame(slot);
   if (raw === null) return null;
-  return deserialize(JSON.parse(raw) as unknown);
+  // 020c：截断/损坏档不再裸抛 SyntaxError，统一 SaveLoadError 通道
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new SaveLoadError(
+      `Save file in slot "${slot}" is corrupted (not valid JSON): ${(err as Error).message}`,
+    );
+  }
+  return deserialize(parsed);
 }
 
 /** 读取单个存档槽的元信息（不反序列化整份状态，供存档面板展示）。 */

@@ -159,3 +159,22 @@ describe('buildings 数组逐字段对抗', () => {
     expect(b.constructionProgress).toBe(42);
   });
 });
+
+// p911r-40：constructionProgress 钳制 + resources shape 校验
+describe('saveGuard2 additions (p911r-40)', () => {
+  it('constructionProgress 越界钳制到 [0,100]', () => {
+    const high = validV9({ buildings: [validBuilding({ constructionProgress: 150 })] });
+    const highState = deserialize(high);
+    expect(highState.buildings[0].constructionProgress).toBe(100);
+    const low = validV9({ buildings: [validBuilding({ constructionProgress: -5 })] });
+    const lowState = deserialize(low);
+    expect(lowState.buildings[0].constructionProgress).toBe(0);
+  });
+
+  it('resources 非有限数值记录 → SaveLoadError', () => {
+    const bad = validV9({ resources: { wood: 'ten' } });
+    expect(() => deserialize(bad)).toThrow(SaveLoadError);
+    const bad2 = validV9({ resources: { wood: Number.NaN } });
+    expect(() => deserialize(bad2)).toThrow(SaveLoadError);
+  });
+});

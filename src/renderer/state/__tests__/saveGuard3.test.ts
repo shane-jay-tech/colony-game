@@ -61,14 +61,13 @@ describe('#4 顶层非对象输入一律 SaveLoadError', () => {
 // ---------- #5 损坏防御：顶层缺 state ----------
 
 describe('#5 顶层缺 state / state 为 null', () => {
-  it('缺 state：现状裸 TypeError（TODO 日间换明确 SaveLoadError 信息）', () => {
-    // 现状：版本检查通过后直接读 s.speed，s 为 undefined → TypeError。
-    expect(() => deserialize({ schemaVersion: 9 })).toThrow(TypeError);
-    expect(() => deserialize({ schemaVersion: 9 })).toThrow(/speed/);
+  it('缺 state：抛 SaveLoadError 且信息明确（020c 已收口）', () => {
+    expect(() => deserialize({ schemaVersion: 9 })).toThrow(SaveLoadError);
+    expect(() => deserialize({ schemaVersion: 9 })).toThrow(/missing state field/);
   });
 
-  it('state 为 null：同类 TypeError', () => {
-    expect(() => deserialize({ schemaVersion: 9, state: null })).toThrow(TypeError);
+  it('state 为 null：同类 SaveLoadError（020c 已收口）', () => {
+    expect(() => deserialize({ schemaVersion: 9, state: null })).toThrow(SaveLoadError);
   });
 });
 
