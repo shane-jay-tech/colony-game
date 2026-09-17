@@ -73,30 +73,41 @@ const summary = {
   internalOnly: entries.filter((e) => e.bucket === 'internal-only').length,
 };
 
-// n916d-25：输出参数化——默认仍写原 JSON（兼容）；--out <path> 指定输出路径；
-// --write 未给且目标已存在时先写 .bak 再覆盖（消除「只读复核即覆盖」副作用，
-// n916c-17 披露清偿）。判定逻辑与计数口径零改动。
+// n916f-04（演进 n916d-25）：默认只读——无参数仅打印结果，零写盘副作用；
+// --out <path> 写指定路径；--write 才写回默认 JSON（批量刷新用）。
+// 任何写盘若目标已存在先写 .bak 再覆盖。判定逻辑与计数口径零改动。
 const argv = process.argv.slice(2);
 const outIdx = argv.indexOf('--out');
-const outPath = outIdx >= 0 ? argv[outIdx + 1] : 'docs/insights/colony-dead-exports-20260914.json';
-const allowOverwrite = argv.includes('--write');
-fs.mkdirSync('docs/insights', { recursive: true });
-if (!allowOverwrite && fs.existsSync(outPath)) {
-  fs.copyFileSync(outPath, `${outPath}.bak`);
-}
-fs.writeFileSync(
-  outPath,
-  JSON.stringify(
-    {
-      generatedAt: new Date().toISOString(),
-      rule: 'value-exports-only; word-boundary; buckets dead|tests-only|internal-only|wired-dynamically',
-      summary,
-      entries,
-    },
-    null,
-    1,
-  ),
+const explicitOut = outIdx >= 0 ? argv[outIdx + 1] : undefined;
+const writeDefault = argv.includes('--write');
+const DEFAULT_JSON = 'docs/insights/colony-dead-exports-20260914.json';
+const payload = JSON.stringify(
+  {
+    generatedAt: new Date().toISOString(),
+    rule: 'value-exports-only; word-boundary; buckets dead|tests-only|internal-only|wired-dynamically',
+    summary,
+    entries,
+  },
+  null,
+  1,
 );
+if (explicitOut !== undefined) {
+  fs.mkdirSync('docs/insights', { recursive: true });
+  if (fs.existsSync(explicitOut)) {
+    fs.copyFileSync(explicitOut, `${explicitOut}.bak`);
+  }
+  fs.writeFileSync(explicitOut, payload);
+  process.stdout.write(`[out] 已写入 ${explicitOut}\n`);
+} else if (writeDefault) {
+  fs.mkdirSync('docs/insights', { recursive: true });
+  if (fs.existsSync(DEFAULT_JSON)) {
+    fs.copyFileSync(DEFAULT_JSON, `${DEFAULT_JSON}.bak`);
+  }
+  fs.writeFileSync(DEFAULT_JSON, payload);
+  process.stdout.write(`[write] 已刷新 ${DEFAULT_JSON}（改前快照 ${DEFAULT_JSON}.bak）\n`);
+} else {
+  process.stdout.write('[read-only] 未指定 --out/--write：仅打印，不写任何 JSON\n');
+}
 process.stdout.write(
   `scanned files=${files.length} entries=${entries.length} summary=${JSON.stringify(summary)}\n`,
 );
