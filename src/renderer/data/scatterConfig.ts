@@ -39,12 +39,14 @@ export const SCATTER_BY_TERRAIN: Record<string, TerrainScatter> = {
   },
   hills: {
     slots: [
-      { prob: 0.22, pool: ['rock_boulder', 'rock_cluster'], minScale: 0.9, maxScale: 1.5 },
+      // rock_cluster 移除（n916d-22）：public/art/scatter/ 无此贴图，加载静默缺失；
+      // rock_boulder 为既有等价岩石素材，池概率结构与散布语义不变
+      { prob: 0.22, pool: ['rock_boulder'], minScale: 0.9, maxScale: 1.5 },
     ],
   },
   mountain: {
     slots: [
-      { prob: 0.42, pool: ['rock_boulder', 'rock_cluster'], minScale: 1.1, maxScale: 1.9 },
+      { prob: 0.42, pool: ['rock_boulder'], minScale: 1.1, maxScale: 1.9 },
     ],
   },
   river: { slots: [] },
@@ -60,6 +62,6 @@ export const SCATTER_KEY_PREFIX = 'scatter_';
 /** 全部可能用到的散布素材 id（BootScene 据此尝试加载；缺则跳过）。 */
 export const ALL_SCATTER_IDS: readonly string[] = [
   'tree_pine', 'tree_locust', 'tree_mulberry', 'tree_willow',
-  'rock_boulder', 'rock_cluster', 'bush_shrub', 'bush_dry',
+  'rock_boulder', 'bush_shrub', 'bush_dry',
   'reed_clump', 'grass_tuft',
 ];
