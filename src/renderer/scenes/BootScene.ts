@@ -39,10 +39,7 @@ export class BootScene extends Phaser.Scene {
     // 缺图不崩——loaderror 事件上报后 textures.exists(key) 返 false，
     // MapRenderer 据此自动回退到现有 fillRect+沙印渲染。审核通过的 baseline
     // 落在 public/art/buildings/<defId>.png；尚未生成的 defId 直接走 fallback。
-    this.load.on('loaderror', (file: Phaser.Loader.File) => {
-      // 仅打 debug，不污染 console.error——大量缺图属预期状态
-      console.debug('[BootScene] sprite missing (fallback to sigil):', file.key);
-    });
+    // （n916d-24：此处曾重复注册第二个 loaderror，同一失败双打日志——已合并为上方一处。）
     for (const item of getBootLoadList('building')) {
       this.load.image(item.key, item.url);
     }
