@@ -64,23 +64,12 @@ export const EVENT_ART: ArtAssetDef[] = [
   { key: 'evt_art_ending_huo', path: 'assets/events/ending_huo.webp', category: 'event', required: false },
 ];
 
-// ====================== UI elements ========================================
-
-export const UI_ART: ArtAssetDef[] = [
-  { key: 'ui_panel_bamboo', path: 'assets/ui/panel_bamboo.webp', category: 'ui', required: false },
-  { key: 'ui_panel_silk', path: 'assets/ui/panel_silk.webp', category: 'ui', required: false },
-  { key: 'ui_btn_wood', path: 'assets/ui/btn_wood.webp', category: 'ui', required: false },
-  { key: 'ui_btn_bronze', path: 'assets/ui/btn_bronze.webp', category: 'ui', required: false },
-  { key: 'ui_border_gold', path: 'assets/ui/border_gold.webp', category: 'ui', required: false },
-  { key: 'ui_scroll_bg', path: 'assets/ui/scroll_bg.webp', category: 'ui', required: false },
-];
-
 // ====================== Terrain (3 types) ==================================
 
 export const TERRAIN_ART: ArtAssetDef[] = [
   { key: 'terrain_plain', path: 'assets/terrain/plain.webp', category: 'terrain', required: false },
-  { key: 'terrain_hill', path: 'assets/terrain/hill.webp', category: 'terrain', required: false },
-  { key: 'terrain_water', path: 'assets/terrain/water.webp', category: 'terrain', required: false },
+  { key: 'terrain_hills', path: 'assets/terrain/hills.webp', category: 'terrain', required: false },
+  { key: 'terrain_river', path: 'assets/terrain/river.webp', category: 'terrain', required: false },
 ];
 
 // ====================== Full manifest ======================================
@@ -89,7 +78,6 @@ export const ART_MANIFEST: ArtAssetDef[] = [
   ...BUILDING_ART,
   ...GENERAL_ART,
   ...EVENT_ART,
-  ...UI_ART,
   ...TERRAIN_ART,
 ];
 
@@ -109,9 +97,19 @@ export interface BootLoadItem {
   url: string;
 }
 
+// n916d-23：缺图建筑复用同族既有美术（key 不变，存档/命名语义不受扰）——
+// 锡矿→采石场（挖掘族）、麻田→桑园（种植族）；正式立绘制作后删除本表即可。
+export const BUILDING_ART_REUSE: Record<string, string> = {
+  bld_tin_mine: 'bld_quarry',
+  bld_hemp_field: 'bld_mulberry_grove',
+};
+
 export function getBootLoadList(category: 'building' | 'general'): BootLoadItem[] {
   if (category === 'building') {
-    return BUILDING_ART.map(a => ({ key: a.key, url: `art/buildings/${a.key}.png` }));
+    return BUILDING_ART.map(a => ({
+      key: a.key,
+      url: `art/buildings/${BUILDING_ART_REUSE[a.key] ?? a.key}.png`,
+    }));
   }
   return GENERAL_ART.map(a => {
     const id = a.key.startsWith('portrait_') ? a.key.slice('portrait_'.length) : a.key;
