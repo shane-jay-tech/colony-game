@@ -69,6 +69,3 @@ export const MEGA_PROJECTS: MegaProjectDef[] = [
   },
 ];
 
-export function getMegaProject(id: string): MegaProjectDef | undefined {
-  return MEGA_PROJECTS.find(p => p.id === id);
-}

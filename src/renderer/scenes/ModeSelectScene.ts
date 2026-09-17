@@ -16,7 +16,6 @@ import { REGISTRY_KEYS, registrySet } from '../ui/registry';
  * 约束：Phaser.Scale.RESIZE，所有元素在 layout() 重排；文案半文半白、禁偏字。
  */
 
-export const MODE_REGISTRY_KEY = 'gameMode';
 export type GameMode = 'sandbox' | 'story';
 
 interface ModeCard {

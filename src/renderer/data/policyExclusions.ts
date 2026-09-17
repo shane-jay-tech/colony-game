@@ -85,9 +85,6 @@ export const POLICY_EXCLUSION_GROUPS: PolicyExclusionGroup[] = [
   },
 ];
 
-export function getExclusionGroup(groupId: string): PolicyExclusionGroup | undefined {
-  return POLICY_EXCLUSION_GROUPS.find(g => g.groupId === groupId);
-}
 
 export function getExcludedPolicyId(selectedPolicyId: string): string | undefined {
   for (const group of POLICY_EXCLUSION_GROUPS) {

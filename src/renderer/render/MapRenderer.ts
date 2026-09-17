@@ -20,7 +20,6 @@ export const PANEL_COLLAPSED_WIDTH = 28;
  *  随地图/视口大小动态变化），不是 MAP_ZOOM_MIN——后者只作为 ZoomControl 的名义参考，UI 实际锁止取
  *  getMinZoom()。中间档由 ZOOM_STEP 控制。 */
 export { MAP_ZOOM_MIN, MAP_ZOOM_MAX } from './cameraMath';
-export const MAP_ZOOM_STEP = 0.1;
 /** v2：缩放每档乘法因子（放大 ×、缩小 ÷）。适配 fit≈0.1 的小 zoom 量级——加法步进会一步越界。 */
 export const MAP_ZOOM_STEP_FACTOR = 1.2;
 /** v4：近景放大上限的参数——最大放大时屏幕大约容纳 BUILDINGS_ON_SCREEN_TARGET 栋平均建筑。

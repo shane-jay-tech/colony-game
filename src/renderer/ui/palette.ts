@@ -92,10 +92,6 @@ export const FONTS = {
 
 export type FontStyleKey = keyof typeof FONTS;
 
-/** 边框三层嵌套 + 投影：所有 panel 通用规格（CSS 字符串） */
-export const PANEL_BOX_SHADOW =
-  'inset 0 0 0 1px #8A6E3E, inset 0 0 0 3px #5D4037, 0 4px 12px rgba(0,0,0,0.5)';
-
 /** UI 几何常量（一处改全局生效） */
 export const UI = {
   topbarHeight: 48,
@@ -113,19 +109,3 @@ export const UI = {
   panelInnerWoodWidth: 1,
   pulseDurationMs: 1000,
 } as const;
-
-/** Phaser TextStyle 工厂——把 FONTS 转 Phaser.Types.GameObjects.Text.TextStyle */
-export function toPhaserStyle(
-  key: FontStyleKey,
-  override: Record<string, unknown> = {},
-): Record<string, unknown> {
-  // Phaser 文本属性命名与 CSS 一致，但 fontStyle 用 'bold' / 'italic'
-  const base = FONTS[key];
-  return {
-    fontFamily: base.fontFamily,
-    fontSize: base.fontSize,
-    color: base.color,
-    fontStyle: 'fontStyle' in base ? base.fontStyle : 'normal',
-    ...override,
-  };
-}

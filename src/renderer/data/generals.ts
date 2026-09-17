@@ -6,13 +6,6 @@
 export const GENERAL_TRAITS = ['attack_boost', 'defense_boost', 'ambush', 'inspire', 'frugal'] as const;
 export type GeneralTrait = typeof GENERAL_TRAITS[number];
 
-export const TRAIT_NAMES: Record<GeneralTrait, string> = {
-  attack_boost: '善攻',
-  defense_boost: '善守',
-  ambush: '善伏击',
-  inspire: '鼓舞',
-  frugal: '节粮',
-};
 
 export const TRAIT_EFFECTS: Record<GeneralTrait, { attackMul?: number; defenseMul?: number; moraleFloor?: number; grainMul?: number; ambushBonus?: boolean }> = {
   attack_boost: { attackMul: 1.20 },

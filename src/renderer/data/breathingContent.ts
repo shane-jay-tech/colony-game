@@ -66,4 +66,3 @@ export const BREATHING_BULLETINS: BreathingEntry[] = [
   { id: 'bb_15', kind: 'bulletin', text: '学塾先生请命：欲带弟子游学四方，增长见闻。此去半月，归来后或能为邦国带回新知。', condition: { type: 'has_building', defId: 'bld_academy' } },
 ];
 
-export const ALL_BREATHING: BreathingEntry[] = [...BREATHING_TOASTS, ...BREATHING_BULLETINS];

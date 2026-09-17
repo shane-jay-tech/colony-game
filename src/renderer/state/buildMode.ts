@@ -15,9 +15,6 @@ import type { PlacementResult } from './placementSystem';
  * 存活范围：随 game 生命周期。GameScene reload 不丢状态（用户中途切换地图没必要清空选中）。
  */
 
-export const BUILD_MODE_EVENTS = {
-  CHANGED: 'buildMode:changed',
-} as const;
 
 export type BuildModeListener = (def: BuildingDef | null) => void;
 
