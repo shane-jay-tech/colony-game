@@ -3,7 +3,7 @@ import { validateStaticData } from '@/data';
 import { REGISTRY_KEYS, registryGet } from '../ui/registry';
 import { ALL_BGM_KEYS, SFX_KEYS } from '../state/audioDirector';
 import { ALL_SCATTER_IDS as SCATTER_IDS } from '../data/scatterConfig';
-import { EVENT_ART, getBootLoadList } from '../data/artManifest';
+import { EVENT_ART, TERRAIN_ART, getBootLoadList } from '../data/artManifest';
 
 /**
  * BootScene：
@@ -45,10 +45,10 @@ export class BootScene extends Phaser.Scene {
     }
 
     // W3：手绘地貌贴图（缺图 loaderror 静默 → MapRenderer 回退色块）。
-    // h912-11：manifest TERRAIN_ART 仅 3 型且命名与实际落盘不等价（hills vs hill、缺
-    // forest/river/mountain）——语义不等价项按批次口径保留硬编码，见批次报告。
-    for (const terr of ['plain', 'hills', 'forest', 'river', 'mountain']) {
-      this.load.image(`terrain_${terr}`, `art/terrain/${terr}.png`);
+    // c918-04/05：TERRAIN_ART 已 5 型且指向实存 art/terrain/*.png——清单改由
+    // manifest 派生（同 general 模式），删除硬编码字面数组（B-139 销项）。
+    for (const asset of TERRAIN_ART) {
+      this.load.image(asset.key, asset.path);
     }
     // W4：2.5D 散布素材（树/石/灌木/芦苇；缺则 MapRenderer 跳过散布）。
     // h912-11：manifest 无 scatter 类目，保留原清单。
