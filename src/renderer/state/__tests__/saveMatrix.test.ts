@@ -40,7 +40,10 @@ describe('saveMatrix 迁移链全档位连通（v1..SAVE_SCHEMA_VERSION-1 → �
   }
 
   it('A 组收尾：所有档位零失败（failedVersions 显式断言，不靠没报错就算过）', () => {
-    expect(collected).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    // n916x-34：遍历范围由版本常量派生（bump 后自动要求新档在列），替代原手写 [1..8]
+    expect(collected).toEqual(
+      Array.from({ length: SAVE_SCHEMA_VERSION - 1 }, (_, i) => i + 1),
+    );
     expect(failedVersions).toEqual([]);
   });
 });
@@ -65,5 +68,19 @@ describe('saveMatrix v8 首覆盖（8→9 通牒注入 + 迁移不丢玩家字�
 describe('saveMatrix 迁移链完整前向守护', () => {
   it(`SAVE_SCHEMA_VERSION 恒为 9（bump 版本号时必须同时给 migrations[N]，组 A 会在漏写时变红）`, () => {
     expect(SAVE_SCHEMA_VERSION).toBe(9);
+  });
+
+  // n916x-34（v10 前向守护设计稿落地）：组 A 收尾的遍历范围已改为版本常量派生
+  // （bump 后自动扩展，替代原手写 [1..8]）——见上方「组 A 收尾」用例。
+  it('C 组版本恒等配套：最新前一档（SAVE_SCHEMA_VERSION-1）必须有迁移路径（漏写 migrations[N] 即红）', () => {
+    // 直接证明「新版本号必须有迁移项」：v(N-1) 档 deserialize 若无迁移路径会抛
+    // 'No migration path from schema version N'（saveLoad.ts），此处断言不抛该错。
+    let message: string | null = null;
+    try {
+      deserialize(blobAt(SAVE_SCHEMA_VERSION - 1));
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    expect(message).toBeNull();
   });
 });

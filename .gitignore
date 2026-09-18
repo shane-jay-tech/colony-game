@@ -22,3 +22,5 @@ user-data/
 
 # 资产生成原始转储（mp3+flac+wav，体积大，不入库；成品在 public/audio）
 art-library/
+tmp/
+_archive/
