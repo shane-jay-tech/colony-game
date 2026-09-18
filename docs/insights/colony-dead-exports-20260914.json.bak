@@ -1,9 +1,9 @@
 {
- "generatedAt": "2026-09-18T18:45:50.388Z",
+ "generatedAt": "2026-09-17T00:29:58.335Z",
  "rule": "value-exports-only; word-boundary; buckets dead|tests-only|internal-only|wired-dynamically",
  "summary": {
   "dead": 0,
-  "testsOnly": 108,
+  "testsOnly": 117,
   "internalOnly": 0
  },
  "entries": [
@@ -57,6 +57,13 @@
    "hitsInTests": 5
   },
   {
+   "file": "src\\renderer\\data\\breathingContent.ts",
+   "line": 69,
+   "name": "ALL_BREATHING",
+   "bucket": "tests-only",
+   "hitsInTests": 1
+  },
+  {
    "file": "src\\renderer\\data\\buildingRegistry.ts",
    "line": 4,
    "name": "validateBuildingDef",
@@ -106,6 +113,13 @@
    "hitsInTests": 2
   },
   {
+   "file": "src\\renderer\\data\\generals.ts",
+   "line": 9,
+   "name": "TRAIT_NAMES",
+   "bucket": "tests-only",
+   "hitsInTests": 1
+  },
+  {
    "file": "src\\renderer\\data\\mapSchema.ts",
    "line": 9,
    "name": "TERRAIN_KINDS",
@@ -118,6 +132,13 @@
    "name": "RESOURCE_NODE_KINDS",
    "bucket": "tests-only",
    "hitsInTests": 5
+  },
+  {
+   "file": "src\\renderer\\data\\megaProjects.ts",
+   "line": 72,
+   "name": "getMegaProject",
+   "bucket": "tests-only",
+   "hitsInTests": 1
   },
   {
    "file": "src\\renderer\\data\\military.ts",
@@ -174,6 +195,13 @@
    "name": "NPC_PER_GAME",
    "bucket": "tests-only",
    "hitsInTests": 6
+  },
+  {
+   "file": "src\\renderer\\data\\policyExclusions.ts",
+   "line": 88,
+   "name": "getExclusionGroup",
+   "bucket": "tests-only",
+   "hitsInTests": 1
   },
   {
    "file": "src\\renderer\\data\\resourceRegistry.ts",
@@ -261,24 +289,38 @@
   },
   {
    "file": "src\\renderer\\render\\MapRenderer.ts",
-   "line": 29,
+   "line": 24,
+   "name": "MAP_ZOOM_STEP",
+   "bucket": "tests-only",
+   "hitsInTests": 1
+  },
+  {
+   "file": "src\\renderer\\render\\MapRenderer.ts",
+   "line": 30,
    "name": "AVG_BUILDING_TILES",
    "bucket": "tests-only",
    "hitsInTests": 5
   },
   {
    "file": "src\\renderer\\render\\MapRenderer.ts",
-   "line": 30,
+   "line": 31,
    "name": "BUILDINGS_ON_SCREEN_TARGET",
    "bucket": "tests-only",
    "hitsInTests": 5
   },
   {
    "file": "src\\renderer\\render\\MapRenderer.ts",
-   "line": 33,
+   "line": 34,
    "name": "MAP_BUILDING_MAX_SCALE",
    "bucket": "tests-only",
    "hitsInTests": 2
+  },
+  {
+   "file": "src\\renderer\\scenes\\ModeSelectScene.ts",
+   "line": 19,
+   "name": "MODE_REGISTRY_KEY",
+   "bucket": "tests-only",
+   "hitsInTests": 1
   },
   {
    "file": "src\\renderer\\state\\breathingSystem.ts",
@@ -286,6 +328,13 @@
    "name": "DEFAULT_BREATHING_CONFIG",
    "bucket": "tests-only",
    "hitsInTests": 10
+  },
+  {
+   "file": "src\\renderer\\state\\buildMode.ts",
+   "line": 18,
+   "name": "BUILD_MODE_EVENTS",
+   "bucket": "tests-only",
+   "hitsInTests": 1
   },
   {
    "file": "src\\renderer\\state\\classNeeds.ts",
@@ -720,6 +769,20 @@
    "name": "SPEED_MS_PER_DAY",
    "bucket": "tests-only",
    "hitsInTests": 6
+  },
+  {
+   "file": "src\\renderer\\ui\\palette.ts",
+   "line": 96,
+   "name": "PANEL_BOX_SHADOW",
+   "bucket": "tests-only",
+   "hitsInTests": 1
+  },
+  {
+   "file": "src\\renderer\\ui\\palette.ts",
+   "line": 118,
+   "name": "toPhaserStyle",
+   "bucket": "tests-only",
+   "hitsInTests": 1
   },
   {
    "file": "src\\renderer\\ui\\registry.ts",
