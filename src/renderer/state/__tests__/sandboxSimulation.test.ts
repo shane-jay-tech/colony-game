@@ -72,7 +72,7 @@ interface SimStats {
   saturatedResources: string[];
 }
 
-function runSimulation(days: number, opts: { diversify?: boolean } = {}): { store: GameStore; stats: SimStats } {
+export function runSimulation(days: number, opts: { diversify?: boolean } = {}): { store: GameStore; stats: SimStats } {
   const store = makeStore();
   let hostileNpcActions = 0;
   const gradeMilestones: { day: number; grade: number }[] = [];
