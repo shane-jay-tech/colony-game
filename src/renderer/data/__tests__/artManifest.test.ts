@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ART_MANIFEST, BUILDING_ART, GENERAL_ART, EVENT_ART, UI_ART, TERRAIN_ART,
+  ART_MANIFEST, BUILDING_ART, GENERAL_ART, EVENT_ART, TERRAIN_ART,
   getArtByCategory, isArtAvailable,
 } from '../artManifest';
 import { BUILDINGS } from '../buildings';
@@ -19,16 +19,17 @@ describe('Phase D art manifest', () => {
     expect(EVENT_ART).toHaveLength(10);
   });
 
-  it('UI elements = 6', () => {
-    expect(UI_ART).toHaveLength(6);
+  it('UI elements removed (d913c-afbc 三无清理)', () => {
+    // UI_ART 已按人工授权删除（manifest 有/boot 不载/全库无消费点）
+    expect(ART_MANIFEST.filter((a) => a.category === 'ui')).toHaveLength(0);
   });
 
-  it('terrain types = 3', () => {
-    expect(TERRAIN_ART).toHaveLength(3);
+  it('terrain types = 5 (c918-04 实存对账)', () => {
+    expect(TERRAIN_ART).toHaveLength(5);
   });
 
-  it('total manifest = 58 assets', () => {
-    expect(ART_MANIFEST).toHaveLength(35 + 5 + 10 + 6 + 3);
+  it('total manifest = 55 assets (UI 6 条已删 + 地形 5 型)', () => {
+    expect(ART_MANIFEST).toHaveLength(35 + 5 + 10 + 5);
   });
 
   it('all keys are unique', () => {
@@ -36,15 +37,19 @@ describe('Phase D art manifest', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it('all paths use .webp extension', () => {
+  it('paths use .webp (历史类) 或 .png (terrain 实存)', () => {
     for (const a of ART_MANIFEST) {
-      expect(a.path.endsWith('.webp')).toBe(true);
+      if (a.category === 'terrain') {
+        expect(a.path.endsWith('.png')).toBe(true);
+      } else {
+        expect(a.path.endsWith('.webp')).toBe(true);
+      }
     }
   });
 
   it('getArtByCategory filters correctly', () => {
     expect(getArtByCategory('building')).toHaveLength(35);
-    expect(getArtByCategory('terrain')).toHaveLength(3);
+    expect(getArtByCategory('terrain')).toHaveLength(5);
   });
 
   it('isArtAvailable checks loaded set', () => {

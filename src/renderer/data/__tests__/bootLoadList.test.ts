@@ -54,7 +54,7 @@ import { TERRAIN_KINDS } from '../mapSchema';
 
 describe('a46 terrain naming consistency', () => {
   it('TERRAIN_ART 键名 = terrain_<kind>（与 TERRAIN_KINDS 同名，无 hill 单数残留）', () => {
-    expect(TERRAIN_ART.length).toBe(3); // manifest 条目数不变
+    expect(TERRAIN_ART.length).toBe(5); // c918-04：补齐 5 型（与 TERRAIN_KINDS 对齐）
     for (const art of TERRAIN_ART) {
       const kind = art.key.replace(/^terrain_/, '');
       expect(TERRAIN_KINDS).toContain(kind);
@@ -82,7 +82,11 @@ describe('c18 manifest equivalence', () => {
 
   it('③ path 命名与 category 目录约定一致（buildings/generals/events/ui/terrain）', () => {
     for (const a of ART_MANIFEST) {
-      expect(a.path).toMatch(new RegExp(`assets/${a.category}s?/`));
+      if (a.category === 'terrain') {
+        expect(a.path).toMatch(/^art\/terrain\//); // c918-04：地形走实存 art/terrain/*.png
+      } else {
+        expect(a.path).toMatch(new RegExp(`assets/${a.category}s?/`));
+      }
     }
   });
 

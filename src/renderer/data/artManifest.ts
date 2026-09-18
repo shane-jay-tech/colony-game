@@ -64,12 +64,15 @@ export const EVENT_ART: ArtAssetDef[] = [
   { key: 'evt_art_ending_huo', path: 'assets/events/ending_huo.webp', category: 'event', required: false },
 ];
 
-// ====================== Terrain (3 types) ==================================
+// ====================== Terrain (5 types, c918-04 实存对账) ==================
+// path 统一为 public/art/terrain/*.png 实存文件（forest/hills/mountain/plain/river）。
 
 export const TERRAIN_ART: ArtAssetDef[] = [
-  { key: 'terrain_plain', path: 'assets/terrain/plain.webp', category: 'terrain', required: false },
-  { key: 'terrain_hills', path: 'assets/terrain/hills.webp', category: 'terrain', required: false },
-  { key: 'terrain_river', path: 'assets/terrain/river.webp', category: 'terrain', required: false },
+  { key: 'terrain_forest', path: 'art/terrain/forest.png', category: 'terrain', required: false },
+  { key: 'terrain_hills', path: 'art/terrain/hills.png', category: 'terrain', required: false },
+  { key: 'terrain_mountain', path: 'art/terrain/mountain.png', category: 'terrain', required: false },
+  { key: 'terrain_plain', path: 'art/terrain/plain.png', category: 'terrain', required: false },
+  { key: 'terrain_river', path: 'art/terrain/river.png', category: 'terrain', required: false },
 ];
 
 // ====================== Full manifest ======================================
@@ -90,7 +93,7 @@ export function getArtByCategory(category: ArtAssetDef['category']): ArtAssetDef
 // PLAN.md：manifest 已描述的资产以 manifest 为权威 boot-loading 源，删除重复加载列表。
 // URL 约定说明：仓库真实落盘为 public/art/<类别>/<id>.png；本表 path 字段（assets/*.webp）
 // 是 Phase D 占位约定、与实际文件不对应——故派生只取「键与顺序」，URL 模板在此固化。
-// 地形/散布/音频 manifest 未等价描述（TERRAIN_ART 仅 3 型且命名不一），仍由 BootScene 保留。
+// 地形/散布/音频 manifest 地形已等价描述（c918-04：TERRAIN_ART 5 型指向实存 art/terrain/*.png）；散布/音频 manifest 未等价描述，仍由 BootScene 保留。
 
 export interface BootLoadItem {
   key: string;
