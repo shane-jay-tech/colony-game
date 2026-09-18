@@ -196,8 +196,8 @@ export class PopulationPanel {
 
     for (let i = 0; i < CLASS_ROWS.length; i++) {
       const row = CLASS_ROWS[i]!;
-      const total = s.classes[row.key];
-      const occ = s.occupation[row.key];
+      const total = s.classes[row.key] ?? 0;
+      const occ = s.occupation[row.key] ?? 0;
       const idle = Math.max(0, total - occ);
       // A2：阶层需求缺口直显（缺安居/市集/营伍/教化/礼器/足食）
       const gaps = this.store.getClassNeedsGaps()[row.key];
