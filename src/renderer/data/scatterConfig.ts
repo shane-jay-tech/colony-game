@@ -62,6 +62,6 @@ export const SCATTER_KEY_PREFIX = 'scatter_';
 /** 全部可能用到的散布素材 id（BootScene 据此尝试加载；缺则跳过）。 */
 export const ALL_SCATTER_IDS: readonly string[] = [
   'tree_pine', 'tree_locust', 'tree_mulberry', 'tree_willow',
-  'rock_boulder', 'bush_shrub', 'bush_dry',
+  'rock_boulder', 'bush_shrub',
   'reed_clump', 'grass_tuft',
 ];

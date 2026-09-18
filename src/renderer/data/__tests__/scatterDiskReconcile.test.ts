@@ -8,7 +8,7 @@ import { ALL_SCATTER_IDS, SCATTER_KEY_PREFIX } from '../scatterConfig';
 const SCATTER_DIR = join(__dirname, '..', '..', '..', '..', 'public', 'art', 'scatter');
 
 test('ALL_SCATTER_IDS 共 9 键（与磁盘 png 数一致）', () => {
-  expect(ALL_SCATTER_IDS).toHaveLength(9);
+  expect(ALL_SCATTER_IDS).toHaveLength(8); // c918-09：bush_dry 闲臵项已删除（png 保留在盘可随时恢复）
 });
 
 test.each(ALL_SCATTER_IDS.map(id => [id]))(
