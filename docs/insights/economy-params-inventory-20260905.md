@@ -16,6 +16,20 @@
 | growthRatePerDay / minDailyGrowth | :69-70 | 0.02 / 1.2 | 人口增长 |
 | homelessDeclineRate / Max | :73-74 | 0.02 / 2 | 超上限温和回落 |
 
+**故事模式 STORY_BALANCE（balanceConfig.ts:83-99，c919-51 补段，生成日期 2026-09-20）**
+
+| 参数 | 位置 | 值 | 消费方 |
+|---|---|---|---|
+| startingResources（故事） | balanceConfig.ts:86 | wood100/stone40/people30/grain320/gold50/cloth40/bronze25 | 故事开局发放（BUG-B：粮 320≈30 民×30 天起步窗口） |
+| time.msPerDay | :87 | 1x=2000 / 2x=1000 / 3x=500 | 播放速度 |
+| event.minDaysBetween | :88 | 40 游戏日 | 事件节奏 |
+| population.baseHousingCap | :91 | 55（故事，高于沙盒 45） | population.ts |
+| growthRatePerDay / minDailyGrowth | :92-93 | 0.02 / 1.2 | 人口增长 |
+| homelessDeclineRate / Max | :94-95 | 0.02 / 2 | 超上限温和回落 |
+| 取用函数 getBalanceConfig | :101 | mode==='story' ? STORY_BALANCE : BALANCE | gameStore 开局装配 |
+
+复跑命令：`grep -n "STORY_BALANCE" -A 18 src/renderer/data/balanceConfig.ts`
+
 **阶层供养（populationClass.ts:38-45）**：farmer 粮0.8；worker 粮1.5+布0.2；soldier 粮2+铜0.3；scholar 粮2+金1；转阶层 4 日（CONVERSION_DAYS）。真实扣减在 gameStore.ts:2636 起（BUG-B/P3 修复后闭环）。
 
 **建筑经济面（buildings.ts，35 条全量）**：产出方 12 条——农田(粮12, 4民)、伐木(木8)、采石(石6)、锡矿(锡2)、陶窑(金2)、桑园(布2)、麻田(麻3)、织官(布4,耗麻2)、铜冶坊(铜3,耗锡1)、冶铁坊(铜4,耗锡2)、市集(金5,布5+粮3维持)、驿道(金2)、水碓(木6+粮3)、太庙(礼2)；住房方——民居+10、王宫+30；仓储——仓廪储量上限+50%（效果写在 descPlain 文案，结构化字段缺位）；其余为军事/仪式纯消耗（兵营/学宫/客馆/练兵场/马厩/战车坊/城墙/禁军府/哨塔/监察台/天文台/驿站/烽燧/石碑场/祖庙/九鼎）。中间资源消费链完整：锡→铜冶坊(1/日)·冶铁坊(2/日)，麻→织官(2/日)——**锡/麻不是死资源**（resourceRegistry.ts:40 INTERMEDIATE 注册且有消费方）。
