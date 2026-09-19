@@ -110,3 +110,19 @@ npm run electron:build:win   # 打包 Windows 桌面 exe → dist-out/win-unpack
 - **手感/内容扩展（benchmark 采纳）**：双轴民心（民心/怨愤+颂声/民变）、阶层需求环、列国警惕值（合纵闸门）、影响力/史官三用（宣传/斡旋/修史）、加工链中间品（麻/锡）、古迹事件链（古战场/古祭坛/古矿坑）、登顶后终局波次压力阶梯。详见 `BENCHMARK_INSPIRATION.md` 与 `OPTIMIZATION_BACKLOG.md`。
 - **自检闸门**：无头 720 日沙盒模拟 `sandboxSimulation.test.ts`——改数值必重跑；当前模拟显示「第 40 天晋城邑、37 栋建筑、26 次敌对张力」。
 - **仍未完成（待办）**：P0-3 主包 7.4MB 性能拆分；P1 逐订阅点渐进迁移；中期粮/人口数值的真人试玩校准。
+
+## 附：常用 scripts 速查（c920-02 增，口径=c918-28 对照表；11 键全量）
+
+| 键 | 用途 |
+|---|---|
+| dev | electron-vite 开发模式起游戏 |
+| build | electron-vite 生产构建 |
+| preview | 构建产物预览 |
+| electron:build | 打包安装器（先生成图标+补 7za wrapper） |
+| electron:build:win | 同上，Windows 目标 |
+| gen-icon | 生成应用图标 |
+| pack-sprites | 打包精灵图 |
+| postprocess-png | AI 生成 PNG 后处理 |
+| type-check | 渲染层 TypeScript 类型检查 |
+| test | vitest 全量单测（1227 用例） |
+| verify | type-check + test 一起跑（提交前门禁） |
