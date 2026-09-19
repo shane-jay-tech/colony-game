@@ -1,55 +1,20 @@
 // c918-20：ModeSelectScene 模式选择组合 smoke（PLAN 第 6 项欠账）。
 // mock Phaser.Scene 基类（避免真引擎），钉「点 story 卡→mode='story'→IntroScene；
 // 点 sandbox 卡→mode='sandbox'」两链，与 registry 写入。
+// c919-01：FakeScene 类迁共享脚手架 ui/__tests__/fakeScene 的 sceneClassMock 单例
+//（vi.mock 工厂不可引用外部变量，改经 await import 取用同一单例，registryStore/sceneStart 与断言侧同源）。
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const registryStore = new Map<string, unknown>();
-const sceneStart = vi.fn();
-
-vi.mock('phaser', () => {
-  class FakeScene {
-    sys: unknown;
-    scene: { start: ReturnType<typeof vi.fn> };
-    registry: any;
-    add: any;
-    events: any;
-    scale: any;
-    constructor(cfg?: { key?: string }) {
-      this.sys = { config: cfg ?? {}, settings: cfg ?? {} };
-      this.scene = { start: sceneStart };
-      this.registry = {
-        set: vi.fn((k: string, v: unknown) => registryStore.set(k, v)),
-        get: vi.fn((k: string) => registryStore.get(k)),
-      };
-      const chainable = () => {
-        const o: Record<string, unknown> = {};
-        for (const m of ['add', 'on', 'once', 'clear', 'fillStyle', 'lineStyle', 'fillRect', 'strokeRect', 'beginPath', 'moveTo', 'lineTo', 'strokePath', 'fillCircle', 'strokeCircle', 'fillRoundedRect', 'generateTexture', 'setOrigin', 'setDepth', 'setVisible', 'setScrollFactor', 'setInteractive', 'setPosition', 'setSize', 'setText', 'setColor', 'setStyle']) {
-          o[m] = vi.fn().mockReturnThis();
-        }
-        o.destroy = vi.fn();
-        return o;
-      };
-      this.add = {
-        graphics: vi.fn(() => chainable()),
-        text: vi.fn(() => chainable()),
-        zone: vi.fn(() => chainable()),
-        container: vi.fn(() => chainable()),
-      };
-      this.events = { once: vi.fn() };
-      this.scale = { width: 1366, height: 800, on: vi.fn() };
-    }
-  }
-  const PhaserMock = {
-    Scene: FakeScene,
-    Scenes: { Events: { SHUTDOWN: 'shutdown' } },
-    Scale: { RESIZE: 'RESIZE' },
-  };
-  (PhaserMock as Record<string, unknown> & { default?: unknown }).default = PhaserMock;
-  return PhaserMock as never;
+vi.mock('phaser', async () => {
+  const mod = await import('../../ui/__tests__/fakeScene');
+  return mod.makePhaserMock() as never;
 });
 
 import { ModeSelectScene } from '../../scenes/ModeSelectScene';
 import { REGISTRY_KEYS } from '../../ui/registry';
+import { sceneClassMock } from '../../ui/__tests__/fakeScene';
+
+const { registryStore, sceneStart } = sceneClassMock;
 
 /** 收集 create() 里两张卡的 pointerup 处理器（sandbox/story 各一）。 */
 function captureChooseHandlers(scene: ModeSelectScene) {

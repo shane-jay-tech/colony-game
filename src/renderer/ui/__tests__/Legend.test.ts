@@ -1,73 +1,13 @@
 // c918-23（三批储备启用）：Legend 钉桩——条目渲染、折叠切换、空数据容错、destroy。
 // store 用真实 GameStore；scene 全 fake（同 HUD/PopulationPanel 模式）。
+// c919-01：fake builders 五件收口至共享脚手架 ./fakeScene；补落空数据容错两条
+//（折叠态零条目渲染断言＋drawSection 空行数组，c918-23 遗留段点名项）。
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'eventemitter3';
 import { GameStore, STATE_EVENTS } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
-
-function makeFakeText() {
-  const t = {
-    setOrigin: vi.fn().mockReturnThis(),
-    setColor: vi.fn().mockReturnThis(),
-    setText: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setAlpha: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    setStyle: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-    width: 100, height: 18, displayHeight: 18, text: '',
-  };
-  t.setText.mockImplementation((s: string) => { t.text = s; return t; });
-  return t;
-}
-
-function makeFakeGraphics() {
-  const g: Record<string, unknown> = {};
-  const methods = ['clear', 'fillStyle', 'lineStyle', 'fillRect', 'strokeRect', 'fillCircle', 'strokeCircle', 'fillRoundedRect', 'generateTexture', 'beginPath', 'moveTo', 'lineTo',
-    'strokePath', 'closePath', 'fillPath', 'fillRoundedRect', 'setPosition', 'setVisible', 'destroy'];
-  for (const name of methods) g[name] = vi.fn().mockReturnThis();
-  return g;
-}
-
-function makeFakeZone() {
-  const z = {
-    setOrigin: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setSize: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-  return z;
-}
-
-function makeFakeContainer() {
-  return {
-    setDepth: vi.fn().mockReturnThis(),
-    setScrollFactor: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    add: vi.fn(),
-    destroy: vi.fn(),
-  };
-}
-
-function makeFakeScene(): any {
-  return {
-    scale: { width: 1366, height: 800 },
-    add: {
-      container: vi.fn(() => { const c = makeFakeContainer(); (c as Record<string, unknown>)['setPosition'] = vi.fn().mockReturnThis(); (c as Record<string, unknown>)['setAlpha'] = vi.fn().mockReturnThis(); (c as Record<string, unknown>)['setInteractive'] = vi.fn().mockReturnThis(); (c as Record<string, unknown>)['on'] = vi.fn().mockReturnThis(); (c as Record<string, unknown>)['setSize'] = vi.fn().mockReturnThis(); (c as Record<string, unknown>)['setText'] = vi.fn().mockReturnThis(); (c as Record<string, unknown>)['setColor'] = vi.fn().mockReturnThis(); return c; }),
-      graphics: vi.fn(() => { const g = makeFakeGraphics(); (g as Record<string, unknown>)['setPosition'] = vi.fn().mockReturnThis(); return g; }),
-      text: vi.fn(() => { const t2 = makeFakeText(); (t2 as Record<string, unknown>)['setPosition'] = vi.fn().mockReturnThis(); return t2; }),
-      zone: vi.fn(() => { const z = makeFakeZone(); (z as Record<string, unknown>)['setPosition'] = vi.fn().mockReturnThis(); return z; }),
-    },
-    cameras: { main: { width: 1366, height: 800, scrollX: 0, scrollY: 0 } },
-    input: { on: vi.fn(), off: vi.fn() },
-    registry: { get: vi.fn(), set: vi.fn() },
-  }
-}
+import { makeFakeScene } from './fakeScene';
 
 function allPlainMap(): WorldMap {
   const tiles = [];
@@ -88,7 +28,7 @@ describe('Legend', () => {
   let legend: Legend;
 
   beforeEach(() => {
-    scene = makeFakeScene();
+    scene = makeFakeScene({ cameras: true });
     store = makeStore();
     legend = new Legend(scene as never, store);
   });
@@ -108,6 +48,32 @@ describe('Legend', () => {
     handler(); // 折叠
     handler(); // 展开
     expect(() => handler()).not.toThrow();
+  });
+
+  it('空数据容错：折叠态零图例条目渲染（rowTexts 全隐藏＋rowsGfx 清空）', () => {
+    const zone = (legend as unknown as { toggleZone: { on: ReturnType<typeof vi.fn> } }).toggleZone;
+    const calls = zone.on.mock.calls.filter((c: unknown[]) => c[0] === 'pointerup');
+    const handler = calls[0]![1] as () => void;
+    const rowTexts = (legend as unknown as { rowTexts: Array<{ setVisible: ReturnType<typeof vi.fn> }> }).rowTexts;
+    expect(rowTexts.length).toBeGreaterThan(0);
+    const rowsGfx = (legend as unknown as { rowsGfx: { clear: ReturnType<typeof vi.fn> } }).rowsGfx;
+    const clearsBefore = rowsGfx.clear.mock.calls.length;
+    handler(); // 折叠 → layout 早退：条目全部不渲染
+    for (const t of rowTexts) {
+      const hides = t.setVisible.mock.calls.filter((c: unknown[]) => c[0] === false);
+      expect(hides.length).toBeGreaterThan(0);
+    }
+    expect(rowsGfx.clear.mock.calls.length).toBeGreaterThan(clearsBefore);
+  });
+
+  it('空数据容错：drawSection 空行数组零填充不崩（!row 守卫）', () => {
+    const rowsGfx = (legend as unknown as { rowsGfx: { fillRect: ReturnType<typeof vi.fn> } }).rowsGfx;
+    const fillsBefore = rowsGfx.fillRect.mock.calls.length;
+    const drawSection = (legend as unknown as {
+      drawSection: (title: string, startY: number, rows: ReadonlyArray<unknown>, textIdxBase: number) => number;
+    }).drawSection;
+    expect(() => drawSection.call(legend, '— 空 —', 40, [], 0)).not.toThrow();
+    expect(rowsGfx.fillRect.mock.calls.length).toBe(fillsBefore);
   });
 
   it('destroy：解绑 store 事件并销毁容器/图形/文本', () => {

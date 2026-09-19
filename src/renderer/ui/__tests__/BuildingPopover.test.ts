@@ -2,111 +2,14 @@
 // 仿 PolicyTreePanel.test 模式：Phaser scene/graphics/text/zone/container 全 mock，
 // store 用真实 GameStore（真实建筑定义）。钉：监听注册/解绑、ESC 关、
 // 升级事件关自己、金边可点 vs 资源不足两分支。
+// c919-01：fake builders 五件收口至共享脚手架 ./fakeScene（keyboard/time 选项保原形态）。
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'eventemitter3';
 import { GameStore, STATE_EVENTS } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
+import { makeFakeScene } from './fakeScene';
 import { BuildingPopover } from '../BuildingPopover';
-
-function makeFakeText() {
-  const t = {
-    setOrigin: vi.fn().mockReturnThis(),
-    setColor: vi.fn().mockReturnThis(),
-    setText: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setAlpha: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-    width: 100, height: 18, displayHeight: 18, text: '',
-  };
-  t.setText.mockImplementation((s: string) => { t.text = s; return t; });
-  return t;
-}
-
-function makeFakeGraphics() {
-  return {
-    clear: vi.fn().mockReturnThis(),
-    fillStyle: vi.fn().mockReturnThis(),
-    fillRect: vi.fn().mockReturnThis(),
-    lineStyle: vi.fn().mockReturnThis(),
-    strokeRect: vi.fn().mockReturnThis(),
-    beginPath: vi.fn().mockReturnThis(),
-    moveTo: vi.fn().mockReturnThis(),
-    lineTo: vi.fn().mockReturnThis(),
-    strokePath: vi.fn().mockReturnThis(),
-    strokeCircle: vi.fn().mockReturnThis(),
-    fillCircle: vi.fn().mockReturnThis(),
-    generateTexture: vi.fn(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-}
-
-function makeFakeZone() {
-  const z = {
-    x: 0, y: 0, width: 1, height: 1,
-    setOrigin: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setSize: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-  return z;
-}
-
-function makeFakeContainer() {
-  return {
-    setScrollFactor: vi.fn().mockReturnThis(),
-    setDepth: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setScale: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    add: vi.fn(),
-    destroy: vi.fn(),
-  };
-}
-
-function makeFakeScene() {
-  const keyboardOn = vi.fn();
-  const scene = {
-    scale: { width: 1366, height: 800 },
-    add: {
-      container: vi.fn(() => {
-        const c = { setScrollFactor: vi.fn().mockReturnThis(), setDepth: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(), setScale: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(), add: vi.fn(), destroy: vi.fn() };
-        return c;
-      }),
-      graphics: vi.fn(() => ({
-        clear: vi.fn().mockReturnThis(), fillStyle: vi.fn().mockReturnThis(), fillRect: vi.fn().mockReturnThis(),
-        lineStyle: vi.fn().mockReturnThis(), strokeRect: vi.fn().mockReturnThis(), beginPath: vi.fn().mockReturnThis(),
-        moveTo: vi.fn().mockReturnThis(), lineTo: vi.fn().mockReturnThis(), strokePath: vi.fn().mockReturnThis(),
-        strokeCircle: vi.fn().mockReturnThis(),
-        fillCircle: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(), destroy: vi.fn(),
-      })),
-      text: vi.fn(() => {
-        const t = { setOrigin: vi.fn().mockReturnThis(), setColor: vi.fn().mockReturnThis(), setText: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(), setAlpha: vi.fn().mockReturnThis(), setInteractive: vi.fn().mockReturnThis(), destroy: vi.fn(), width: 100, height: 18, displayHeight: 18, text: '' };
-        t.setText.mockImplementation((s: string) => { t.text = s; return t; });
-        return t;
-      }),
-      zone: vi.fn(() => {
-        const z = { x: 0, y: 0, width: 1, height: 1, setOrigin: vi.fn().mockReturnThis(), setInteractive: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(), setSize: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(), on: vi.fn().mockReturnThis(), destroy: vi.fn() };
-        return z;
-      }),
-    },
-    time: { delayedCall: vi.fn((_ms: number, fn: () => void) => { /* 捕获不立即执行 */ }) },
-    input: {
-      keyboard: { on: keyboardOn, off: vi.fn() },
-      on: vi.fn(),
-      off: vi.fn(),
-    },
-    registry: { get: vi.fn(), set: vi.fn() },
-  };
-  return { scene, keyboardOn };
-}
 
 function allPlainMap(): WorldMap {
   const tiles = [];
@@ -124,15 +27,14 @@ function makeInstance(defId = 'bld_farm'): { instance: { defId: string; [k: stri
 }
 
 describe('BuildingPopover', () => {
-  let scene: ReturnType<typeof makeFakeScene>['scene'];
-  let keyboardOn: ReturnType<typeof makeFakeScene>['keyboardOn'];
+  let scene: ReturnType<typeof makeFakeScene>;
+  let keyboardOn: ReturnType<typeof vi.fn>;
   let store: GameStore;
   let popover: BuildingPopover;
 
   beforeEach(() => {
-    const fake = makeFakeScene();
-    scene = fake.scene;
-    keyboardOn = fake.keyboardOn;
+    scene = makeFakeScene({ keyboard: true, time: true });
+    keyboardOn = (scene.input as { keyboard: { on: ReturnType<typeof vi.fn> } }).keyboard.on;
     store = makeStore();
     popover = new BuildingPopover(scene as never, store, null);
   });
