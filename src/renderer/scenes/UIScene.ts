@@ -104,6 +104,10 @@ export class UIScene extends Phaser.Scene {
   private onUltimatumExploded = (payload: GameStateEventMap['state:ultimatumExploded']): void => {
     this.toast?.show('通牒到期，民变爆发——流散 ' + payload.lostPeople + ' 口，士气大挫。', 'error', 6000);
   };
+  // P2-3 危机时刻反馈（c919-03）：告急 toast；音效 sfx_gong 由 AudioManager onCrisis 负责，不重复播。
+  private onCrisisTriggered = (payload: GameStateEventMap['state:crisisTriggered']): void => {
+    this.toast?.show('邦中告急：' + (payload?.summary || '民生陷入低谷，速行德政以安民心。'), 'error', 6000);
+  };
   // Phase1：NPC 动态行动 → Toast。骚扰/围攻用 error 色（红），内斗用 info（棕）。
   private onNpcAction = (payload: GameStateEventMap['state:npcAction']): void => {
     if (!payload.text) return;
@@ -259,6 +263,7 @@ export class UIScene extends Phaser.Scene {
     store.on(STATE_EVENTS.ULTIMATUM_STARTED, this.onUltimatumStarted);
     store.on(STATE_EVENTS.ULTIMATUM_LIFTED, this.onUltimatumLifted);
     store.on(STATE_EVENTS.ULTIMATUM_EXPLODED, this.onUltimatumExploded);
+    store.on(STATE_EVENTS.CRISIS_TRIGGERED, this.onCrisisTriggered);
     store.on(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
     store.on(STATE_EVENTS.STORY_NARRATION, this.onStoryNarration);
     store.on(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onStoryChapter);
@@ -357,6 +362,7 @@ export class UIScene extends Phaser.Scene {
       this.store.off(STATE_EVENTS.ULTIMATUM_STARTED, this.onUltimatumStarted);
       this.store.off(STATE_EVENTS.ULTIMATUM_LIFTED, this.onUltimatumLifted);
       this.store.off(STATE_EVENTS.ULTIMATUM_EXPLODED, this.onUltimatumExploded);
+      this.store.off(STATE_EVENTS.CRISIS_TRIGGERED, this.onCrisisTriggered);
       this.store.off(STATE_EVENTS.NPC_ACTION, this.onNpcAction);
       this.store.off(STATE_EVENTS.STORY_NARRATION, this.onStoryNarration);
       this.store.off(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onStoryChapter);

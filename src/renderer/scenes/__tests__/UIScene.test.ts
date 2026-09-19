@@ -13,7 +13,7 @@ vi.mock('phaser', async () => {
 import { UIScene } from '../UIScene';
 import { REGISTRY_KEYS } from '../../ui/registry';
 import { sceneClassMock } from '../../ui/__tests__/fakeScene';
-import { GameStore } from '../../state/gameStore';
+import { GameStore, STATE_EVENTS } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
 import { BuildMode } from '../../state/buildMode';
@@ -77,5 +77,23 @@ describe('UIScene 面板注册/销毁钉桩', () => {
     expect(registryStore.get(REGISTRY_KEYS.toast)).toBeDefined();
     for (const h of shutdownHandlers.splice(0)) h.cb.call(h.ctx);
     expect(registryStore.get(REGISTRY_KEYS.toast)).toBeUndefined();
+  });
+
+  it('P2-3 危机时刻：CRISIS_TRIGGERED 触发告急 toast.show＋playSfx(sfx_gong) 各≥1 次', () => {
+    const scene = makeReadyScene();
+    const store = registryStore.get(REGISTRY_KEYS.store) as GameStore;
+    const toast = registryStore.get(REGISTRY_KEYS.toast) as { show: ReturnType<typeof vi.fn> };
+    const showSpy = vi.spyOn(toast, 'show');
+    const audio = registryStore.get(REGISTRY_KEYS.audioManager) as { playSfx: ReturnType<typeof vi.fn> };
+    const sfxSpy = vi.spyOn(audio, 'playSfx');
+    void scene;
+    store.emit(STATE_EVENTS.CRISIS_TRIGGERED, { kind: 'wrath', summary: '民怨沸腾', crisisCount: 1 });
+
+    // CrisisModal 等同事件监听者也可能 show——只断言本单接线的「邦中告急」告急 toast。
+    const mine = showSpy.mock.calls.filter((c: unknown[]) => String(c[0]).includes('邦中告急'));
+    expect(mine.length).toBe(1);
+    expect(mine[0]![0]).toContain('民怨沸腾');
+    expect(mine[0]![1]).toBe('error');
+    expect(sfxSpy).toHaveBeenCalledWith('sfx_gong', 0.7);
   });
 });
