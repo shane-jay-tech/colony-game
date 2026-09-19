@@ -145,4 +145,24 @@ describe('DiplomacyPanel', () => {
     expect(warinessBand(WARINESS_COALITION_THRESHOLD).key).toBe('hostile');
     expect(warinessBand(100).text).toBe('同仇敌忾');
   });
+
+  it('c919-05 ≥70 强档合纵两态渲染：≥70 副标题现「同仇敌忾」，<70 不出现', () => {
+    const inner = store as unknown as { state: { worldWariness: number; lastWarinessReason: string | null } };
+    const subText = () => ((panel as unknown as { subtitleText: { text: string } }).subtitleText.text);
+
+    // 状态 A：20＝「列国漠然」档，无合纵文案
+    inner.state.worldWariness = 20;
+    panel.open();
+    expect(subText()).toContain('列国漠然');
+    expect(subText()).not.toContain('同仇敌忾');
+
+    // 状态 B：≥70 触发列国合纵（视为强档威胁）——close+open 强制 refresh 走内层
+    inner.state.worldWariness = WARINESS_COALITION_THRESHOLD;
+    inner.state.lastWarinessReason = '扩军';
+    panel.close();
+    panel.open();
+    expect(subText()).toContain('同仇敌忾');
+    expect(subText()).toContain('侧目 70');
+    expect(subText()).toContain('因：扩军');
+  });
 });
