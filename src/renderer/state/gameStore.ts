@@ -71,7 +71,7 @@ import {
   ENDGAME_WAVE_INTERVAL_DAYS, ENDGAME_WAVE_KINDS, endgameSeverity,
   shouldFireEndgameWave, pickEndgameWave,
 } from './endgameEscalation';
-import type { StateEventName, GameStateEventMap } from './stateEvents';
+import type { GameStateEventMap } from './stateEvents';
 import type { PopulationClasses, PopulationClass, ConversionOrder } from '../data/populationClass';
 import { createDefaultPopulation, totalPopulation, CONVERSION_DAYS, CONVERSION_REQUIRES, POPULATION_CLASSES, DEFAULT_STARVATION } from '../data/populationClass';
 import { computeClassOccupation, getIdleByClass, canAffordClass, tickConversionQueue, applyConversion, applyStarvation, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
@@ -98,6 +98,17 @@ export interface IEventEmitter {
   off(event: string, fn: (...args: unknown[]) => void): void;
   emit(event: string, ...args: unknown[]): void;
   listenerCount(event: string): number;
+}
+
+// c-13：类型化事件名（由 STATE_EVENTS 派生，新增事件自动收进联合类型）
+export type StateEventName = typeof STATE_EVENTS[keyof typeof STATE_EVENTS];
+
+// 泛型 on/off/emit：event 参数收窄到 STATE_EVENTS 的值域（拼错事件名在编译期报错）
+export interface IStateEventEmitter {
+  on<E extends StateEventName>(event: E, fn: (...args: unknown[]) => void): void;
+  off<E extends StateEventName>(event: E, fn: (...args: unknown[]) => void): void;
+  emit<E extends StateEventName>(event: E, ...args: unknown[]): void;
+  listenerCount<E extends StateEventName>(event: E): number;
 }
 
 export const STATE_EVENTS = {
@@ -365,7 +376,7 @@ export interface GameStoreContent {
   events?: readonly CourtEvent[];
 }
 
-export class GameStore {
+export class GameStore implements IStateEventEmitter {
   private state: GameState;
   private readonly emitter: IEventEmitter;
   private worldMapAccessor: WorldMapAccessor;
@@ -573,6 +584,9 @@ export class GameStore {
   setTutorialStepId(id: string | null): void {
     if (this.state.tutorialStepId === id) return;
     this.state.tutorialStepId = id;
+    // d914-18：该点停在非类型化通道——映射缺口：setTutorialStepId 可传 null，
+    // 而 GameStateEventMap['state:tutorialStepChanged'] = string（不含 null），
+    // 需先拍板映射放宽为 string | null 再迁（见 outbox/d914-18 结果）。
     this.emitter.emit(STATE_EVENTS.TUTORIAL_STEP_CHANGED, id);
   }
 
@@ -594,7 +608,8 @@ export class GameStore {
     if (cur === collapsed) return;
     if (side === 'left') this.state.panelCollapsed.left = collapsed;
     else this.state.panelCollapsed.right = collapsed;
-    this.emitter.emit(STATE_EVENTS.PANEL_COLLAPSED_CHANGED, { side, collapsed });
+    // d914-18：同上
+    this.emit(STATE_EVENTS.PANEL_COLLAPSED_CHANGED, { side, collapsed });
   }
 
   // subscribe API; emitter is intentionally not exposed publicly to prevent external emit injection
@@ -657,7 +672,8 @@ export class GameStore {
     const current = this.state.resources[id] ?? 0;
     this.setResourceClamped(id, current + amount);
     const deltas: Partial<Record<ResourceId, number>> = { [id]: amount };
-    this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason });
+    // d914-18：同上
+    this.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason });
   }
 
   /** 开局暂停保护：玩家第一次有意义操作时自动启动时间流 */
@@ -692,7 +708,8 @@ export class GameStore {
     if (this.state.speed === s) return;
     this.state.speed = s;
     this.autoUnpause();
-    this.emitter.emit(STATE_EVENTS.SPEED_CHANGED, s);
+    // d914-18：同上
+    this.emit(STATE_EVENTS.SPEED_CHANGED, s);
   }
 
   setPaused(b: boolean): void {
@@ -701,7 +718,8 @@ export class GameStore {
     this.state.paused = b;
     const isEffective = this.isPaused();
     if (wasEffective !== isEffective) {
-      this.emitter.emit(STATE_EVENTS.PAUSED_CHANGED, isEffective);
+      // d914-18：同上
+      this.emit(STATE_EVENTS.PAUSED_CHANGED, isEffective);
     }
   }
 
@@ -922,7 +940,9 @@ export class GameStore {
   tickDay(): void {
     const prevDay = this.state.currentDay;
     const calBefore = dayToCalendar(prevDay);
-    this.state.currentDay = prevDay + 1;
+    // c919-04 TODO①：tick clamp——到上界后时间停走（与 saveLoad MAX_SAVE_CURRENT_DAY 同值；导入会成环故就地声明）。
+    const MAX_CURRENT_DAY = 3600;
+    this.state.currentDay = Math.min(prevDay + 1, MAX_CURRENT_DAY);
     const calAfter = dayToCalendar(this.state.currentDay);
 
     runDayPipeline(buildDayPipeline({

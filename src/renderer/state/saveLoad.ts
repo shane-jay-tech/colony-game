@@ -18,6 +18,9 @@ import type { RelicSite } from './relicSystem';
 
 export const SAVE_SCHEMA_VERSION = 9;
 
+/** c919-04 TODO①：currentDay 存档上界——沙盒长期基准 HORIZON_DAYS=720 的 5 倍护栏；损坏档拒载。 */
+export const MAX_SAVE_CURRENT_DAY = 3600;
+
 export class SaveLoadError extends Error {
   constructor(message: string) {
     super(message);
@@ -426,6 +429,16 @@ export function deserialize(blob: unknown): GameState {
   }
 
   // reconstruct GameState, adding runtime-only defaults
+  // c919-04 TODO①：currentDay [0, MAX_SAVE_CURRENT_DAY] 校验——损坏档拒载有明确错误面（材料单 c918-11）。
+  const rawCurrentDay = s.currentDay ?? 0;
+  if (
+    typeof rawCurrentDay !== 'number' || !Number.isFinite(rawCurrentDay)
+    || rawCurrentDay < 0 || rawCurrentDay > MAX_SAVE_CURRENT_DAY
+  ) {
+    throw new SaveLoadError(
+      `currentDay out of range: ${String(s.currentDay)} (allowed 0..${MAX_SAVE_CURRENT_DAY})`,
+    );
+  }
   const gameState: GameState = {
     resources: rawResources as GameState['resources'],
     buildings,
@@ -439,9 +452,9 @@ export function deserialize(blob: unknown): GameState {
     tutorialStepId: s.tutorialStepId ?? null,
     seenJitHints: Array.isArray(s.seenJitHints) ? s.seenJitHints.filter((x): x is string => typeof x === 'string') : [],
     // DeepSeek 复审[major]：clamp 到 [0, currentDay]，防损坏存档把 lastEventDay 设超大导致事件永久不触发
-    lastEventDay: typeof s.lastEventDay === 'number' ? Math.max(0, Math.min(s.lastEventDay, s.currentDay ?? 0)) : 0,
+    lastEventDay: typeof s.lastEventDay === 'number' ? Math.max(0, Math.min(s.lastEventDay, rawCurrentDay)) : 0,
     lastSeenTimestamp: s.lastSeenTimestamp ?? 0,
-    currentDay: s.currentDay ?? 0,
+    currentDay: rawCurrentDay,
     rngSeed,
     speed,
     worldMap,

@@ -100,10 +100,14 @@ describe('b) 损坏与类型错乱对抗', () => {
     expect(() => deserialize(validV9({ resources: 'oops' }))).toThrow(SaveLoadError);
   });
 
-  it('currentDay 超大数：现状不做 clamp 原样带出（可疑）', () => {
-    // TODO(日间)：给 currentDay 加上界；超大值会流入 UI 与事件判定。
-    const gs = deserialize(validV9({ currentDay: Number.MAX_SAFE_INTEGER + 1 }));
-    expect(gs.currentDay).toBe(9007199254740992);
+  it('currentDay 超上界（>3600）：拒载 SaveLoadError（c919-04 TODO① 落地翻桩）', () => {
+    // 超大值流入 UI 与事件判定是攻击面；MAX_SAVE_CURRENT_DAY=3600（HORIZON_DAYS=720 的 5 倍护栏）。
+    expect(() => deserialize(validV9({ currentDay: Number.MAX_SAFE_INTEGER + 1 }))).toThrow(SaveLoadError);
+  });
+
+  it('currentDay 界内值原样带出（正常档不受上界影响）', () => {
+    const gs = deserialize(validV9({ currentDay: 365 }));
+    expect(gs.currentDay).toBe(365);
   });
 });
 

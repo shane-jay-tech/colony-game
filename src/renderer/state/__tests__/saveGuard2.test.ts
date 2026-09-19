@@ -151,9 +151,8 @@ describe('buildings 数组逐字段对抗', () => {
     expect(b.upgradingTo).toBe('market');
   });
 
-  it('TODO: constructionProgress 未 clamp 到 [0,1]——现状接受任意有限数（如 42）', () => {
-    // 现行校验只要求 finite，不约束进度语义范围；超界值会流入生产 tick。
-    // TODO(日间)：constructionProgress 加 [0,1] 或 [0,100] 语义校验。
+  it('constructionProgress 界内值（42）原样带出——[0,100] clamp 对界内值无操作（c919-04 翻桩去 TODO；越界钳制见 p911r-40 组）', () => {
+    // clamp 已由 p911r-40 落地（saveLoad validateBuildingsArray Math.min/max）；本例守住界内不误伤。
     const gs = deserialize(validV9({ buildings: [validBuilding({ constructionProgress: 42 })] }));
     const b = gs.buildings[0] as { constructionProgress: number };
     expect(b.constructionProgress).toBe(42);
@@ -165,10 +164,12 @@ describe('saveGuard2 additions (p911r-40)', () => {
   it('constructionProgress 越界钳制到 [0,100]', () => {
     const high = validV9({ buildings: [validBuilding({ constructionProgress: 150 })] });
     const highState = deserialize(high);
-    expect(highState.buildings[0].constructionProgress).toBe(100);
+    const highBuilding = highState.buildings[0] as { constructionProgress: number };
+    expect(highBuilding.constructionProgress).toBe(100);
     const low = validV9({ buildings: [validBuilding({ constructionProgress: -5 })] });
     const lowState = deserialize(low);
-    expect(lowState.buildings[0].constructionProgress).toBe(0);
+    const lowBuilding = lowState.buildings[0] as { constructionProgress: number };
+    expect(lowBuilding.constructionProgress).toBe(0);
   });
 
   it('resources 非有限数值记录 → SaveLoadError', () => {
