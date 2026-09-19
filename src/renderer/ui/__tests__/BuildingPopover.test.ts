@@ -9,6 +9,7 @@ import { GameStore, STATE_EVENTS } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
 import { makeFakeScene } from './fakeScene';
+import { COLORS } from '../palette';
 import { BuildingPopover } from '../BuildingPopover';
 
 function allPlainMap(): WorldMap {
@@ -17,9 +18,9 @@ function allPlainMap(): WorldMap {
   return { width: 16, height: 16, tiles, resourceNodes: [], seed: 0 };
 }
 
-function makeStore(): GameStore {
+function makeStore(resources?: Record<string, number>): GameStore {
   const ee = new EventEmitter() as unknown as IEventEmitter;
-  return new GameStore(ee, { worldMap: allPlainMap() }, { policies: [], decrees: [] });
+  return new GameStore(ee, { worldMap: allPlainMap(), ...(resources ? { resources } : {}) }, { policies: [], decrees: [] });
 }
 
 function makeInstance(defId = 'bld_farm'): { instance: { defId: string; [k: string]: unknown } } {
@@ -79,5 +80,49 @@ describe('BuildingPopover', () => {
     popover.destroy();
     expect(popover.isVisible()).toBe(false);
     expect(offSpy).toHaveBeenCalledWith(STATE_EVENTS.BUILDING_UPGRADED, expect.any(Function));
+  });
+
+  // ── c919-06：升级按钮三态视觉断言（c918-16 A 路收割遗留「按钮变灰/禁用」）──
+  // 载体：bld_well → bld_market（upgradeCost wood18/stone12/cloth3，upgradeRequires pol_market）。
+  // 视觉参数：drawButtonBg enabled→WOOD_LIGHT 填充＋GOLD 描边；禁用→WOOD＋GOLD_DIM；提示行三分支。
+  function grabFields(p: BuildingPopover) {
+    return (p as unknown as {
+      upgradeBtnGfx: { fillStyle: ReturnType<typeof vi.fn>; lineStyle: ReturnType<typeof vi.fn> };
+      hintText: { text: string } | null;
+    });
+  }
+  function adoptMarketPolicy(s: GameStore): void {
+    (s as unknown as { state: { policies: unknown[] } }).state.policies = [{ id: 'pol_market', adopted: true }];
+  }
+
+  it('c919-06 三态·金边可点：资源足＋前置齐→WOOD_LIGHT/GOLD 描边＋「点击升级」提示', () => {
+    const s = makeStore({ people: 20, wood: 50, stone: 30, cloth: 10, grain: 100 });
+    adoptMarketPolicy(s);
+    const p2 = new BuildingPopover(scene as never, s, null);
+    p2.show({ defId: 'bld_well' } as never, 400, 300);
+    const f = grabFields(p2);
+    expect(f.hintText?.text).toContain('点击升级');
+    expect(f.upgradeBtnGfx.fillStyle).toHaveBeenCalledWith(COLORS.WOOD_LIGHT, 1);
+    expect(f.upgradeBtnGfx.lineStyle).toHaveBeenCalledWith(1.5, COLORS.GOLD, 1);
+  });
+
+  it('c919-06 三态·资源不足：木头 1<18→WOOD/GOLD_DIM 禁用态＋「资源不足」提示行', () => {
+    const s = makeStore({ people: 20, wood: 1, stone: 30, cloth: 10, grain: 100 });
+    adoptMarketPolicy(s);
+    const p2 = new BuildingPopover(scene as never, s, null);
+    p2.show({ defId: 'bld_well' } as never, 400, 300);
+    const f = grabFields(p2);
+    expect(f.hintText?.text).toContain('资源不足');
+    expect(f.upgradeBtnGfx.fillStyle).toHaveBeenCalledWith(COLORS.WOOD, 1);
+    expect(f.upgradeBtnGfx.lineStyle).toHaveBeenCalledWith(1.5, COLORS.GOLD_DIM, 1);
+  });
+
+  it('c919-06 三态·前置缺失：未采纳 pol_market→「缺：」提示＋禁用视觉', () => {
+    const s = makeStore({ people: 20, wood: 50, stone: 30, cloth: 10, grain: 100 });
+    const p2 = new BuildingPopover(scene as never, s, null);
+    p2.show({ defId: 'bld_well' } as never, 400, 300);
+    const f = grabFields(p2);
+    expect(f.hintText?.text).toContain('缺：');
+    expect(f.upgradeBtnGfx.fillStyle).toHaveBeenCalledWith(COLORS.WOOD, 1);
   });
 });

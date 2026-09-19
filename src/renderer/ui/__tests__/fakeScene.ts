@@ -104,7 +104,16 @@ export function makeFakeScene(opts: FakeSceneOpts = {}): FakeSceneLike {
     input: { on: vi.fn(), off: vi.fn(), keyboard: opts.keyboard ? { on: keyboardOn, off: vi.fn() } : undefined },
     registry: { get: vi.fn(), set: vi.fn() },
     __keyboardOn: keyboardOn,
-  };
+  } as unknown as FakeSceneLike;
+  // Phaser Text 语义：构造第三参即初始文本——记入 .text 供断言（如 BuildingPopover hint 行）。
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const addObj = scene.add as unknown as Record<string, any>;
+  const origText = addObj.text;
+  addObj.text = vi.fn((x: number, y: number, init?: string) => {
+    const t = origText(x, y, init) as unknown as { text: string };
+    if (typeof init === 'string') t.text = init;
+    return t;
+  });
   if (opts.cameras) scene.cameras = { main: { width: 1366, height: 800, scrollX: 0, scrollY: 0 } };
   if (opts.tweens) scene.tweens = { add: vi.fn(() => ({ stop: vi.fn(), destroy: vi.fn() })) };
   if (opts.time) scene.time = { delayedCall: vi.fn((_ms: number, fn: () => void) => { /* 捕获不立即执行 */ }) };
