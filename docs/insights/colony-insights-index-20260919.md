@@ -1,0 +1,63 @@
+# colony docs/insights 索引（c920-01 生成，61 份，2026-09-20 04:55）
+
+- colony-aegis-cadence-20260915.md — aegis 索引校验纳入例行方案（n915-64，只出设计）
+- colony-artmanifest-coverage-20260917.md — colony artManifest 三类覆盖矩阵＋path 字段消费者核验（916p-a3-006，2026-09-17，只读）
+- colony-artmanifest-gap-20260917.md — colony U2：artManifest 两建筑缺图处置（n916d-23）
+- colony-backlog-dup-ids-20260917.md — colony OPTIMIZATION_BACKLOG 编号重号与状态冲突核验（916p-a2-007 任务书同名族，2026-09-17，只读）
+- colony-boot-manifest-gaps-20260913.md — colony 散布/音频/UI_ART 入 boot 清单差异核查（c-19，2026-09-13，零改码）
+- colony-bootscene-loaderror-20260916.md — colony BootScene loaderror 重复注册核查（n916f-07，只读判定）
+- colony-bushdry-triage-20260918.md — colony bush_dry 闲臵清单项处置（核报＋执行版，c918-09）
+- colony-deadcode-dispose-20260916.md — colony toPhaserStyle/getExclusionGroup 死码处置材料（n916x-33）——标的已不存在，核验收口
+- colony-deadexports-entries-recon-20260917.md — colony dead-exports entries 三处数字链条对账（917-39，只读零回写）
+- colony-deadexports-out-param-20260917.md — colony audit-dead-exports.mjs `--out`/`--write` 参数化（n916d-25）
+- colony-deadexports-readonly-20260916.md — colony audit-dead-exports.mjs 只读化改造（n916f-04）
+- colony-econ-params-audit-20260918.md — colony 经济参数对账只读审计（c918-25 / P2-2 收尾欠账）
+- colony-hardcoded-inventory-20260916.md — colony P1-4 terrain/scatter/audio 硬编码清单与切片设计（c916-03）
+- colony-hills-naming-20260913.md — colony 地形清单 hills/hill 命名统一记录（a-46，2026-09-13）
+- colony-hygiene-inventory-20260917.md — colony 仓库卫生异常文件盘点（917-40，只读零改动）
+- colony-inflight-ownership-20260919.md — colony 在途 7 文件归属核报（s918-12 / 并发会话现场）
+- colony-insights-index-20260915.md — colony docs/insights 与 README/索引一致性（n915-78，只读）
+- colony-insights-index-recount-20260917.md — colony insights 索引与现实份数漂移重算（916p-a3-003 关联单，2026-09-17）
+- colony-introscene-slice-20260919.md — colony IntroScene 序章流程薄切片核报（c918-21 / 锚点漂移记录）
+- colony-kiln-market-semantics-20260916.md — colony 陶窑→市集多源指向语义材料（c916-02，只列不改）
+- colony-loaderror-dedup-20260916.md — colony BootScene loaderror 重复注册核查与最小修复（n916e-08）
+- colony-loaderror-dedup-20260917.md — colony O1：BootScene loaderror handler 重复注册去重（n916d-24）
+- colony-manifest-authority-batch1-20260912.md — colony asset manifest 权威化批次一报告（h912-11，2026-09-13 夜班）
+- colony-manifest-equivalence-20260913.md — colony 清单等价断言补测（c-18，2026-09-13）
+- colony-migration-v10-guard-20260916.md — colony 存档迁移 v10 前向守护设计材料（c916-06，不实现）
+- colony-missing-assets-20260916.md — colony 启动面缺图清单核对（n916f-08，2026-09-16 建单 / 2026-09-17 夜执行）
+- colony-onboarding-walkthrough-20260918.md — colony P2-1 新手引导三件套只读走查（c918-24 材料单）
+- colony-p23-hooks-map-20260919.md — colony P2-3 操作反馈钩子盘点（s918-13 / 只读缺口表，零改动）
+- colony-p32-closure-20260918.md — colony P3-2 闭单证据复核（s918-14 / 只读，backlog 文件未动）
+- colony-p43-dress-20260918.md — colony P4-3 终检预演：verify + build 证据（c918-27）
+- colony-registry-keys-20260913.md — colony registry key 集中化与类型化访问核验（c-14，2026-09-13）
+- colony-retired-module-residual-20260916.md — colony c914-38 退役模块残留引用核查（b916-04，只读）
+- colony-retired-render-20260917.md — colony 渲染退役范围核验（916-07，2026-09-17，只读）
+- colony-saturation-calibration-plan-20260920.md — colony 木材/金币饱和校准方案（c919-51，只出方案不改数值）
+- colony-save-v3-test-20260913.md — colony 存档 schema v3 兼容读取回归（c-22，2026-09-13）
+- colony-saveguard-bounds-20260918.md — colony saveGuard 双 TODO 日间材料（s918-11 / 只读核报，零源码改动）
+- colony-saveguard2-20260911.md — colony saveGuard2：constructionProgress 钳制 + resources shape 校验（2026-09-12 夜间执行班，
+- colony-saveload-ui-gap-20260913.md — colony 存档 UI 暴露现状核查与最小接线评估（c-21，2026-09-13，只读）
+- colony-savematrix-extend-20260916.md — colony saveMatrix 组 B 字段保留断言扩展（c916-07）
+- colony-scatter-asset-decision-20260917.md — colony scatter rock_cluster 替代方案拍板材料（917-33/B-152，只读零改动）
+- colony-scatter-asset-gap-20260917.md — colony 散布资产缺口核验（916p-a3-005，2026-09-17，只读）
+- colony-scatter-gap-20260917.md — colony U1：scatterConfig rock_cluster 引用落差最小修复（n916d-22）
+- colony-scripts-consistency-20260918.md — colony package.json scripts 与文档一致性核对（c918-28 / 只读，零改动）
+- colony-shared-visual-constants-20260913.md — colony render/UI 共用视觉常量抽离（c-15，2026-09-13）
+- colony-start-here-count-drift-20260917.md — colony START_HERE 测试计数漂移订正（916p-a3-003，2026-09-17）
+- colony-startup-config-audit-20260917.md — colony 启动配置分支可达性全量核验（916p-a3-009，2026-09-17，只读）
+- colony-storybalance-20260919.md — colony STORY_BALANCE 现值重盘（c919-07，只读零改动）
+- colony-storynpcs-terrain-reachability-20260913.md — colony storyNpcs/terrainTextures 可达性实证与退役记录（a-45，2026-09-13）
+- colony-stray-eq-file-20260917.md — colony 仓根 0 字节误入库文件 `=` 处置（916p-a3-001，2026-09-17）
+- colony-typed-events-20260913.md — colony 状态事件面类型化落地（c-13，2026-09-13）
+- colony-ui-adapter-guard-20260913.md — colony UI 适配器守卫测试（c-16，2026-09-13）
+- colony-ui-webp-reuse-20260914.md — colony assets/ui 6 个 webp 的 UI 复用核查（d914-35，2026-09-14，只读）
+- colony-uncommitted-inventory-20260917.md — colony 未提交生产改动盘点与提交就绪度核验（916p-a3-010，2026-09-17，只读）
+- colony-unreachable-resourceSystem-20260912.md — colony resourceSystem.ts 不可达模块处置报告（h912-14，2026-09-13 夜班）
+- colony-untracked-residue-20260917.md — colony tmp/ 与 _archive/ 未跟踪残留盘点＋.gitignore 补丁（916p-a3-008，2026-09-17）
+- colony-untracked-tests-intake-20260917.md — colony 未跟踪测试与 src/shared 入库收口（916p-a3-002，2026-09-17）
+- colony-v10-guard-impl-20260916.md — colony v10 迁移前向守护断言实现（n916x-34，设计稿 colony-migration-v10-guard-20260916 落地）
+- colony-v10-guard-spec-20260915.md — colony 存档 v10 bump 前向守护测试设计稿（n915-63，不写实现）
+- cross-build-deps-20260913.md — learning / colony 离线构建与依赖可复现性核对（c-48，2026-09-13）
+- economy-params-inventory-20260905.md — 经济系统参数只读盘点与失衡信号（2026-09-05 夜 1024，零改动）
+- savegame-compat-audit-20260905.md — 存档兼容性测试体系审计（只读，2026-09-05 夜 1025）
