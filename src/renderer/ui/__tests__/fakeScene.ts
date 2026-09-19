@@ -176,6 +176,17 @@ export function makeSceneClassMock(): SceneClassMock {
         zone: vi.fn(() => makeChainable()),
         container: vi.fn(() => makeChainable()),
         image: vi.fn(() => makeChainable()),
+        dom: vi.fn(() => ({
+          createFromHTML: vi.fn(() => ({
+            setOrigin: vi.fn().mockReturnThis(),
+            setPosition: vi.fn().mockReturnThis(),
+            setDepth: vi.fn().mockReturnThis(),
+            setVisible: vi.fn().mockReturnThis(),
+            // node 环境无 DOM：input 元素用纯对象顶（value/addEventListener 足够 IntroScene 用）。
+            node: { value: '', addEventListener: vi.fn(), removeEventListener: vi.fn() },
+          })),
+          setOrigin: vi.fn().mockReturnThis(),
+        })),
       };
       // BuildPanel 建筑缩略图贴图守卫：exists=false 走缺图降级（行只显文字）。
       this.textures = { exists: vi.fn(() => false), get: vi.fn() };
@@ -217,6 +228,7 @@ export function makePhaserMock() {
     Scenes: { Events: { SHUTDOWN: 'shutdown' } },
     Scale: { RESIZE: 'RESIZE' },
     Geom: { Rectangle },
+    Math: { Between: (min: number, _max: number) => min, FloatBetween: (min: number, _max: number) => min },
   };
   (PhaserMock as Record<string, unknown> & { default?: unknown }).default = PhaserMock;
   return PhaserMock;
