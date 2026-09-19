@@ -6,30 +6,7 @@ import { GameStore, STATE_EVENTS } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
 
-function makeFakeText() {
-  const t = {
-    setOrigin: vi.fn().mockReturnThis(),
-    setColor: vi.fn().mockReturnThis(),
-    setText: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setAlpha: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-    width: 100, height: 18, displayHeight: 18, text: '',
-  };
-  t.setText.mockImplementation((s: string) => { t.text = s; return t; });
-  return t;
-}
 
-function makeFakeGraphics() {
-  const g: Record<string, unknown> = {};
-  const methods = ['clear', 'fillStyle', 'lineStyle', 'fillRect', 'strokeRect', 'fillCircle', 'strokeCircle',
-    'beginPath', 'moveTo', 'lineTo', 'strokePath', 'closePath', 'fillPath', 'fillRoundedRect',
-    'strokeRoundedRect', 'generateTexture', 'setPosition', 'setVisible', 'destroy'];
-  for (const name of methods) g[name] = vi.fn().mockReturnThis();
-  return g;
-}
 
 function makeFakeZone() {
   return {
@@ -76,6 +53,7 @@ function makeStore(): GameStore {
 }
 
 import { PopulationPanel } from '../PopulationPanel';
+import { makeFakeText, makeFakeGraphics } from './fakeScene';
 
 describe('PopulationPanel', () => {
   let scene: ReturnType<typeof makeFakeScene>;

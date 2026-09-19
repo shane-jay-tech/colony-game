@@ -5,45 +5,13 @@ import type { IEventEmitter } from '../../state/gameStore';
 import { POLICIES, EVENTS, DECREES } from '../../data';
 import { BALANCE } from '../../data/balanceConfig';
 import { ScoreCardPanel, loadBestScore, saveBestScore } from '../ScoreCardPanel';
+import { makeFakeText, makeFakeGraphics } from './fakeScene';
 
 /**
  * P2 终局记分牌面板纯逻辑测试。Phaser 全 mock；localStorage mock 验证历史最高分。
  */
 
-function makeFakeText() {
-  const t = {
-    setOrigin: vi.fn().mockReturnThis(),
-    setColor: vi.fn().mockReturnThis(),
-    setText: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setAlpha: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-    width: 100, height: 18, text: '',
-  };
-  t.setText.mockImplementation((s: string) => { t.text = s; return t; });
-  t.setColor.mockImplementation(function (this: typeof t, c: string) { (this as unknown as { color?: string }).color = c; return this as typeof t; });
-  return t;
-}
 
-function makeFakeGraphics() {
-  return {
-    clear: vi.fn().mockReturnThis(),
-    fillStyle: vi.fn().mockReturnThis(),
-    fillRect: vi.fn().mockReturnThis(),
-    lineStyle: vi.fn().mockReturnThis(),
-    strokeRect: vi.fn().mockReturnThis(),
-    beginPath: vi.fn().mockReturnThis(),
-    moveTo: vi.fn().mockReturnThis(),
-    lineTo: vi.fn().mockReturnThis(),
-    strokePath: vi.fn().mockReturnThis(),
-    fillCircle: vi.fn().mockReturnThis(),
-    strokeCircle: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-}
 
 interface FakeZone {
   x: number; y: number; width: number; height: number;
