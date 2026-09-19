@@ -516,6 +516,11 @@ export class GameScene extends Phaser.Scene {
       unbuildable_terrain: '此地形不可建造',
     };
     toast.show(msg[reason] ?? '无法建造此处', 'error');
+    // P2-3 资源不足反馈（c919-03）：资源/劳力不足时警告音（其余失败保持静默，避免噪声化）。
+    if (reason === 'insufficient_resources' || reason === 'insufficient_labor') {
+      const audio = registryGet(this.registry, REGISTRY_KEYS.audioManager);
+      audio?.playSfx('sfx_warn', 0.5);
+    }
   }
 
   private rerenderBuildings(): void {

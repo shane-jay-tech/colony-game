@@ -133,7 +133,8 @@ export class AudioManager {
     this.fadeTween(sound, 0, () => { try { sound.stop(); sound.destroy(); } catch { /* noop */ } });
   }
 
-  private playSfx(key: string, baseVolume: number): void {
+  // c919-03：转公开——GameScene 建造失败等场景层经 registryGet(audioManager) 直呼（P2-3 资源不足反馈）。
+  playSfx(key: string, baseVolume: number): void {
     if (this.destroyed || !this.has(key)) return;
     const vol = baseVolume * this.getSfxScale();
     if (vol <= 0) return;
