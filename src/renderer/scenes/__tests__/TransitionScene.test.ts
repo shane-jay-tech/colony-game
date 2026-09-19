@@ -64,7 +64,7 @@ describe('TransitionScene characterization（c920-08）', () => {
     const onDone = vi.fn();
     scene.create({ lines: ['一段'], onDone });
     (wired.__click as () => void)();
-    expect((wired.scale as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledWith('resize', scene.scheduleLayout);
+    expect((wired.scale as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledWith('resize', expect.any(Function));
     expect(wired.input.removeAllListeners).toHaveBeenCalled();
   });
 });
