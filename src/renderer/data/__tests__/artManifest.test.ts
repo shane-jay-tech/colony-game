@@ -1,9 +1,16 @@
 import { describe, it, expect } from 'vitest';
+// c921-01：path 存在性断言需要 fs（manifest 现在声明的是 public/ 下真实 png）
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   ART_MANIFEST, BUILDING_ART, GENERAL_ART, EVENT_ART, TERRAIN_ART,
   getArtByCategory, isArtAvailable,
 } from '../artManifest';
 import { BUILDINGS } from '../buildings';
+
+const PUBLIC = join(__dirname, '..', '..', '..', '..', 'public');
+// c921-01 方案 B：无自有素材的缺图建筑（走 BUILDING_ART_REUSE），保留 .webp 占位、required=false。
+const NO_OWN_ART_KEYS = ['bld_hemp_field', 'bld_tin_mine'];
 
 describe('Phase D art manifest', () => {
   it('building art entries = 35 (matches BUILDINGS)', () => {
@@ -37,12 +44,16 @@ describe('Phase D art manifest', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it('paths use .webp (历史类) 或 .png (terrain 实存)', () => {
+  // c921-01 翻桩：旧断言「非地形一律 .webp」把 public/assets 整体不存在这个缺陷
+  // 当成了契约（50 键指向不存在的 webp）。现改为断言 path 指向 public/ 下真实 png。
+  it('paths 指向实存 png（c921-01 改指翻桩）；仅待补素材两型保留 .webp 占位', () => {
     for (const a of ART_MANIFEST) {
-      if (a.category === 'terrain') {
-        expect(a.path.endsWith('.png')).toBe(true);
+      if (NO_OWN_ART_KEYS.includes(a.key)) {
+        expect(a.path).toBe(`assets/buildings/${a.key}.webp`);
+        expect(existsSync(join(PUBLIC, a.path))).toBe(false); // 方案 B：确无素材，不是漏改
       } else {
-        expect(a.path.endsWith('.webp')).toBe(true);
+        expect(a.path.endsWith('.png')).toBe(true);
+        expect(existsSync(join(PUBLIC, a.path))).toBe(true);
       }
     }
   });
@@ -58,8 +69,14 @@ describe('Phase D art manifest', () => {
     expect(isArtAvailable('bld_palace', loaded)).toBe(false);
   });
 
-  it('no required assets (all optional until art is created)', () => {
+  // c921-01 翻桩：旧断言「required 全 false（素材尚未制作）」已过期——53 键素材实存。
+  // 新契约：required=true ⇔ 该键 path 在 public/ 下实存（禁止 required=true 而文件不存在）。
+  it('required = 素材实存（c921-01：53 true / 2 待补）', () => {
     const required = ART_MANIFEST.filter(a => a.required);
-    expect(required).toHaveLength(0);
+    expect(required).toHaveLength(53);
+    for (const a of required) {
+      expect(existsSync(join(PUBLIC, a.path))).toBe(true);
+    }
+    expect(ART_MANIFEST.filter(a => !a.required).map(a => a.key).sort()).toEqual(NO_OWN_ART_KEYS);
   });
 });

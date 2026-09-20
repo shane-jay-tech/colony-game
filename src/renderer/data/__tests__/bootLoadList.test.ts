@@ -80,12 +80,16 @@ describe('c18 manifest equivalence', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it('③ path 命名与 category 目录约定一致（buildings/generals/events/ui/terrain）', () => {
+  // c921-01 翻桩：旧断言要求非地形 path 匹配 assets/<category>s?/——而该目录整体不存在
+  // （55 键里 50 键指向它）。现统一为实存 art/<category>s?/ 口径，仅方案 B 两型例外。
+  it('③ path 命名与 category 目录约定一致（c921-01 翻桩：实存 art/<category>s?/）', () => {
+    const PENDING = new Set(['bld_tin_mine', 'bld_hemp_field']);
     for (const a of ART_MANIFEST) {
-      if (a.category === 'terrain') {
-        expect(a.path).toMatch(/^art\/terrain\//); // c918-04：地形走实存 art/terrain/*.png
+      if (PENDING.has(a.key)) {
+        expect(a.path).toBe(`assets/buildings/${a.key}.webp`); // 方案 B：无自有素材，保留占位
+        expect(a.required).toBe(false);
       } else {
-        expect(a.path).toMatch(new RegExp(`assets/${a.category}s?/`));
+        expect(a.path).toMatch(new RegExp(`^art/${a.category}s?/`));
       }
     }
   });
