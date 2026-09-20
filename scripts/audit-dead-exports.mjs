@@ -24,13 +24,31 @@ const files = [];
 })(ROOT);
 
 const testFiles = [];
+// B-151 修复（917 案卷二节定谳）：walkTests 曾把 src 下全部 .ts 当测试文件，
+// hitsInTests＝测试命中＋本文件全部出现（含声明行），自计污染令 22/108 条 tests-only 无真实测试引用。
+// 与 files 采集口径对齐：只收 __tests__。
 (function walkTests(dir) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    if (e.isDirectory()) walkTests(p);
-    else if (p.endsWith('.ts') || p.endsWith('.mts')) testFiles.push(p);
+    if (e.isDirectory()) {
+      if (e.name === '__tests__') collectTests(p);
+      else walkTests(p);
+    }
+  }
+  function collectTests(tdir) {
+    for (const e of fs.readdirSync(tdir, { withFileTypes: true })) {
+      const p = path.join(tdir, e.name);
+      if (e.isDirectory()) collectTests(p);
+      else if (p.endsWith('.ts') || p.endsWith('.mts')) testFiles.push(p);
+    }
   }
 })('src');
+
+// B-151 自检：testFiles 一旦混入非 __tests__ 文件，hitsInTests 自计污染即复发——直接失败退出。
+if (testFiles.some((p) => !p.includes('__tests__'))) {
+  process.stderr.write('[B-151] walkTests 混入非 __tests__ 文件，自计污染复发\n');
+  process.exit(1);
+}
 
 const EXPORT_RE = /^export\s+(?:const|function|class|let)\s+([A-Za-z_$][\w$]*)/gm;
 const entries = [];
