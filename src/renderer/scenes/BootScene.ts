@@ -29,7 +29,8 @@ export class BootScene extends Phaser.Scene {
     // v0.9 Pillar 3.2：尝试加载每个建筑的 sprite。
     // 缺图不崩——loaderror 事件上报后 textures.exists(key) 返 false，
     // MapRenderer 据此自动回退到现有 fillRect+沙印渲染。审核通过的 baseline
-    // 落在 public/art/buildings/<defId>.png；尚未生成的 defId 直接走 fallback。
+    // 落在 public/art/buildings/<defId>.webp（c921-02 整批转码；原 png 保留在盘）；
+    // 尚未生成的 defId 直接走 fallback。
     this.load.on('loaderror', (file: Phaser.Loader.File) => {
       // 仅打 debug，不污染 console.error——大量缺图属预期状态
       console.debug('[BootScene] sprite missing (fallback to sigil):', file.key);
@@ -38,22 +39,24 @@ export class BootScene extends Phaser.Scene {
     // 已描述的资产以 manifest 为权威 boot-loading 源）。键与顺序经单测与旧手写清单逐项相等。
     // 缺图不崩——loaderror 事件上报后 textures.exists(key) 返 false，
     // MapRenderer 据此自动回退到现有 fillRect+沙印渲染。审核通过的 baseline
-    // 落在 public/art/buildings/<defId>.png；尚未生成的 defId 直接走 fallback。
+    // 落在 public/art/buildings/<defId>.webp（c921-02 转码）；尚未生成的 defId 直接走 fallback。
     // （n916d-24：此处曾重复注册第二个 loaderror，同一失败双打日志——已合并为上方一处。）
     for (const item of getBootLoadList('building')) {
       this.load.image(item.key, item.url);
     }
 
     // W3：手绘地貌贴图（缺图 loaderror 静默 → MapRenderer 回退色块）。
-    // c918-04/05：TERRAIN_ART 已 5 型且指向实存 art/terrain/*.png——清单改由
-    // manifest 派生（同 general 模式），删除硬编码字面数组（B-139 销项）。
+    // c918-04/05：TERRAIN_ART 已 5 型且指向实存文件——清单改由 manifest 派生
+    // （同 general 模式），删除硬编码字面数组（B-139 销项）。c921-02：path 已随转码改指 .webp。
     for (const asset of TERRAIN_ART) {
       this.load.image(asset.key, asset.path);
     }
     // W4：2.5D 散布素材（树/石/灌木/芦苇；缺则 MapRenderer 跳过散布）。
     // h912-11：manifest 无 scatter 类目，保留原清单。
+    // c921-02：散布 9 图已整批转码为 .webp（原 png 保留在盘）——此处的硬编码路径同步改指，
+    // 属「manifest 之外的第二事实源」，改扩展名时必须与本行一起改（c921-01 报告第四节已登记）。
     for (const id of SCATTER_IDS) {
-      this.load.image(`scatter_${id}`, `art/scatter/${id}.png`);
+      this.load.image(`scatter_${id}`, `art/scatter/${id}.webp`);
     }
     // 2026-06-19：将领立绘（军务面板）+ 事件插画（朝议弹窗/结局）。缺图静默 → 回退文字。
     // h912-11 批次一：将领加载清单改由 artManifest.GENERAL_ART 派生（键=portrait_${id}，
@@ -62,9 +65,10 @@ export class BootScene extends Phaser.Scene {
       this.load.image(item.key, item.url);
     }
     // P0-3：事件插画清单以 artManifest.EVENT_ART 为唯一权威源（去重本地 EVENT_ART_NAMES）
+    // c921-02：URL 模板同步改指 .webp（与 manifest 的 path 同扩展名；原 png 保留在盘）
     for (const asset of EVENT_ART) {
       const name = asset.key.startsWith('evt_art_') ? asset.key.slice('evt_art_'.length) : asset.key;
-      this.load.image(asset.key, `art/events/${name}.png`);
+      this.load.image(asset.key, `art/events/${name}.webp`);
     }
 
     // Phase4 音频：试加载 BGM + 音效。同 sprite——缺文件 loaderror 静默，

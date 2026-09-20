@@ -9,11 +9,12 @@ describe('h912-11 boot load list derived from artManifest', () => {
   it('① 派生序列与旧硬编码加载列表逐项相等（same=true）', () => {
     const oldBuildingItems = BUILDINGS.map(def => ({
       key: def.assetKey,
-      url: `art/buildings/${BUILDING_ART_REUSE[def.id] ?? def.id}.png`,
+      // c921-02：整批转码后 URL 模板同步改指 .webp（原 png 保留在盘）
+    url: `art/buildings/${BUILDING_ART_REUSE[def.id] ?? def.id}.webp`,
     }));
     const oldGeneralItems = GENERAL_POOL.map(g => ({
       key: `portrait_${g.id}`,
-      url: `art/generals/${g.id}.png`,
+      url: `art/generals/${g.id}.webp`,
     }));
 
     const newBuildingItems = getBootLoadList('building');
@@ -39,7 +40,7 @@ describe('h912-11 boot load list derived from artManifest', () => {
       expect(list.some(item => item.key === 'portrait_h912_probe')).toBe(true);
       expect(list[list.length - 1]).toEqual({
         key: 'portrait_h912_probe',
-        url: 'art/generals/h912_probe.png',
+        url: 'art/generals/h912_probe.webp',
       });
     } finally {
       const idx = GENERAL_ART.indexOf(probe);

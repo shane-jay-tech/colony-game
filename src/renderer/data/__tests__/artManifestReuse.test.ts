@@ -8,8 +8,9 @@ import { BUILDING_ART, BUILDING_ART_REUSE, getBootLoadList } from '../artManifes
 
 const BUILDINGS_DIR = resolve(process.cwd(), 'public/art/buildings');
 
+// c921-02：对账对象改为**实际被加载的扩展名** .webp（整批转码后）
 function resolvable(key: string): boolean {
-  return existsSync(resolve(BUILDINGS_DIR, `${BUILDING_ART_REUSE[key] ?? key}.png`));
+  return existsSync(resolve(BUILDINGS_DIR, `${BUILDING_ART_REUSE[key] ?? key}.webp`));
 }
 
 describe('n916d-23 artManifest 建筑条项资源解析', () => {
@@ -30,7 +31,8 @@ describe('n916d-23 artManifest 建筑条项资源解析', () => {
     const list = getBootLoadList('building');
     const broken = list.filter(item => !existsSync(resolve(process.cwd(), 'public', item.url)));
     expect(broken).toEqual([]);
-    expect(list.find(item => item.key === 'bld_tin_mine')?.url).toBe('art/buildings/bld_quarry.png');
-    expect(list.find(item => item.key === 'bld_hemp_field')?.url).toBe('art/buildings/bld_mulberry_grove.png');
+    // c921-02：URL 模板随整批转码改指 .webp（复用目标本身也已转码；原 png 保留在盘）
+    expect(list.find(item => item.key === 'bld_tin_mine')?.url).toBe('art/buildings/bld_quarry.webp');
+    expect(list.find(item => item.key === 'bld_hemp_field')?.url).toBe('art/buildings/bld_mulberry_grove.webp');
   });
 });

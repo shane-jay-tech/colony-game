@@ -52,7 +52,8 @@ describe('Phase D art manifest', () => {
         expect(a.path).toBe(`assets/buildings/${a.key}.webp`);
         expect(existsSync(join(PUBLIC, a.path))).toBe(false); // 方案 B：确无素材，不是漏改
       } else {
-        expect(a.path.endsWith('.png')).toBe(true);
+        // c921-02 翻桩：整批转码后统一 .webp（c921-01 时为 .png；原 png 仍保留在盘）
+        expect(a.path.endsWith('.webp')).toBe(true);
         expect(existsSync(join(PUBLIC, a.path))).toBe(true);
       }
     }

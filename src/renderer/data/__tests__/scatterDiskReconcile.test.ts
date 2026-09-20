@@ -11,11 +11,12 @@ test('ALL_SCATTER_IDS 共 9 键（与磁盘 png 数一致）', () => {
   expect(ALL_SCATTER_IDS).toHaveLength(8); // c918-09：bush_dry 闲臵项已删除（png 保留在盘可随时恢复）
 });
 
+// c921-02：散布图整批转码为 .webp，BootScene 加载的是 .webp——对账对象改为被加载的文件。
 test.each(ALL_SCATTER_IDS.map(id => [id]))(
-  '散布键 %s 在 public/art/scatter/ 有实存 png',
+  '散布键 %s 在 public/art/scatter/ 有实存 webp',
   id => {
-    const png = join(SCATTER_DIR, `${id}.png`);
-    expect(existsSync(png), `缺盘：${png}（n916d-22 同型静默缺失）`).toBe(true);
+    const webp = join(SCATTER_DIR, `${id}.webp`);
+    expect(existsSync(webp), `缺盘：${webp}（n916d-22 同型静默缺失）`).toBe(true);
   },
 );
 

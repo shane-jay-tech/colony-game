@@ -3,11 +3,11 @@
  * 定义所有需要的美术资源（建筑/将领/事件/UI/地形），
  * BootScene 按此清单预加载；未就绪的资源 fallback 到沙印/色块。
  *
- * 资产文件约定（c921-01 实况校正：仓库真实落盘为 public/art/<类别>/*.png）：
- *   - 建筑：art/buildings/{id}.png (256×256 等距)
- *   - 将领：art/generals/{id}.png (512×768 半身)
- *   - 事件：art/events/{name}.png (800×450 场景)
- *   - 地形：art/terrain/{type}.png (tileable 128×128)
+ * 资产文件约定（c921-01 改指实存文件；c921-02 整批转码后统一为 public/art/<类别>/*.webp）：
+ *   - 建筑：art/buildings/{id}.webp (256×256 等距)
+ *   - 将领：art/generals/{id}.webp (512×768 半身)
+ *   - 事件：art/events/{name}.webp (800×450 场景)
+ *   - 地形：art/terrain/{type}.webp (tileable 128×128)
  *   - 例外：无自有素材的两型建筑（bld_tin_mine / bld_hemp_field）保持 Phase D 占位口径，
  *     path 仍是 assets/buildings/{id}.webp（方案 B：待补素材，required=false，见 NO_OWN_ART）。
  * 口径：path 一律相对 public/；除上述两型外，每条 path 都由 tmp/art-exists-check.mts 逐键断言实存。
@@ -41,8 +41,9 @@ export const BUILDING_ART: ArtAssetDef[] = [
 ].map(id => ({
   key: id,
   // c921-01 方案 A：同 id 的 png 实存 ⇒ 改指 public/art/buildings/<id>.png（说真话）；
+  // c921-02 整批转码后同提交改指 .webp（原 png 保留在盘，零删除）。
   // 方案 B：NO_OWN_ART 两型无同 id 素材 ⇒ 保持原占位 path，不改。
-  path: NO_OWN_ART.has(id) ? `assets/buildings/${id}.webp` : `art/buildings/${id}.png`,
+  path: NO_OWN_ART.has(id) ? `assets/buildings/${id}.webp` : `art/buildings/${id}.webp`,
   category: 'building' as const,
   // c921-01：素材实存且被 getBootLoadList('building') 消费 ⇒ 校正为 true；
   // 仍缺素材的两型保持 false（禁止 required=true 而文件不存在）。
@@ -55,41 +56,41 @@ export const GENERAL_ART: ArtAssetDef[] = [
   'gen_pei_shao', 'gen_hu_ben', 'gen_xie_changqing', 'gen_tian_zhong', 'gen_barbarian',
 ].map(id => ({
   key: `portrait_${id}`,
-  // c921-01 方案 A：5 型将领立绘在 public/art/generals/ 下均为 .png（实存断言见 tmp/art-exists-check.mts）
-  path: `art/generals/${id}.png`,
+  // c921-01 方案 A 改指实存文件；c921-02 转码后为 .webp（实存断言见 tmp/art-exists-check.mts）
+  path: `art/generals/${id}.webp`,
   category: 'general' as const,
   required: true, // c921-01：实存且被 getBootLoadList('general') 消费
 }));
 
 // ====================== Event illustrations (10 core scenes) ===============
 
-// c921-01 方案 A：10 型事件插画在 public/art/events/ 下均为 .png 实存 ⇒ 全部改指 png，
-// required 校正为 true（实存且被 BootScene.ts:65 的 EVENT_ART 循环消费；该循环的 URL 模板
-// 本就用 art/events/<name>.png，故本表 path 与运行时 URL 从此逐字一致）。
+// c921-01 方案 A：10 型事件插画改指实存文件（原为不存在的 assets/events/*.webp）；
+// c921-02 整批转码后同提交统一为 public/ 下落盘的 .webp，required 保持 true（实存且被
+// BootScene.ts 的 EVENT_ART 循环消费）。
 export const EVENT_ART: ArtAssetDef[] = [
-  { key: 'evt_art_unification', path: 'art/events/unification.png', category: 'event', required: true },
-  { key: 'evt_art_coronation', path: 'art/events/coronation.png', category: 'event', required: true },
-  { key: 'evt_art_battle', path: 'art/events/battle.png', category: 'event', required: true },
-  { key: 'evt_art_flood', path: 'art/events/flood.png', category: 'event', required: true },
-  { key: 'evt_art_feast', path: 'art/events/feast.png', category: 'event', required: true },
-  { key: 'evt_art_diplomacy', path: 'art/events/diplomacy.png', category: 'event', required: true },
-  { key: 'evt_art_rebellion', path: 'art/events/rebellion.png', category: 'event', required: true },
-  { key: 'evt_art_ending_gong', path: 'art/events/ending_gong.png', category: 'event', required: true },
-  { key: 'evt_art_ending_jia', path: 'art/events/ending_jia.png', category: 'event', required: true },
-  { key: 'evt_art_ending_huo', path: 'art/events/ending_huo.png', category: 'event', required: true },
+  { key: 'evt_art_unification', path: 'art/events/unification.webp', category: 'event', required: true },
+  { key: 'evt_art_coronation', path: 'art/events/coronation.webp', category: 'event', required: true },
+  { key: 'evt_art_battle', path: 'art/events/battle.webp', category: 'event', required: true },
+  { key: 'evt_art_flood', path: 'art/events/flood.webp', category: 'event', required: true },
+  { key: 'evt_art_feast', path: 'art/events/feast.webp', category: 'event', required: true },
+  { key: 'evt_art_diplomacy', path: 'art/events/diplomacy.webp', category: 'event', required: true },
+  { key: 'evt_art_rebellion', path: 'art/events/rebellion.webp', category: 'event', required: true },
+  { key: 'evt_art_ending_gong', path: 'art/events/ending_gong.webp', category: 'event', required: true },
+  { key: 'evt_art_ending_jia', path: 'art/events/ending_jia.webp', category: 'event', required: true },
+  { key: 'evt_art_ending_huo', path: 'art/events/ending_huo.webp', category: 'event', required: true },
 ];
 
 // ====================== Terrain (5 types, c918-04 实存对账) ==================
-// path 统一为 public/art/terrain/*.png 实存文件（forest/hills/mountain/plain/river）。
+// path 统一为 public/art/terrain/*.webp 实存文件（forest/hills/mountain/plain/river;c921-02 转码）
 
 // c921-01：path 本就实存（c918-04 已对账）——不动 path，仅把 required 校正为 true
 // （5 型均被 BootScene.ts:50 的 TERRAIN_ART 循环以 asset.path 直接消费）。
 export const TERRAIN_ART: ArtAssetDef[] = [
-  { key: 'terrain_forest', path: 'art/terrain/forest.png', category: 'terrain', required: true },
-  { key: 'terrain_hills', path: 'art/terrain/hills.png', category: 'terrain', required: true },
-  { key: 'terrain_mountain', path: 'art/terrain/mountain.png', category: 'terrain', required: true },
-  { key: 'terrain_plain', path: 'art/terrain/plain.png', category: 'terrain', required: true },
-  { key: 'terrain_river', path: 'art/terrain/river.png', category: 'terrain', required: true },
+  { key: 'terrain_forest', path: 'art/terrain/forest.webp', category: 'terrain', required: true },
+  { key: 'terrain_hills', path: 'art/terrain/hills.webp', category: 'terrain', required: true },
+  { key: 'terrain_mountain', path: 'art/terrain/mountain.webp', category: 'terrain', required: true },
+  { key: 'terrain_plain', path: 'art/terrain/plain.webp', category: 'terrain', required: true },
+  { key: 'terrain_river', path: 'art/terrain/river.webp', category: 'terrain', required: true },
 ];
 
 // ====================== Full manifest ======================================
@@ -108,10 +109,10 @@ export function getArtByCategory(category: ArtAssetDef['category']): ArtAssetDef
 // ====================== Boot 启动加载清单派生（h912-11 批次一） ======================
 //
 // PLAN.md：manifest 已描述的资产以 manifest 为权威 boot-loading 源，删除重复加载列表。
-// URL 约定说明（c921-01 更正）：仓库真实落盘为 public/art/<类别>/<id>.png，本表 path 字段
-// 已同步改指同一批 png（仅 NO_OWN_ART 两型保留占位）——path 与下方 URL 模板现已同义；
-// 派生仍只取「键与顺序」（+ 复用表），URL 模板保留在此以免改变既有加载行为。
-// 地形/散布/音频 manifest 地形已等价描述（c918-04：TERRAIN_ART 5 型指向实存 art/terrain/*.png）；散布/音频 manifest 未等价描述，仍由 BootScene 保留。
+// URL 约定说明（c921-02 更正）：仓库真实落盘为 public/art/<类别>/<id>.webp（c921-02 整批转码；
+// 原 png 保留在盘），本表 path 字段与下方 URL 模板**同义且同扩展名**（仅 NO_OWN_ART 两型保留占位）。
+// 派生仍只取「键与顺序」（+ 复用表），URL 模板保留在此以免多层派生。
+// 地形/散布/音频 manifest 地形已等价描述（c918-04：TERRAIN_ART 5 型指向实存 art/terrain/*；c921-02 转码后为 .webp）；散布/音频 manifest 未等价描述，仍由 BootScene 保留。
 
 export interface BootLoadItem {
   key: string;
@@ -129,12 +130,12 @@ export function getBootLoadList(category: 'building' | 'general'): BootLoadItem[
   if (category === 'building') {
     return BUILDING_ART.map(a => ({
       key: a.key,
-      url: `art/buildings/${BUILDING_ART_REUSE[a.key] ?? a.key}.png`,
+      url: `art/buildings/${BUILDING_ART_REUSE[a.key] ?? a.key}.webp`,
     }));
   }
   return GENERAL_ART.map(a => {
     const id = a.key.startsWith('portrait_') ? a.key.slice('portrait_'.length) : a.key;
-    return { key: a.key, url: `art/generals/${id}.png` };
+    return { key: a.key, url: `art/generals/${id}.webp` };
   });
 }
 
