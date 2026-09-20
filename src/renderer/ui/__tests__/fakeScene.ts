@@ -3,7 +3,11 @@
 // 方法集取各文件迁移前并集：多余 vi.fn 链对既有断言惰性，语义零漂移。
 import { vi } from 'vitest';
 
-/** 文本 union：HUD（setFontSize/setScrollFactor/setDepth）∪ Legend（setStyle）∪ BuildingPopover 基础集；setText 记录文本。 */
+/**
+ * 文本 union：HUD（setFontSize/setScrollFactor/setDepth）∪ Legend（setStyle）∪ BuildingPopover 基础集
+ * ∪ SaveLoadPanel（disableInteractive/on + alpha/handlers 状态位）；setText 记录文本、
+ * setAlpha 记录 alpha、on 按事件名登记回调到 handlers（供测试凭 handlers[ev] 模拟点击）。
+ */
 export function makeFakeText() {
   const t = {
     setOrigin: vi.fn().mockReturnThis(),
@@ -13,23 +17,32 @@ export function makeFakeText() {
     setVisible: vi.fn().mockReturnThis(),
     setAlpha: vi.fn().mockReturnThis(),
     setInteractive: vi.fn().mockReturnThis(),
+    disableInteractive: vi.fn().mockReturnThis(),
     setFontSize: vi.fn().mockReturnThis(),
     setScrollFactor: vi.fn().mockReturnThis(),
     setDepth: vi.fn().mockReturnThis(),
     setStyle: vi.fn().mockReturnThis(),
+    on: vi.fn().mockReturnThis(),
     destroy: vi.fn(),
-    width: 100, height: 18, displayHeight: 18, text: '',
+    width: 100, height: 18, displayHeight: 18, text: '', alpha: 1,
+    handlers: {} as Record<string, (...args: unknown[]) => void>,
   };
   t.setText.mockImplementation((s: string) => { t.text = s; return t; });
+  t.setAlpha.mockImplementation((a: number) => { t.alpha = a; return t; });
+  t.on.mockImplementation((ev: string, fn: (...args: unknown[]) => void) => { t.handlers[ev] = fn; return t; });
   return t;
 }
 
-/** 图形 union：HUD 全集 ∪ Legend/BuildingPopover 子集（含 lineBetween/strokeRoundedRect）。 */
+/** 图形 union：HUD 全集 ∪ Legend/BuildingPopover 子集（含 lineBetween/strokeRoundedRect）∪ SaveLoadPanel（setInteractive/on）。 */
 export function makeFakeGraphics() {
-  const g: Record<string, unknown> = {};
+  const handlers: Record<string, (...args: unknown[]) => void> = {};
+  const g: Record<string, unknown> = {
+    handlers,
+    on: vi.fn((ev: string, fn: (...args: unknown[]) => void) => { handlers[ev] = fn; return g; }),
+  };
   const methods = ['clear', 'fillStyle', 'lineStyle', 'fillRect', 'strokeRect', 'fillCircle', 'strokeCircle',
     'beginPath', 'moveTo', 'lineTo', 'strokePath', 'closePath', 'fillPath', 'fillRoundedRect',
-    'strokeRoundedRect', 'generateTexture', 'lineBetween', 'setPosition', 'setVisible', 'setScrollFactor', 'setDepth', 'destroy'];
+    'strokeRoundedRect', 'generateTexture', 'lineBetween', 'setPosition', 'setVisible', 'setScrollFactor', 'setDepth', 'setInteractive', 'destroy'];
   for (const name of methods) g[name] = vi.fn().mockReturnThis();
   return g;
 }

@@ -9,70 +9,12 @@ import { GameStore, type IEventEmitter } from '../../state/gameStore';
 import { serialize } from '../../state/saveLoad';
 import type { WorldMap } from '../../data/mapSchema';
 import { SaveLoadPanel, formatSavedAt } from '../SaveLoadPanel';
+import { makeFakeText, makeFakeGraphics } from './fakeScene';
 
-interface FakeText {
-  text: string;
-  alpha: number;
-  handlers: Record<string, (...args: unknown[]) => void>;
-  setOrigin(x?: number, y?: number): FakeText;
-  setText(s: string): FakeText;
-  setPosition(x?: number, y?: number): FakeText;
-  setVisible(v?: boolean): FakeText;
-  setAlpha(a: number): FakeText;
-  setInteractive(o?: unknown): FakeText;
-  disableInteractive(): FakeText;
-  on(ev: string, fn: (...args: unknown[]) => void): FakeText;
-  destroy(): void;
-}
-
-function makeFakeText(): FakeText {
-  const t = {} as FakeText;
-  t.text = '';
-  t.alpha = 1;
-  t.handlers = {};
-  t.setOrigin = () => t;
-  t.setText = (s: string) => { t.text = s; return t; };
-  t.setPosition = () => t;
-  t.setVisible = () => t;
-  t.setAlpha = (a: number) => { t.alpha = a; return t; };
-  t.setInteractive = () => t;
-  t.disableInteractive = () => t;
-  t.on = (ev: string, fn: (...args: unknown[]) => void) => { t.handlers[ev] = fn; return t; };
-  t.destroy = () => undefined;
-  return t;
-}
-
-interface FakeGraphics {
-  handlers: Record<string, (...args: unknown[]) => void>;
-  clear(): FakeGraphics;
-  fillStyle(c?: number, a?: number): FakeGraphics;
-  fillRect(x?: number, y?: number, w?: number, h?: number): FakeGraphics;
-  lineStyle(w?: number, c?: number, a?: number): FakeGraphics;
-  strokeRect(x?: number, y?: number, w?: number, h?: number): FakeGraphics;
-  setDepth(d?: number): FakeGraphics;
-  setVisible(v?: boolean): FakeGraphics;
-  setScrollFactor(x?: number, y?: number): FakeGraphics;
-  setInteractive(o?: unknown, fn?: unknown): FakeGraphics;
-  on(ev: string, fn: (...args: unknown[]) => void): FakeGraphics;
-  destroy(): void;
-}
-
-function makeFakeGraphics(): FakeGraphics {
-  const g = {} as FakeGraphics;
-  g.handlers = {};
-  g.clear = () => g;
-  g.fillStyle = () => g;
-  g.fillRect = () => g;
-  g.lineStyle = () => g;
-  g.strokeRect = () => g;
-  g.setDepth = () => g;
-  g.setVisible = () => g;
-  g.setScrollFactor = () => g;
-  g.setInteractive = () => g;
-  g.on = (ev: string, fn: (...args: unknown[]) => void) => { g.handlers[ev] = fn; return g; };
-  g.destroy = () => undefined;
-  return g;
-}
+// c921-02 批 2：本地 FakeText/FakeGraphics builder 收编到 ./fakeScene（批一 3 文件同管道）。
+// 类型用 ReturnType 派生，保持 makeFakeScene 的 texts 数组与 add.* 签名引用不变。
+type FakeText = ReturnType<typeof makeFakeText>;
+type FakeGraphics = ReturnType<typeof makeFakeGraphics>;
 
 interface FakeZone {
   setOrigin(x?: number, y?: number): FakeZone;
