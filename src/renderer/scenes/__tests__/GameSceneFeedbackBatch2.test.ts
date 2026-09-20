@@ -19,7 +19,13 @@ function makeScene(): GameScene {
   return new GameScene();
 }
 
-function installedScene(): { scene: GameScene; sceneAny: Record<string, any> } {
+function installedScene(): {
+  scene: GameScene;
+  sceneAny: Record<string, any>;
+  pulseBuildingCompleted: ReturnType<typeof vi.fn>;
+  floatTextAtTile: ReturnType<typeof vi.fn>;
+  rerenderBuildings: ReturnType<typeof vi.fn>;
+} {
   const scene = makeScene();
   const sceneAny = scene as unknown as Record<string, any>;
   const pulseBuildingCompleted = vi.fn();

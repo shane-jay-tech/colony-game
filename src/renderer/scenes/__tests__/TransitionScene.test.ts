@@ -17,7 +17,7 @@ function makeScene(): TransitionScene {
   return new TransitionScene();
 }
 
-function wireScene(scene: TransitionScene & Record<string, any>) {
+function wireScene(scene: Record<string, any>): Record<string, any> {
   (scene as unknown as { scale: unknown }).scale = { width: 1366, height: 800, on: vi.fn(), off: vi.fn() };
   (scene as unknown as { input: unknown }).input = {
     on: vi.fn((ev: string, fn: () => void) => { (scene as unknown as Record<string, any>).__click = fn; }),

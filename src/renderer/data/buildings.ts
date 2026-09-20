@@ -71,7 +71,10 @@ export const BUILDINGS: BuildingDef[] = [
     cost: { wood: 30, stone: 20, cloth: 5, people: 4 },
     classType: 'worker',
     constructionTime: 2,
-    output: [{ resource: 'gold', perDay: 5 }],
+    // 2026-09-20 饱和校准（c919-51 apply，方案项 2）：金 5→3。依据：720 日贪心模拟 gold 触顶 9999。
+    // 只调产出，cost.cloth 5（一次性建造耗）与 upkeep.grain 3（每日维持）不动。
+    // 回滚：本行还原 5 并复跑 sandboxSimulation/sandboxSnapshot。
+    output: [{ resource: 'gold', perDay: 3 }],
     upkeep: { grain: 3 },
     size: { width: 3, height: 3 },
     assetKey: 'bld_market',
@@ -80,7 +83,7 @@ export const BUILDINGS: BuildingDef[] = [
       { condition: 'self.output.gold == 0', badge: 'badge_idle', priority: 10 },
     ],
     description: '市廛通货，邦库渐丰。',
-    descPlain: '中级商业建筑，每日产 5 钱。需先采纳"通市"国策。临驿道加 25% 钱。',
+    descPlain: '中级商业建筑，每日产 3 钱。需先采纳"通市"国策。临驿道加 25% 钱。',
     upgradesFrom: 'bld_well',
     upgradeCost: { wood: 18, stone: 12, cloth: 3 },
     upgradeTime: 3,
@@ -96,6 +99,9 @@ export const BUILDINGS: BuildingDef[] = [
     tierName: '樵采',
     cost: { stone: 10, people: 2 },
     constructionTime: 1,
+    // 2026-09-20 复核（c919-51 apply 单）：方案项 1「木 8→6」实测未落盘——单独改这一项即让
+    // sandboxSimulation 贪心 720 日基线崩解（人口冻结在住房上限 45、石/金归零、grade 0 触达不到城邑）。
+    // 证据与复现见 docs/decisions/2026-09-20-colony-econ-and-jsdom-exec.md；本值维持 8 不动。
     output: [{ resource: 'wood', perDay: 8 }],
     upkeep: { grain: 1 },
     size: { width: 2, height: 2 },

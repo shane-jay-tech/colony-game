@@ -111,3 +111,29 @@ describe('BUG-B 粮食消耗：早期生存性', () => {
     expect(minGrain).toBeGreaterThan(0);
   });
 });
+
+// 2026-09-20 饱和校准（c919-51 apply 单）：把方案复核结论钉成不变量，防悄悄回退、也防照方案单盲改。
+describe('饱和校准（2026-09-20，c919-51 apply）', () => {
+  it('市集金产出 = 3/日（方案项 2 已落盘；验收口径：贪心 720 日 gold 不再触顶 9999）', () => {
+    const market = BUILDINGS.find((b) => b.id === 'bld_market');
+    expect(market, '缺建筑 bld_market').toBeTruthy();
+    expect(market!.output.find((o) => o.resource === 'gold')?.perDay ?? 0).toBe(3);
+    // 本项「只调产出」：一次性建造耗布 5 与每日维持粮 3 都不动（方案原文写作「维持布 5+粮 3」，
+    // 实码里 cloth 5 是 cost（建造）而非 upkeep——复核记录见 decisions 报告）。
+    expect(market!.cost.cloth).toBe(5);
+    expect(market!.upkeep.grain).toBe(3);
+    // 用户可见文案须与数值同步（BuildingPopover/ProductionGradePanels 读 descPlain）
+    expect(market!.descPlain).toContain('每日产 3 钱');
+  });
+
+  it('伐木场木产出维持 8/日——方案项 1（8→6）经沙盒实测否决，勿照方案单盲改', () => {
+    const woodcutter = BUILDINGS.find((b) => b.id === 'bld_woodcutter');
+    expect(woodcutter, '缺建筑 bld_woodcutter').toBeTruthy();
+    expect(woodcutter!.output.find((o) => o.resource === 'wood')?.perDay ?? 0).toBe(8);
+    expect(woodcutter!.descPlain).toContain('每日产 8 木');
+    // 否决证据（复现命令）：单独把该值改 6 →
+    //   npx vitest run src/renderer/state/__tests__/sandboxSimulation.test.ts
+    //   → 贪心 720 日基线崩解：gradeReached 0（原 1）、人口冻结在住房上限 45（原 115）、石/金归零。
+    // 完整输出与四组对照见 docs/decisions/2026-09-20-colony-econ-and-jsdom-exec.md
+  });
+});
