@@ -25,9 +25,11 @@ describe('n916d-22 scatter 配置与磁盘资源对账', () => {
     expect(missing).toEqual([]);
   });
 
-  it('①b 原 png 仍保留在盘（c921-02 零删除留证）', () => {
-    const missingPng = ALL_SCATTER_IDS.filter(id => !existsSync(resolve(SCATTER_DIR, `${id}.png`)));
-    expect(missingPng).toEqual([]);
+  it('①b 原 png 已按授权删除（art 只发 .webp；原件备份在 tmp/assets-backup-20260920/）', () => {
+    // 2026-09-20 用户授权：c921-02 的「零删除」约束解除，62 个原 png 已删（释放 92.32 MiB）。
+    // 断言随之翻转：散布图原 png 不应再在盘上；被加载的 .webp 由 ① 守卫。
+    const stillPng = ALL_SCATTER_IDS.filter(id => existsSync(resolve(SCATTER_DIR, `${id}.png`)));
+    expect(stillPng).toEqual([]);
   });
 
   it('② 各地形池引用的 id 均在 ALL_SCATTER_IDS 内（无游离引用）', () => {

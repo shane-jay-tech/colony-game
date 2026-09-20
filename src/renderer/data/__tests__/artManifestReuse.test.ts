@@ -21,9 +21,10 @@ describe('n916d-23 artManifest 建筑条项资源解析', () => {
   });
 
   it('② 复用表目标贴图实存（同族等价，不新增资产）', () => {
+    // 2026-09-20 授权删除原 png 后，对账对象统一为实际被加载的 .webp。
     for (const [missing, reuse] of Object.entries(BUILDING_ART_REUSE)) {
-      expect(existsSync(resolve(BUILDINGS_DIR, `${missing}.png`))).toBe(false);  // 原图确实缺
-      expect(existsSync(resolve(BUILDINGS_DIR, `${reuse}.png`))).toBe(true);     // 复用目标实存
+      expect(existsSync(resolve(BUILDINGS_DIR, `${missing}.webp`))).toBe(false);  // 原图确实缺
+      expect(existsSync(resolve(BUILDINGS_DIR, `${reuse}.webp`))).toBe(true);     // 复用目标实存
     }
   });
 
