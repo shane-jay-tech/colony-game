@@ -91,7 +91,7 @@
 |---|---|---|---|
 | 7.1 | 安装/校验 GitHub CLI 并认证会话（:65） | ⚑ 不可判（判据需联网） | `gh` 在 PATH（`/c/Program Files/GitHub CLI`）；认证状态**未测**——`gh auth status` 会打网络，本单禁止联网 |
 | 7.2 | 无 target remote 时建私有 `colony-game` 仓库（:66） | ✅（remote 已存在，无需建） | `git remote -v` ＝ `origin https://github.com/shane-jay-tech/colony-game.git`（fetch＋push 同址） |
-| 7.3 | 推快照与 architecture-hardening 分支（:67） | ◐ **本地领先 20 提交** | 远端跟踪 ref 实存：`origin/codex/architecture-hardening`＝`e7cecd3`（2026-09-20 11:03）；`git rev-list --count origin/codex/architecture-hardening..HEAD` ＝ **20**（含本班 3 笔）。⚠️ 该计数按**本地缓存的远端 ref**，未 fetch ⇒ 若他处已推则会偏大；push 属主班/用户授权，本单未执行 |
+| 7.3 | 推快照与 architecture-hardening 分支（:67） | ◐ **本地领先 20 提交** | 远端跟踪 ref 实存：`origin/codex/architecture-hardening`＝`e7cecd3`（2026-09-20 11:03）；`git rev-list --count origin/codex/architecture-hardening..HEAD` ＝ **20**（**在 HEAD `3c60324` 上取的数**；此后本班每落一笔该数即 +1，本档提交时已是 22）。⚠️ 该计数按**本地缓存的远端 ref**，未 fetch ⇒ 若他处已推则会偏大；push 属主班/用户授权，本单未执行 |
 | 7.4 | 远端支持 PR 时开 draft PR（:68） | ⚑ 不可判 | 需 `gh pr create/list`（网络）；PLAN 的 Completion Criteria 末条「pre-refactor 快照与完成分支都在私有 remote 上」因此只能判到「快照与分支**曾**上过远端」（7.3 证据），不能判「当前同步」 |
 
 ## 四、对既有台账的三处纠正（本单复核时踩到，均已按磁盘实况登记）
