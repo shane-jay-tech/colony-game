@@ -1,4 +1,4 @@
-# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22 / c922-15 追加 1 条 2026-09-22T00:33 / c922-16 追加 1 条 2026-09-22T00:41，条目 74 份 ＋ 本索引自身 1 份 = 磁盘 .md 75 份；另有 2 份 .json 不在条目口径）
+# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22 / c922-15 追加 1 条 2026-09-22T00:33 / c922-16 追加 1 条 2026-09-22T00:41 / c922-17 追加 1 条 2026-09-22T00:52，条目 75 份 ＋ 本索引自身 1 份 = 磁盘 .md 76 份；另有 2 份 .json 不在条目口径）
 
 - colony-aegis-cadence-20260915.md — aegis 索引校验纳入例行方案（n915-64，只出设计）
 - colony-art-full-20260919.md — public/art 全量资产双向对账（n919-32 批次 c920-14，只读零删除）
@@ -60,6 +60,7 @@
 - colony-storybalance-20260919.md — colony STORY_BALANCE 现值重盘（c919-07，只读零改动）
 - colony-storynpcs-terrain-reachability-20260913.md — colony storyNpcs/terrainTextures 可达性实证与退役记录（a-45，2026-09-13）
 - colony-stray-eq-file-20260917.md — colony 仓根 0 字节误入库文件 `=` 处置（916p-a3-001，2026-09-17）
+- colony-suite-slowtail-20260922.md — colony 测试套件慢尾定位：Top5 文件×慢因分类×墙钟口径×提速序列 S1-S5（c922-17，2026-09-22T00:52，只读未改测试码）
 - colony-terrain-naming-inventory-20260921.md — colony B-139 地形命名三方差异盘点（c921-06，重锚，只读零代码改动，仅新增本报告）
 - colony-test-asset-map-20260921.md — colony 测试资产分布图＋零直接测试模块清单（c922-13，基线纠正为 124 文件/1291 例，零生产码改动）
 - colony-typed-events-20260913.md — colony 状态事件面类型化落地（c-13，2026-09-13）
