@@ -1,4 +1,4 @@
-# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22 / c922-15 追加 1 条 2026-09-22T00:33 / c922-16 追加 1 条 2026-09-22T00:41 / c922-17 追加 1 条 2026-09-22T00:52，条目 75 份 ＋ 本索引自身 1 份 = 磁盘 .md 76 份；另有 2 份 .json 不在条目口径）
+# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22 / c922-15 追加 1 条 2026-09-22T00:33 / c922-16 追加 1 条 2026-09-22T00:41 / c922-17 追加 1 条 2026-09-22T00:52 / c922-19 追加 1 条 2026-09-22T02:39，本班后磁盘 .md 77 份＝条目 75 ＋ 本索引自身 1 ＋ 未列 1（见下⚠️）；另有 2 份 .json 不在条目口径。⚠️c922-19 comm 机验：本行既往自述「条目 75＋自身 1＝磁盘 76」的加和式自洽但条目实测只有 74 ⇒ 少列 1 份＝colony-unreachable-resourceSystem-20260912.md（在盘且在 HEAD，非本单留下），本单不代补他人条目，复算法与出口见 colony-optibacklog-status-draft-20260922.md 第四节）
 
 - colony-aegis-cadence-20260915.md — aegis 索引校验纳入例行方案（n915-64，只出设计）
 - colony-art-full-20260919.md — public/art 全量资产双向对账（n919-32 批次 c920-14，只读零删除）
@@ -35,6 +35,7 @@
 - colony-migration-v10-guard-20260916.md — colony 存档迁移 v10 前向守护设计材料（c916-06，不实现）
 - colony-missing-assets-20260916.md — colony 启动面缺图清单核对（n916f-08，2026-09-16 建单 / 2026-09-17 夜执行）
 - colony-onboarding-walkthrough-20260918.md — colony P2-1 新手引导三件套只读走查（c918-24 材料单）
+- colony-optibacklog-status-draft-20260922.md — colony OPTIMIZATION_BACKLOG 未勾 11 项逐行对账草稿：合入文本＋已勾项锚过期 5 处＋索引自身账不齐（c922-19，2026-09-22T02:39，只读零写入该 M 域文件）
 - colony-p23-hooks-map-20260919.md — colony P2-3 操作反馈钩子盘点（s918-13 / 只读缺口表，零改动）
 - colony-p32-closure-20260918.md — colony P3-2 闭单证据复核（s918-14 / 只读，backlog 文件未动）
 - colony-p43-dress-20260918.md — colony P4-3 终检预演：verify + build 证据（c918-27）
