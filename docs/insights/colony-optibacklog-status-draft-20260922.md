@@ -138,7 +138,7 @@ $ git grep -n "TERRAIN_ART\|SCATTER_IDS\|load.audio" -- src/renderer/scenes/Boot
 - 建议：本行**不要勾**，追加前置依赖与已完成量，可粘贴：
   `（现状 2026-09-22：机器侧两步 9/19 预演双 EXIT=0（colony-p43-dress-20260918.md），本轮 verify 由 c922-17 复证 1295 例全绿；未做＝重跑 build+electron:build:win 出包（末次包 Aug 14）、一轮完整人工走查。前置＝c922-18 判定的 phaser minify 出口未落地前，出包含 6.78MB 未压缩 phaser＝已知冗余）`
 
-## 三、已勾项锚点过期 5 处（非未勾项，但属「与实况不符」，一并给文本）
+## 三、已勾项锚点过期 6 处（非未勾项，但属「与实况不符」，一并给文本）
 
 | 行 | 现文 | 实况 | 建议 |
 |---|---|---|---|
@@ -147,6 +147,7 @@ $ git grep -n "TERRAIN_ART\|SCATTER_IDS\|load.audio" -- src/renderer/scenes/Boot
 | 40 | P1-3 …gameStore.ts:54/939 buildDayPipeline 被 GameStore 调用 | :54 是 import，调用在 **:948**；:939 只是注释行 | 改 `:54 import / :948 调用`（与 c922-16 同判） |
 | 43 | P1-6 …cameraMath.ts 79 行纯函数 | `wc -l` 90、去注释空行 **60**，两口径都不是 79 | 改为「90 行（代码 60）」并写明口径，别留第三种数 |
 | 33 | P0-3 …主包 727KB + phaser 6.78MB | 体积成立但是**未压缩口径**：发布 asar 内 phaser 同为 6,777,632 B（文件名哈希一致 ⇒ 内容相同）；补 minify 即 1.48MB | 追加一句「6.78MB 为未 minify 实测；minify 出口见 c922-18 判定」 |
+| 31 | P0-1 落地注记「1001 测试」「人口 20→38」「第 33 天晋城邑」 | 本单收班 pre-commit 全量输出实读：**1295 例**、`[P0-1] finalPopulation:117`、`gradeMilestones:[{day:41,grade:1}]`、`finalBuildings:40`（行内写 37）——五个读数四个漂；`hostileNpcActions:26` **仍与行内一致**；另一例 `[P0-1-diversify]` 人口 140、day48/161 两阶 | **只加时效注、数值不许手改**（经济平衡数值红线）：改法＝行尾标「读数随 harness 重跑漂移，引数取最近一次 stdout，本行 2026-08 快照」 |
 
 ## 四、旁生发现：insights 索引自身账不齐（合入本档时一并处理）
 
@@ -184,8 +185,8 @@ $ wc -l docs/design/OPTIMIZATION_BACKLOG.md                 # 81（开工同数�
 
 - **经济平衡数值红线**：本单只登记文档中的**数值口径**（测试数、行数、体积、件数）与实况差异，未读未改任何平衡参数；`sandboxSimulation` 的 60 格槽位探测与终局精确值锚一律未触碰（未跑该文件、未动 harness）。凡涉及数值结论处（P0-1 主项 4 条不变量、P2-2 三条已勾项的读数）本单一律标 ⚑ 或只引在档结果，不自取数。
 - 行号锚点：`Read` 工具在本仓返回过磁盘上不存在的文件（c922-12 前科），故本文所有 `file:line` 均由 `git grep -n` 与 `sed -n`/`wc` 双路互证后取，未采信任何单次工具输出。
-- 本轮过期锚合计 **11 处**（逐条可复算，分布在三个载体）：
-  - **backlog 现文 6 处**：行 41 terrain 判错（连带 :53/:57/:71 三组行号）、行 40 :939、行 43 79 行、行 32 45 测试、行 6 基线 975、行 60「28 个 manifest_*.json」（实为 28 文件＝21 json＋7 png，且 portraits 类从不在清理范围）。
+- 本轮过期锚合计 **12 处**（逐条可复算，分布在三个载体）：
+  - **backlog 现文 7 处**：行 41 terrain 判错（连带 :53/:57/:71 三组行号）、行 40 :939、行 43 79 行、行 32 45 测试、行 6 基线 975、行 31 P0-1 落地注记三读数（1001 例→实读 1295、人口 38→117、day33 晋城邑→day41）、行 60「28 个 manifest_*.json」（实为 28 文件＝21 json＋7 png，且 portraits 类从不在清理范围）。
   - **既有 insight 文档 4 处**：`colony-backlog-dup-ids-20260917.md:32` terrain 硬编码结论已被 c918-04/05 之后的改动否证（同一文档给 P0-1 的行号 :28 亦漂至 :31）、`colony-onboarding-walkthrough-20260918.md` 「仅 1 个 step」（实 3）、`colony-p32-closure-20260918.md` 消费 evt_art「6 键」与 c922-10 守护测试「静 4＋动 3＝7」口径差 1 未归因、`colony-p23-hooks-map-20260919.md` 五类全缺矩阵被其后 3 个接线提交推翻且漏算 AudioManager 监听面。
   - **索引自身 1 处**：头部自述 75 条目 vs 实测 74，且 `colony-unreachable-resourceSystem-20260912.md` 未列（详见第四节）。
   - 其中 **3 处落在他在途 diff 新写的证据串里**（P1-3/P1-4/P1-6）⇒ 他在途件收口前，这 3 处只能由主班一次性合入。
