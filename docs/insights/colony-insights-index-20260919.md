@@ -18,6 +18,7 @@
 - colony-deadexports-out-param-20260917.md — colony audit-dead-exports.mjs `--out`/`--write` 参数化（n916d-25）
 - colony-deadexports-readonly-20260916.md — colony audit-dead-exports.mjs 只读化改造（n916f-04）
 - colony-econ-params-audit-20260918.md — colony 经济参数对账只读审计（c918-25 / P2-2 收尾欠账）
+- colony-font-chain-gap-20260922.md — colony 字体链路缺口核查：3 处 @font-face 指向空且从未入库的 public/fonts/、本机因装了 Noto SC 系统字体而看不见缺口、构建产物 /fonts/ 绝对路径未重写⇒补资产也不生效、CSP font-src 拦死外链⇒三案建议＋体积 40.91 MiB 与 OFL 注意（c922-111，2026-09-22T04:2x，只读零改动；字体面测试断言为 0）
 - colony-hardcoded-inventory-20260916.md — colony P1-4 terrain/scatter/audio 硬编码清单与切片设计（c916-03）
 - colony-hills-naming-20260913.md — colony 地形清单 hills/hill 命名统一记录（a-46，2026-09-13）
 - colony-hygiene-inventory-20260917.md — colony 仓库卫生异常文件盘点（917-40，只读零改动）
