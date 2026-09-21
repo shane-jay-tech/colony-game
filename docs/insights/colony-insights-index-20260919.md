@@ -1,6 +1,7 @@
 # colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22 / c922-15 追加 1 条 2026-09-22T00:33 / c922-16 追加 1 条 2026-09-22T00:41 / c922-17 追加 1 条 2026-09-22T00:52 / c922-19 追加 1 条 2026-09-22T02:39，本班后磁盘 .md 77 份＝条目 75 ＋ 本索引自身 1 ＋ 未列 1（见下⚠️）；另有 2 份 .json 不在条目口径。⚠️c922-19 comm 机验：本行既往自述「条目 75＋自身 1＝磁盘 76」的加和式自洽但条目实测只有 74 ⇒ 少列 1 份＝colony-unreachable-resourceSystem-20260912.md（在盘且在 HEAD，非本单留下），本单不代补他人条目，复算法与出口见 colony-optibacklog-status-draft-20260922.md 第四节）
 
 - colony-aegis-cadence-20260915.md — aegis 索引校验纳入例行方案（n915-64，只出设计）
+- colony-auditb151-tmp-20260922.md — colony `.audit-b151-tmp/` 未跟踪残留处置三案建议（c922-133，2026-09-22，建议单零处置：4 件 sha256／3 口径引用面／22 条翻案全表誊写＋三案回滚说明）
 - colony-art-full-20260919.md — public/art 全量资产双向对账（n919-32 批次 c920-14，只读零删除）
 - colony-artmanifest-coverage-20260917.md — colony artManifest 三类覆盖矩阵＋path 字段消费者核验（916p-a3-006，2026-09-17，只读）
 - colony-artmanifest-gap-20260917.md — colony U2：artManifest 两建筑缺图处置（n916d-23）
