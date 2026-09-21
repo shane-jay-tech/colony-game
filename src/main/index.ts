@@ -152,9 +152,9 @@ const VALID_SLOT_RE = /^[a-z0-9_-]{1,32}$/;
 const MAX_SAVE_BYTES = 10 * 1024 * 1024;
 
 ipcMain.handle('save-game', async (_event, slot: unknown, json: unknown): Promise<boolean> => {
-  if (typeof slot !== 'string' || !VALID_SLOT_RE.test(slot)) throw new Error('invalid slot');
-  if (typeof json !== 'string') throw new Error('invalid json');
-  if (json.length > MAX_SAVE_BYTES) throw new Error('save data exceeds 10 MB cap');
+  if (typeof slot !== 'string' || !VALID_SLOT_RE.test(slot)) throw new Error(`invalid slot for save-game (typeof ${typeof slot}; must match [a-z0-9_-]{1,32})`);
+  if (typeof json !== 'string') throw new Error(`invalid json payload for save-game slot "${slot}" (typeof ${typeof json})`);
+  if (json.length > MAX_SAVE_BYTES) throw new Error(`save data exceeds 10 MB cap for slot "${slot}": ${json.length} bytes > ${MAX_SAVE_BYTES} bytes`);
   const savesDir = join(app.getPath('userData'), 'saves');
   await mkdir(savesDir, { recursive: true });
   // 原子写：先落 .tmp 再 rename 替换，进程中断不会留下半截存档；

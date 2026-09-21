@@ -791,7 +791,12 @@ function getColonyApi(): ColonyApiShape {
 export async function saveToSlot(slot: string, store: GameStore): Promise<void> {
   validateSlot(slot);
   store.setLastSeenNow();
-  await getColonyApi().saveGame(slot, JSON.stringify(serialize(store.getState())));
+  // c922-103：写档链路与读档链路语义对齐——主进程 saveGame 返回 false 即写盘未成功，
+  // 原先整行丢弃返回值会让保存失败静默；统一走 SaveLoadError 通道（消息含槽位名）。
+  const written = await getColonyApi().saveGame(slot, JSON.stringify(serialize(store.getState())));
+  if (written === false) {
+    throw new SaveLoadError(`Save to slot "${slot}" failed: storage layer wrote nothing`);
+  }
 }
 
 export async function loadFromSlot(slot: string): Promise<GameState | null> {
