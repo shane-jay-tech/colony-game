@@ -201,8 +201,13 @@ function runMigrations(blob: unknown, fromVersion: number): unknown {
   while (version < SAVE_SCHEMA_VERSION) {
     const migrate = migrations[version];
     if (!migrate) {
+      // c922-104：断链定位补到「实际缺的档位」——version 是本次查表缺的 migrations[N]，
+      // fromVersion 是档案自带版本；链中段断档时两者并不相同（如 v2 档缺 migrations[7]，
+      // 旧串只报 “from schema version 2” 会误导定位）。控制流一字未动，仅改消息拼装，
+      // 字段口径与 future-version 对齐：主句报原始档，括号给「缺何档 + 当前何版」。
       throw new SaveLoadError(
-        `No migration path from schema version ${fromVersion} to ${SAVE_SCHEMA_VERSION}`,
+        `No migration path from schema version ${fromVersion} to ${SAVE_SCHEMA_VERSION} ` +
+          `(missing: migrations[${version}], current: ${SAVE_SCHEMA_VERSION})`,
       );
     }
     current = migrate(current);
