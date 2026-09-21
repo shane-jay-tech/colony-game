@@ -6,12 +6,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS } from '../buildings';
-import { POLICIES } from '../policies';
-import { DECREES } from '../decrees';
-import { EVENTS } from '../events';
-import { MODIFIER_TARGETS, isValidModifierTarget } from '../resourceRegistry';
-import { DEFAULT_MAP_SIZE } from '../../state/gameStore';
+import { BUILDINGS } from '../../data/buildings';
+import { POLICIES } from '../../data/policies';
+import { DECREES } from '../../data/decrees';
+import { EVENTS } from '../../data/events';
+import { MODIFIER_TARGETS, isValidModifierTarget } from '../../data/resourceRegistry';
+import { DEFAULT_MAP_SIZE } from '../gameStore';
 
 const NEW_BUILDING_IDS = [
   'bld_beacon_tower',

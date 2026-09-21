@@ -3,12 +3,12 @@
  * 扫描静态内容文案，任何禁用字命中即红，防未来内容悄悄回退。
  */
 import { describe, it, expect } from 'vitest';
-import { BUILDINGS } from '../buildings';
-import { POLICIES } from '../policies';
-import { DECREES } from '../decrees';
-import { RELIC_CHAINS } from '../../state/relicSystem';
-import { pickEndgameWave } from '../../state/endgameEscalation';
-import { STORY_EVENTS } from '../storyEvents';
+import { BUILDINGS } from '../../data/buildings';
+import { POLICIES } from '../../data/policies';
+import { DECREES } from '../../data/decrees';
+import { RELIC_CHAINS } from '../relicSystem';
+import { pickEndgameWave } from '../endgameEscalation';
+import { STORY_EVENTS } from '../../data/storyEvents';
 
 /** 铁律禁偏字（START_HERE 第 3 节 + 本批新增） */
 const BANNED_CHARS = ['畿', '耒', '耜', '胄', '黔', '嵎', '泌', '镞', '鏖', '诰', '敕', '漕', '窳', '筚', '沤'] as const;

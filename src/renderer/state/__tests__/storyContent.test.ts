@@ -4,9 +4,9 @@
  * 以及三结局是否仍可通过一致的双轴选择达成（防内容改动悄悄堵死某个结局）。
  */
 import { describe, it, expect } from 'vitest';
-import { STORY_CHAPTERS } from '../storyChapters';
-import { STORY_EVENTS } from '../storyEvents';
-import { clampAxis, checkEnding } from '../../state/storyDriver';
+import { STORY_CHAPTERS } from '../../data/storyChapters';
+import { STORY_EVENTS } from '../../data/storyEvents';
+import { clampAxis, checkEnding } from '../storyDriver';
 
 const STORY_EVENT_IDS = new Set(STORY_EVENTS.map(e => e.id));
 const chapterEvents = STORY_EVENTS.filter(e => e.id.startsWith('evt_s_ch'));

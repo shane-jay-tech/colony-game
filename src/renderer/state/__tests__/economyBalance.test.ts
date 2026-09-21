@@ -7,11 +7,11 @@
  */
 import { describe, it, expect } from 'vitest';
 import { EventEmitter } from 'eventemitter3';
-import { BALANCE, STORY_BALANCE } from '../balanceConfig';
-import { BUILDINGS } from '../buildings';
-import { GameStore, type IEventEmitter } from '../../state/gameStore';
-import { CLASS_CONSUMPTION } from '../populationClass';
-import type { WorldMap } from '../mapSchema';
+import { BALANCE, STORY_BALANCE } from '../../data/balanceConfig';
+import { BUILDINGS } from '../../data/buildings';
+import { GameStore, type IEventEmitter } from '../gameStore';
+import { CLASS_CONSUMPTION } from '../../data/populationClass';
+import type { WorldMap } from '../../data/mapSchema';
 
 function allPlainMap(width = 60, height = 60): WorldMap {
   const tiles = [];
