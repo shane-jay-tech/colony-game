@@ -1,4 +1,4 @@
-# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52，条目 71 份 ＋ 本索引自身 1 份 = 磁盘 72 份）
+# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22，条目 72 份 ＋ 本索引自身 1 份 = 磁盘 .md 73 份；另有 2 份 .json 不在条目口径）
 
 - colony-aegis-cadence-20260915.md — aegis 索引校验纳入例行方案（n915-64，只出设计）
 - colony-art-full-20260919.md — public/art 全量资产双向对账（n919-32 批次 c920-14，只读零删除）
@@ -8,6 +8,7 @@
 - colony-assets-size-20260919.md — assets 体积与重复文件普查（c920-15，只读零删除，9/20 06:3x 复测）
 - colony-assets-slim-20260920.md — 资产瘦身第一批 62 图 png→webp（c921-02，含授权后删除原 png）
 - colony-backlog-dup-ids-20260917.md — colony OPTIMIZATION_BACKLOG 编号重号与状态冲突核验（916p-a2-007 任务书同名族，2026-09-17，只读）
+- colony-bgm-audio-profile-20260922.md — colony BGM 音频体积画像：9 条 mp3 逐文件码率/采样率/时长实测 ＋ 96k/128k 两档收益估算（c922-14，2026-09-22T00:22，只读零资产改动；本机无 ffprobe，口径为自写帧走查＋四路互证）
 - colony-boot-manifest-gaps-20260913.md — colony 散布/音频/UI_ART 入 boot 清单差异核查（c-19，2026-09-13，零改码）
 - colony-bootscene-loaderror-20260916.md — colony BootScene loaderror 重复注册核查（n916f-07，只读判定）
 - colony-build-size-20260920.md — 构建产物体积基线（c921-09，仅新增报告档、零代码改动；文件名沿用 20260920 而取数在 9/21 凌晨，报告首行已声明）
