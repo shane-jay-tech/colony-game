@@ -9,52 +9,18 @@ import { GameStore, type IEventEmitter } from '../../state/gameStore';
 import { serialize } from '../../state/saveLoad';
 import type { WorldMap } from '../../data/mapSchema';
 import { SaveLoadPanel, formatSavedAt } from '../SaveLoadPanel';
-import { makeFakeText, makeFakeGraphics } from './fakeScene';
+import { makeFakeText, makeFakeGraphics, makeFakeZone, makeFakeContainer } from './fakeScene';
 
 // c921-02 批 2：本地 FakeText/FakeGraphics builder 收编到 ./fakeScene（批一 3 文件同管道）。
+// c922-02 批 3：本地 FakeZone/FakeContainer 及其 interface 一并收编——共享件是本地件的方法超集
+//（Zone 本地 6 法 ⊂ 共享 7 法＋4 字段；Container 本地 6 法 ⊂ 共享 13 法），且本面板对两者的
+// 运行时依赖只有链式返回：container.add(...) 在 SaveLoadPanel.ts 的 4 个调用点均不接返回值链用，
+// 故共享件 add: vi.fn()（返回 undefined）与本地 add: () => c 在本文件等价。
 // 类型用 ReturnType 派生，保持 makeFakeScene 的 texts 数组与 add.* 签名引用不变。
 type FakeText = ReturnType<typeof makeFakeText>;
 type FakeGraphics = ReturnType<typeof makeFakeGraphics>;
-
-interface FakeZone {
-  setOrigin(x?: number, y?: number): FakeZone;
-  setInteractive(o?: unknown): FakeZone;
-  setPosition(x?: number, y?: number): FakeZone;
-  setSize(w?: number, h?: number): FakeZone;
-  on(ev: string, fn: (...args: unknown[]) => void): FakeZone;
-  destroy(): void;
-}
-
-function makeFakeZone(): FakeZone {
-  const z = {} as FakeZone;
-  z.setOrigin = () => z;
-  z.setInteractive = () => z;
-  z.setPosition = () => z;
-  z.setSize = () => z;
-  z.on = () => z;
-  z.destroy = () => undefined;
-  return z;
-}
-
-interface FakeContainer {
-  setDepth(d?: number): FakeContainer;
-  setVisible(v?: boolean): FakeContainer;
-  setScrollFactor(x?: number, y?: number): FakeContainer;
-  setPosition(x?: number, y?: number): FakeContainer;
-  add(o?: unknown): FakeContainer;
-  destroy(): void;
-}
-
-function makeFakeContainer(): FakeContainer {
-  const c = {} as FakeContainer;
-  c.setDepth = () => c;
-  c.setVisible = () => c;
-  c.setScrollFactor = () => c;
-  c.setPosition = () => c;
-  c.add = () => c;
-  c.destroy = () => undefined;
-  return c;
-}
+type FakeZone = ReturnType<typeof makeFakeZone>;
+type FakeContainer = ReturnType<typeof makeFakeContainer>;
 
 interface FakeScene {
   scale: { width: number; height: number };
