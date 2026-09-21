@@ -1,11 +1,16 @@
-# colony docs/insights 索引（c920-01 生成，61 份，2026-09-20 04:55）
+# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05，条目 70 份 ＋ 本索引自身 1 份 = 磁盘 71 份）
 
 - colony-aegis-cadence-20260915.md — aegis 索引校验纳入例行方案（n915-64，只出设计）
+- colony-art-full-20260919.md — public/art 全量资产双向对账（n919-32 批次 c920-14，只读零删除）
 - colony-artmanifest-coverage-20260917.md — colony artManifest 三类覆盖矩阵＋path 字段消费者核验（916p-a3-006，2026-09-17，只读）
 - colony-artmanifest-gap-20260917.md — colony U2：artManifest 两建筑缺图处置（n916d-23）
+- colony-artmanifest-relink-20260920.md — 美术 manifest 双向断链修复、55 键改指实存图（c921-01，修数据＋翻 3 条把缺陷当契约的断言）
+- colony-assets-size-20260919.md — assets 体积与重复文件普查（c920-15，只读零删除，9/20 06:3x 复测）
+- colony-assets-slim-20260920.md — 资产瘦身第一批 62 图 png→webp（c921-02，含授权后删除原 png）
 - colony-backlog-dup-ids-20260917.md — colony OPTIMIZATION_BACKLOG 编号重号与状态冲突核验（916p-a2-007 任务书同名族，2026-09-17，只读）
 - colony-boot-manifest-gaps-20260913.md — colony 散布/音频/UI_ART 入 boot 清单差异核查（c-19，2026-09-13，零改码）
 - colony-bootscene-loaderror-20260916.md — colony BootScene loaderror 重复注册核查（n916f-07，只读判定）
+- colony-build-size-20260920.md — 构建产物体积基线（c921-09，仅新增报告档、零代码改动；文件名沿用 20260920 而取数在 9/21 凌晨，报告首行已声明）
 - colony-bushdry-triage-20260918.md — colony bush_dry 闲臵清单项处置（核报＋执行版，c918-09）
 - colony-deadcode-dispose-20260916.md — colony toPhaserStyle/getExclusionGroup 死码处置材料（n916x-33）——标的已不存在，核验收口
 - colony-deadexports-entries-recon-20260917.md — colony dead-exports entries 三处数字链条对账（917-39，只读零回写）
@@ -18,6 +23,7 @@
 - colony-inflight-ownership-20260919.md — colony 在途 7 文件归属核报（s918-12 / 并发会话现场）
 - colony-insights-index-20260915.md — colony docs/insights 与 README/索引一致性（n915-78，只读）
 - colony-insights-index-recount-20260917.md — colony insights 索引与现实份数漂移重算（916p-a3-003 关联单，2026-09-17）
+- colony-insights-unref-20260917.md — colony 未引用 insights 收口核对（r917-19，p917-19 重投，只读零改动；9/20 12:46 生成，晚于旧索引故此前未列）
 - colony-introscene-slice-20260919.md — colony IntroScene 序章流程薄切片核报（c918-21 / 锚点漂移记录）
 - colony-kiln-market-semantics-20260916.md — colony 陶窑→市集多源指向语义材料（c916-02，只列不改）
 - colony-loaderror-dedup-20260916.md — colony BootScene loaderror 重复注册核查与最小修复（n916e-08）
@@ -44,11 +50,14 @@
 - colony-scatter-gap-20260917.md — colony U1：scatterConfig rock_cluster 引用落差最小修复（n916d-22）
 - colony-scripts-consistency-20260918.md — colony package.json scripts 与文档一致性核对（c918-28 / 只读，零改动）
 - colony-shared-visual-constants-20260913.md — colony render/UI 共用视觉常量抽离（c-15，2026-09-13）
+- colony-src-intransit-20260917.md — colony src 在途改动归属核验＋禁触碰清单（r917-14，p917-14 重投，只读；9/20 12:44 生成，晚于旧索引故此前未列）
 - colony-start-here-count-drift-20260917.md — colony START_HERE 测试计数漂移订正（916p-a3-003，2026-09-17）
+- colony-starthere-count-check-20260917.md — colony START_HERE 其余计数与实测一致性核验（r917-32，p917-32 重投，只读；9/20 12:47 生成，晚于旧索引故此前未列）
 - colony-startup-config-audit-20260917.md — colony 启动配置分支可达性全量核验（916p-a3-009，2026-09-17，只读）
 - colony-storybalance-20260919.md — colony STORY_BALANCE 现值重盘（c919-07，只读零改动）
 - colony-storynpcs-terrain-reachability-20260913.md — colony storyNpcs/terrainTextures 可达性实证与退役记录（a-45，2026-09-13）
 - colony-stray-eq-file-20260917.md — colony 仓根 0 字节误入库文件 `=` 处置（916p-a3-001，2026-09-17）
+- colony-terrain-naming-inventory-20260921.md — colony B-139 地形命名三方差异盘点（c921-06，重锚，只读零代码改动，仅新增本报告）
 - colony-typed-events-20260913.md — colony 状态事件面类型化落地（c-13，2026-09-13）
 - colony-ui-adapter-guard-20260913.md — colony UI 适配器守卫测试（c-16，2026-09-13）
 - colony-ui-webp-reuse-20260914.md — colony assets/ui 6 个 webp 的 UI 复用核查（d914-35，2026-09-14，只读）
