@@ -179,3 +179,65 @@ describe('saveGuard2 additions (p911r-40)', () => {
     expect(() => deserialize(bad2)).toThrow(SaveLoadError);
   });
 });
+
+// c922-20：constructionProgress 语义校验的坏夹具族。按 c918-11 材料
+// （docs/insights/colony-saveguard-bounds-20260918.md：语义天然 [0,100] 百分比、越界走 clamp 不 throw 以保旧档兼容）
+// 补盲。生产校验本体在 saveLoad.ts validateBuildingsArray（e56d82a p911r-40 落地、1bdfcfc c919-04 翻掉本文件旧 TODO），
+// 本块零生产码改动，只钉五面：类型面拒载 / 浮点过冲吸收 / 上界口径 / clamp 不改 status / 下标定位。
+describe('constructionProgress 语义校验坏夹具族（c922-20）', () => {
+  it('类型面坏夹具：字符串/布尔/null/数组一律拒载（finite number 谓词不吃隐式转换）', () => {
+    for (const bad of ['50', true, null, [50]] as unknown[]) {
+      expect(() => deserialize(validV9({ buildings: [validBuilding({ constructionProgress: bad })] })))
+        .toThrow(/constructionProgress must be finite number/);
+    }
+  });
+
+  it('字段缺失拒载（可选字段 upgradingTo 可缺，constructionProgress 不可缺）', () => {
+    const missing = validBuilding();
+    delete missing.constructionProgress;
+    expect(() => deserialize(validV9({ buildings: [missing] })))
+      .toThrow(/constructionProgress must be finite number/);
+    // 同夹具只补回合法值即放行——证上一条红在字段本身，不在夹具其余部分
+    expect(() => deserialize(validV9({ buildings: [validBuilding()] }))).not.toThrow();
+  });
+
+  it('浮点过冲 100.4 / -0.4 被 clamp 吸收（材料点名的旧档场景：严格 throw 会误拒旧档）', () => {
+    const over = deserialize(validV9({ buildings: [validBuilding({ constructionProgress: 100.4 })] }));
+    expect((over.buildings[0] as { constructionProgress: number }).constructionProgress).toBe(100);
+    const under = deserialize(validV9({ buildings: [validBuilding({ constructionProgress: -0.4 })] }));
+    expect((under.buildings[0] as { constructionProgress: number }).constructionProgress).toBe(0);
+  });
+
+  it('极端有限值收敛且不产生 NaN（1e308 → 100；-MAX_SAFE_INTEGER → 0）', () => {
+    const huge = deserialize(validV9({ buildings: [validBuilding({ constructionProgress: 1e308 })] }));
+    const hp = (huge.buildings[0] as { constructionProgress: number }).constructionProgress;
+    expect(hp).toBe(100);
+    expect(Number.isFinite(hp)).toBe(true);
+    const tiny = deserialize(
+      validV9({ buildings: [validBuilding({ constructionProgress: -Number.MAX_SAFE_INTEGER })] }),
+    );
+    expect((tiny.buildings[0] as { constructionProgress: number }).constructionProgress).toBe(0);
+  });
+
+  it('上界口径钉桩：界内值原样带出，证上界是 100 百分比而非 1 归一化', () => {
+    for (const v of [0, 55.5, 99.999, 100]) {
+      const gs = deserialize(validV9({ buildings: [validBuilding({ constructionProgress: v })] }));
+      expect((gs.buildings[0] as { constructionProgress: number }).constructionProgress).toBe(v);
+    }
+  });
+
+  it('clamp 只改数值不改 status（constructing + 150 载入后仍 constructing、进度归 100）', () => {
+    const gs = deserialize(
+      validV9({ buildings: [validBuilding({ status: 'constructing', constructionProgress: 150 })] }),
+    );
+    const b = gs.buildings[0] as { status: string; constructionProgress: number };
+    expect(b.status).toBe('constructing');
+    expect(b.constructionProgress).toBe(100);
+    // 现状而非认可：下一 tick 由 gameStore.runConstructionPhase 的 >=99.999 闸门把它转成 working（gameStore.ts:1039-1043）。
+  });
+
+  it('拒载消息带数组下标（第二条坏值点名 buildings[1]）', () => {
+    const doc = validV9({ buildings: [validBuilding(), validBuilding({ constructionProgress: 'x' })] });
+    expect(() => deserialize(doc)).toThrow(/buildings\[1\]\.constructionProgress/);
+  });
+});
