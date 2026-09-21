@@ -18,7 +18,7 @@ import type {
   PolicyNode,
   RoyalDecree,
 } from './schema';
-import { validateDslExpr } from '../state/dslEval';
+import { validateDslExpr } from './dslCore';
 
 export class ModifierValidationError extends Error {
   constructor(message: string, public readonly path: string) {
