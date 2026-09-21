@@ -1,4 +1,4 @@
-# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22，条目 72 份 ＋ 本索引自身 1 份 = 磁盘 .md 73 份；另有 2 份 .json 不在条目口径）
+# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22 / c922-15 追加 1 条 2026-09-22T00:33，条目 73 份 ＋ 本索引自身 1 份 = 磁盘 .md 74 份；另有 2 份 .json 不在条目口径）
 
 - colony-aegis-cadence-20260915.md — aegis 索引校验纳入例行方案（n915-64，只出设计）
 - colony-art-full-20260919.md — public/art 全量资产双向对账（n919-32 批次 c920-14，只读零删除）
@@ -31,6 +31,7 @@
 - colony-loaderror-dedup-20260917.md — colony O1：BootScene loaderror handler 重复注册去重（n916d-24）
 - colony-manifest-authority-batch1-20260912.md — colony asset manifest 权威化批次一报告（h912-11，2026-09-13 夜班）
 - colony-manifest-equivalence-20260913.md — colony 清单等价断言补测（c-18，2026-09-13）
+- colony-maprenderer-viewport-material-20260922.md — colony MapRenderer 视口反向映射提取材料：cameraMath 已抽 6 函数账 ＋ 仍内联 8 段的行区间×依赖键×建议测试（c922-15，2026-09-22T00:33，只读；在途 MapRenderer.ts 未动）
 - colony-migration-v10-guard-20260916.md — colony 存档迁移 v10 前向守护设计材料（c916-06，不实现）
 - colony-missing-assets-20260916.md — colony 启动面缺图清单核对（n916f-08，2026-09-16 建单 / 2026-09-17 夜执行）
 - colony-onboarding-walkthrough-20260918.md — colony P2-1 新手引导三件套只读走查（c918-24 材料单）
