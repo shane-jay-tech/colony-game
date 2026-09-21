@@ -30,6 +30,10 @@ import type { ResourceId } from './resourceRegistry';
 import { isValidResourceId } from './resourceRegistry';
 
 export type SeasonName = 'spring' | 'summer' | 'autumn' | 'winter';
+/**
+ * 全仓唯一的四季名表（c922-131）：state/calendar.ts 直接再导出本常量，不再另立字面量，
+ * 以免「索引 0..3 即 season」的顺序契约出现两份漂移。表留在 data 侧是 c922-11 门禁的要求。
+ */
 export const SEASON_NAMES_DSL: readonly SeasonName[] = ['spring', 'summer', 'autumn', 'winter'];
 
 /**
