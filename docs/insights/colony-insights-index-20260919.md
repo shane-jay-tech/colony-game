@@ -31,6 +31,7 @@
 - colony-loaderror-dedup-20260917.md — colony O1：BootScene loaderror handler 重复注册去重（n916d-24）
 - colony-manifest-authority-batch1-20260912.md — colony asset manifest 权威化批次一报告（h912-11，2026-09-13 夜班）
 - colony-manifest-equivalence-20260913.md — colony 清单等价断言补测（c-18，2026-09-13）
+- colony-manifest-portraits-orphan-20260922.md — colony public/art 4 件 manifest_portraits_*.json 孤儿裁决材料：首发＋三次 429 重试链台账／生成器已因 gen_wanxiang_batch 缺盘不可重跑／真孤儿 4 vs scatter 假孤儿 9 分面／受控移件实测全量 1338 例零红＋三案回滚表（c922-109，2026-09-22T04:0x，只读＋探针还原）
 - colony-maprenderer-viewport-material-20260922.md — colony MapRenderer 视口反向映射提取材料：cameraMath 已抽 6 函数账 ＋ 仍内联 8 段的行区间×依赖键×建议测试（c922-15，2026-09-22T00:33，只读；在途 MapRenderer.ts 未动）
 - colony-migration-v10-guard-20260916.md — colony 存档迁移 v10 前向守护设计材料（c916-06，不实现）
 - colony-missing-assets-20260916.md — colony 启动面缺图清单核对（n916f-08，2026-09-16 建单 / 2026-09-17 夜执行）
