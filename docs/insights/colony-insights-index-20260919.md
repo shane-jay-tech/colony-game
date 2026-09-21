@@ -44,6 +44,7 @@
 - colony-packsprites-deadtool-20260922.md — colony pack-sprites 死工具链核查（c922-112，2026-09-22，只读＋建议级，含实跑探针还原）
 - colony-plan-ledger-20260922.md — colony PLAN.md 7 项工作条逐子条完成度对账（30 条子条 × 状态 × 文件锚）＋夜间可切残余清单 R1-R8（c922-16，2026-09-22T00:41，只读零改动）
 - colony-registry-keys-20260913.md — colony registry key 集中化与类型化访问核验（c-14，2026-09-13）
+- colony-retired-backup-verify-20260922.md — colony 退役模块备份件完整性对账：6 件 tmp 备份 raw md5 2/6 等、LF 归一 6/6 等（差异纯行尾），"备份在盘"保障语义与实况相反（git 侧已推远端／tmp 侧被 gitignore），附 18e4364 时间线与跨仓 check-ignore 归因（c922-115，2026-09-22，只读核查级，零删档）
 - colony-retired-module-residual-20260916.md — colony c914-38 退役模块残留引用核查（b916-04，只读）
 - colony-retired-render-20260917.md — colony 渲染退役范围核验（916-07，2026-09-17，只读）
 - colony-saturation-calibration-plan-20260920.md — colony 木材/金币饱和校准方案（c919-51，只出方案不改数值）
