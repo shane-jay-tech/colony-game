@@ -46,6 +46,7 @@
 - colony-registry-keys-20260913.md — colony registry key 集中化与类型化访问核验（c-14，2026-09-13）
 - colony-retired-backup-verify-20260922.md — colony 退役模块备份件完整性对账：6 件 tmp 备份 raw md5 2/6 等、LF 归一 6/6 等（差异纯行尾），"备份在盘"保障语义与实况相反（git 侧已推远端／tmp 侧被 gitignore），附 18e4364 时间线与跨仓 check-ignore 归因（c922-115，2026-09-22，只读核查级，零删档）
 - colony-retired-module-residual-20260916.md — colony c914-38 退役模块残留引用核查（b916-04，只读）
+- colony-retired-outarg-recheck-20260922.md — colony 退役模块桥面 outbox/inbox/QUEUE 引用复核：活文档面三口径零命中、留痕面 58 件全保留，并抓到判据自身两处假绿（rg 扫信箱父目录静默空返回＋任务书 QUEUE 路径不存在 rc=2）（c922-116，2026-09-22，只读核查级，零改动）
 - colony-retired-render-20260917.md — colony 渲染退役范围核验（916-07，2026-09-17，只读）
 - colony-saturation-calibration-plan-20260920.md — colony 木材/金币饱和校准方案（c919-51，只出方案不改数值）
 - colony-save-v3-test-20260913.md — colony 存档 schema v3 兼容读取回归（c-22，2026-09-13）
