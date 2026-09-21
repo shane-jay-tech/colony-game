@@ -1,4 +1,4 @@
-# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22 / c922-15 追加 1 条 2026-09-22T00:33，条目 73 份 ＋ 本索引自身 1 份 = 磁盘 .md 74 份；另有 2 份 .json 不在条目口径）
+# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22 / c922-15 追加 1 条 2026-09-22T00:33 / c922-16 追加 1 条 2026-09-22T00:41，条目 74 份 ＋ 本索引自身 1 份 = 磁盘 .md 75 份；另有 2 份 .json 不在条目口径）
 
 - colony-aegis-cadence-20260915.md — aegis 索引校验纳入例行方案（n915-64，只出设计）
 - colony-art-full-20260919.md — public/art 全量资产双向对账（n919-32 批次 c920-14，只读零删除）
@@ -38,6 +38,7 @@
 - colony-p23-hooks-map-20260919.md — colony P2-3 操作反馈钩子盘点（s918-13 / 只读缺口表，零改动）
 - colony-p32-closure-20260918.md — colony P3-2 闭单证据复核（s918-14 / 只读，backlog 文件未动）
 - colony-p43-dress-20260918.md — colony P4-3 终检预演：verify + build 证据（c918-27）
+- colony-plan-ledger-20260922.md — colony PLAN.md 7 项工作条逐子条完成度对账（30 条子条 × 状态 × 文件锚）＋夜间可切残余清单 R1-R8（c922-16，2026-09-22T00:41，只读零改动）
 - colony-registry-keys-20260913.md — colony registry key 集中化与类型化访问核验（c-14，2026-09-13）
 - colony-retired-module-residual-20260916.md — colony c914-38 退役模块残留引用核查（b916-04，只读）
 - colony-retired-render-20260917.md — colony 渲染退役范围核验（916-07，2026-09-17，只读）
