@@ -108,3 +108,92 @@ describe('c18 manifest equivalence', () => {
     expect(new Set(evtKeys).size).toBe(evtKeys.length);
   });
 });
+
+// ============================ c922-04：磁盘不变量固化（双轨守卫） ============================
+// 动因（c921-07 遗留原文）：本文件此前 existsSync 计数为 **0**——它只做字符串比对、从不验文件，
+// 所以「代码真正生成的那批加载 URL 是否真在盘」长期无守卫。9/21 凌晨那次 63/63 全绿是靠
+// 临时探针 tmp/art-verify-20260921.mts 现测的，而探针落在 gitignore 的 tmp/ 下、不可复发。
+// 本块把探针的两条核心不变量搬进测试：
+//   不变量一：BootScene 五个加载循环逐条 URL 在 public/ 下 existsSync；
+//   不变量二：同一 key 的 manifest.path ↔ 运行时 loadUrl 同义（改扩展名时只改一轨即 fail）。
+// 例外只有 NO_OWN_ART 两型（path 为不存在的 assets/ 占位、运行时走 BUILDING_ART_REUSE 借图），
+// 其键名在此**逐名锁定**并各配一条正向断言，新增漂移不可能靠放宽判据藏进去。
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { ALL_SCATTER_IDS } from '../scatterConfig';
+
+const PUBLIC_DIR = resolve(process.cwd(), 'public');
+
+/** 方案 B 两型（artManifest.ts:28 的模块私有 NO_OWN_ART 未导出，此处按同名同值复述并在 ③ 锁定）。 */
+const NO_OWN_ART_KEYS = new Set(['bld_tin_mine', 'bld_hemp_field']);
+
+/** 统一成正斜杠相对键：manifest.path 与 URL 模板都用 '/'，Windows 下 resolve 会引入 '\'。 */
+function normKey(p: string): string {
+  return p.replace(/\\/g, '/').replace(/^\/+/, '');
+}
+
+/** 盘上实存判定（不变量一的执行体）。 */
+function urlOnDisk(url: string): boolean {
+  return existsSync(resolve(PUBLIC_DIR, normKey(url)));
+}
+
+/**
+ * BootScene.preload 的五个加载源，按代码原文逐字复刻（c921-07 实测各源条数 35/5/8/5/10，合计 63）。
+ * 这里刻意**重新拼一遍 URL 模板**而不是复用 getBootLoadList 的输出：模板漂移正是本守卫要抓的东西。
+ */
+const LOAD_SOURCES: Array<{ site: string; items: Array<{ key: string; url: string }> }> = [
+  { site: 'building: getBootLoadList(building)', items: getBootLoadList('building') },
+  { site: 'terrain: TERRAIN_ART 直取 asset.path', items: TERRAIN_ART.map(a => ({ key: a.key, url: a.path })) },
+  { site: 'scatter: 硬编码模板 art/scatter/<id>.webp', items: ALL_SCATTER_IDS.map(id => ({ key: `scatter_${id}`, url: `art/scatter/${id}.webp` })) },
+  { site: 'general: getBootLoadList(general)', items: getBootLoadList('general') },
+  { site: 'event: 硬编码模板 art/events/<name>.webp', items: EVENT_ART.map(a => ({
+    key: a.key,
+    url: `art/events/${a.key.startsWith('evt_art_') ? a.key.slice('evt_art_'.length) : a.key}.webp`,
+  })) },
+];
+
+describe('c922-04 boot 加载清单的磁盘不变量（双轨守卫）', () => {
+  it('① 五个加载源逐条 URL 在 public/ 下实存（不变量一：loadUrl × existsSync）', () => {
+    const missing: string[] = [];
+    let total = 0;
+    for (const source of LOAD_SOURCES) {
+      // 每源非空：某源整体变空（清单被误删/派生断链）也要 fail，否则 missing=[] 是假绿。
+      expect(source.items.length, `${source.site} 加载源为空`).toBeGreaterThan(0);
+      for (const item of source.items) {
+        total += 1;
+        if (!existsSync(resolve(PUBLIC_DIR, normKey(item.url)))) missing.push(`${source.site} :: ${item.key} -> ${item.url}`);
+      }
+    }
+    expect(missing).toEqual([]);
+    expect(total).toBe(63); // c921-07 探针实测 35+5+8+5+10；条数变化须连同两轨一起复核
+  });
+
+  it('② 同 key 的 manifest.path ↔ 运行时 loadUrl 同义（不变量二：双轨不许只改一轨）', () => {
+    const byKey = new Map(ART_MANIFEST.map(a => [a.key, a]));
+    const drift: string[] = [];
+    for (const source of LOAD_SOURCES) {
+      for (const item of source.items) {
+        const declared = byKey.get(item.key);
+        if (declared === undefined || NO_OWN_ART_KEYS.has(item.key)) continue;
+        if (normKey(declared.path) !== normKey(item.url)) {
+          drift.push(`${item.key}: manifest.path=${normKey(declared.path)} vs loadUrl=${normKey(item.url)}`);
+        }
+      }
+    }
+    expect(drift).toEqual([]);
+  });
+
+  it('③ 例外集逐名锁定：NO_OWN_ART 两型确为占位（不是拿例外藏断链）', () => {
+    expect([...NO_OWN_ART_KEYS].sort()).toEqual(['bld_hemp_field', 'bld_tin_mine']);
+    const byKey = new Map(ART_MANIFEST.map(a => [a.key, a]));
+    for (const key of NO_OWN_ART_KEYS) {
+      const declared = byKey.get(key);
+      expect(declared?.required, `${key} 例外须 required=false`).toBe(false);
+      // 占位 path 确实不在盘（说真话的「素材未生成」），而运行时借图目标实存 ⇒ 不构成断链。
+      expect(declared !== undefined && !urlOnDisk(declared.path), `${key} 占位 path 竟在盘上`).toBe(true);
+      const loaded = getBootLoadList('building').find(item => item.key === key);
+      expect(loaded, `${key} 未进入 boot 加载清单`).toBeDefined();
+      expect(loaded !== undefined && urlOnDisk(loaded.url), `${key} 借图目标不在盘`).toBe(true);
+    }
+  });
+});
