@@ -13,7 +13,7 @@ test('TERRAIN_ART 共 5 型', () => {
 test.each(TERRAIN_ART.map(a => [a.key, a.path]))(
   '%s 指向实存 webp（public 下 exists；c921-02 转码翻桩）',
   (_key, path) => {
-    // c921-02 翻桩：地形纹理整批转码为 .webp（原 png 保留在盘，零删除）
+    // c921-02 翻桩：地形纹理整批转码为 .webp（原 png 已按授权删除，回滚件在 tmp/assets-backup-20260920/）
     expect(path.endsWith('.webp')).toBe(true);
     expect(path.startsWith('art/terrain/')).toBe(true);
     expect(existsSync(join(PUBLIC, path))).toBe(true);

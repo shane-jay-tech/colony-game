@@ -19,7 +19,7 @@ function idsInPools(): Set<string> {
 
 describe('n916d-22 scatter 配置与磁盘资源对账', () => {
   // c921-02：散布图整批转码为 .webp，BootScene 加载的已是 .webp——① 改为守卫**被加载的那个文件**；
-  // 原 png 保留在盘（零删除），故追加一条「原件仍在」的留证断言。
+  // 原 png 已按授权删除（f0c9754，62 件；回滚件在 tmp/assets-backup-20260920/），故下述 ①b 断言为「原件已不在盘」。
   it('① ALL_SCATTER_IDS 每一项都有被加载的 public/art/scatter/<id>.webp', () => {
     const missing = ALL_SCATTER_IDS.filter(id => !existsSync(resolve(SCATTER_DIR, `${id}.webp`)));
     expect(missing).toEqual([]);
