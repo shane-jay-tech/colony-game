@@ -31,6 +31,7 @@
 - colony-loaderror-dedup-20260916.md — colony BootScene loaderror 重复注册核查与最小修复（n916e-08）
 - colony-loaderror-dedup-20260917.md — colony O1：BootScene loaderror handler 重复注册去重（n916d-24）
 - colony-manifest-authority-batch1-20260912.md — colony asset manifest 权威化批次一报告（h912-11，2026-09-13 夜班）
+- colony-manifest-disk-snapshot-20260922.md — colony manifest 事实源×资源盘全表快照：现值 78 键（对 9/16 的 79 净减 1＝bush_dry 删键）、双轨 existsSync 全绿、孤儿 5 件与 c922-109 的 13 件按事实源集对平，附「grep -c key: 口径对 5/7 类不可用」与反向哨兵只覆盖 scatter 一条（c922-117，2026-09-22，分析级零改动）
 - colony-manifest-equivalence-20260913.md — colony 清单等价断言补测（c-18，2026-09-13）
 - colony-manifest-portraits-orphan-20260922.md — colony public/art 4 件 manifest_portraits_*.json 孤儿裁决材料：首发＋三次 429 重试链台账／生成器已因 gen_wanxiang_batch 缺盘不可重跑／真孤儿 4 vs scatter 假孤儿 9 分面／受控移件实测全量 1338 例零红＋三案回滚表（c922-109，2026-09-22T04:0x，只读＋探针还原）
 - colony-maprenderer-viewport-material-20260922.md — colony MapRenderer 视口反向映射提取材料：cameraMath 已抽 6 函数账 ＋ 仍内联 8 段的行区间×依赖键×建议测试（c922-15，2026-09-22T00:33，只读；在途 MapRenderer.ts 未动）
