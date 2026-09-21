@@ -84,7 +84,7 @@ export const EVENT_ART: ArtAssetDef[] = [
 // path 统一为 public/art/terrain/*.webp 实存文件（forest/hills/mountain/plain/river;c921-02 转码）
 
 // c921-01：path 本就实存（c918-04 已对账）——不动 path，仅把 required 校正为 true
-// （5 型均被 BootScene.ts:51 的 TERRAIN_ART 循环以 asset.path 直接消费）。
+// （5 型均被 BootScene 的 TERRAIN_ART 加载循环以 asset.path 直接消费；此处不写行号，以免再漂）。
 export const TERRAIN_ART: ArtAssetDef[] = [
   { key: 'terrain_forest', path: 'art/terrain/forest.webp', category: 'terrain', required: true },
   { key: 'terrain_hills', path: 'art/terrain/hills.webp', category: 'terrain', required: true },
