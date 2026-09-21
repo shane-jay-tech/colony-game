@@ -85,8 +85,9 @@ orphansArtFiles=13 ["art/manifest_portraits_1781872115.json", ×4,
 2. **9 件 scatter `.webp` 是假孤儿**：它们被 `scatterConfig.ts` 的 `ALL_SCATTER_IDS` 引用、
    由 `BootScene.ts` 的 scatter 循环加载，只是**没进 `ART_MANIFEST`** ⇒ 探针按「是否被 manifest 声明」判它们孤儿。
    该假孤儿面**正是 P1-4 未收口的直接产物**（c922-110 在做的那件事）：
-   scatter/audio 进 `artManifest` 后，这 9 项会自动从 orphan 集消失，`orphansArtFiles` 落到只剩本单这 4 件。
-   （注：9/20 报告记的 13 件里 scatter 半区当时是 `.png`，现为 `.webp`，**件数巧合相同、成员不同名**。）
+   scatter 进 `artManifest` 后，这 9 项里的 **8 项**会自动从 orphan 集消失（`bush_dry.webp` 不在 `ALL_SCATTER_IDS` 内，
+   它仍是真孤儿、等人工裁决，见 `colony-scatter-bidir-20260922.md:59`）⇒ `orphansArtFiles` 13 → **5**（4 件 JSON ＋ `bush_dry.webp`），
+   再处置本单四件后落到 **1**，不是 0。（注：9/20 报告记的 13 件里 scatter 半区当时是 `.png`，现为 `.webp`，**件数巧合相同、成员不同名**。）
 3. 与在册反向哨兵**不重复**：c922-107 的 `scatterDiskReconcile.test.ts:37` 只扫 `public/art/scatter/` 且只看 `.webp`
    （白名单 `bush_dry.webp`），**扫不到 `public/art` 根的 `.json`** ⇒ 四件孤儿目前无任何测试面看守，
    新增同类残留也不会红。若将来要长期钉住，落点应在「根目录 JSON 白名单＝空」这一条，别塞进 scatter 那族。
@@ -126,8 +127,9 @@ B/D 引入的"副本/git 脱管"复杂度买不到额外安全 ⇒ **若人工�
 「先改生成器再清残留」的次序在没有重跑能力时不成立。
 
 **处置与 P1-4 的耦合提示**：假孤儿半区（scatter 9 件）的正解不是删，而是 c922-110 的清单权威化。
-若两单并行，建议**先合 P1-4**，再处置这 4 件——那样 `orphansArtFiles` 一次从 13 落到 0，
-探针读数与 BACKLOG 的清理口径也只需解释一次。
+若两单并行，建议**先合 P1-4**，再处置这 4 件——那样 `orphansArtFiles` 分两步落：**13 → 5 → 1**
+（第一步 8 件被声明、第二步本四件离场；余 1 件＝ `bush_dry.webp`，去留待人工，非执行班可裁）。
+**落不到 0**，探针读数与 BACKLOG 清理口径的解释成本只需付一次。
 
 ## 七、交回人工裁决的点（本单不代决定）
 
