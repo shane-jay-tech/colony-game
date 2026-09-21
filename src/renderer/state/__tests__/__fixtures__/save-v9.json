@@ -1,0 +1,1635 @@
+{
+  "schemaVersion": 9,
+  "savedAt": 1790000000000,
+  "state": {
+    "resources": {
+      "wood": 5,
+      "stone": 5,
+      "people": 46,
+      "grain": 0,
+      "gold": 115,
+      "cloth": 0,
+      "bronze": 20,
+      "influence": 46
+    },
+    "buildings": [
+      {
+        "defId": "bld_farm",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "status": "working",
+        "tier": 1,
+        "constructionProgress": 100,
+        "modifiers": []
+      },
+      {
+        "defId": "bld_well",
+        "position": {
+          "x": 2,
+          "y": 0
+        },
+        "status": "working",
+        "tier": 1,
+        "constructionProgress": 100,
+        "modifiers": []
+      },
+      {
+        "defId": "bld_house",
+        "position": {
+          "x": 4,
+          "y": 0
+        },
+        "status": "working",
+        "tier": 1,
+        "constructionProgress": 100,
+        "modifiers": []
+      },
+      {
+        "defId": "bld_market",
+        "position": {
+          "x": 8,
+          "y": 0
+        },
+        "status": "working",
+        "tier": 2,
+        "constructionProgress": 100,
+        "modifiers": []
+      }
+    ],
+    "policies": [],
+    "activeModifiers": [
+      {
+        "id": "event_modifier_evt_plague_cattle_choice0",
+        "name": "牛疫",
+        "category": "economy",
+        "stackable": false,
+        "effects": [
+          {
+            "target": "country_grain_output",
+            "op": "add",
+            "value": -3
+          },
+          {
+            "target": "country_morale",
+            "op": "add",
+            "value": 3
+          }
+        ],
+        "visualBadge": null,
+        "remainingDays": 25,
+        "description": "春耕之际牛群染疫，田间缺畜力，当如何？",
+        "descPlain": "牛瘟爆发，农业受影响。"
+      },
+      {
+        "id": "season_modifier_1",
+        "name": "夏·灾害季",
+        "category": "economy",
+        "effects": [
+          {
+            "target": "country_population_growth",
+            "op": "mul",
+            "value": 1.5
+          }
+        ],
+        "remainingDays": -1,
+        "description": "夏·灾害季",
+        "descPlain": "夏·灾害季",
+        "stackable": false,
+        "visualBadge": null
+      }
+    ],
+    "activeDecrees": [],
+    "eventHistory": [
+      "evt_plague_cattle"
+    ],
+    "pendingEventId": null,
+    "pendingEventDayStart": null,
+    "productionCarry": {
+      "grain": 0.2000000000000064
+    },
+    "tutorialStepId": "tut_welcome",
+    "seenJitHints": [
+      "hist_01_first_game",
+      "hist_05_hostile_npc",
+      "hist_04_policy_unlock",
+      "hist_07_grade_ascend",
+      "hist_08_idle"
+    ],
+    "lastEventDay": 25,
+    "lastSeenTimestamp": 0,
+    "currentDay": 30,
+    "rngSeed": 20260813,
+    "speed": 1,
+    "worldMap": {
+      "width": 16,
+      "height": 16,
+      "tiles": [
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "forest",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "mountain",
+          "buildable": false,
+          "walkable": false
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "hills",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "river",
+          "buildable": false,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        },
+        {
+          "terrain": "plain",
+          "buildable": true,
+          "walkable": true
+        }
+      ],
+      "resourceNodes": [
+        {
+          "kind": "river_node",
+          "position": {
+            "x": 7,
+            "y": 0
+          },
+          "remaining": 100
+        },
+        {
+          "kind": "river_node",
+          "position": {
+            "x": 7,
+            "y": 10
+          },
+          "remaining": 100
+        },
+        {
+          "kind": "forest_node",
+          "position": {
+            "x": 1,
+            "y": 6
+          },
+          "remaining": 50
+        },
+        {
+          "kind": "forest_node",
+          "position": {
+            "x": 1,
+            "y": 4
+          },
+          "remaining": 50
+        },
+        {
+          "kind": "forest_node",
+          "position": {
+            "x": 4,
+            "y": 7
+          },
+          "remaining": 50
+        },
+        {
+          "kind": "forest_node",
+          "position": {
+            "x": 0,
+            "y": 7
+          },
+          "remaining": 50
+        },
+        {
+          "kind": "forest_node",
+          "position": {
+            "x": 11,
+            "y": 11
+          },
+          "remaining": 50
+        },
+        {
+          "kind": "forest_node",
+          "position": {
+            "x": 6,
+            "y": 10
+          },
+          "remaining": 50
+        },
+        {
+          "kind": "stone_node",
+          "position": {
+            "x": 12,
+            "y": 9
+          },
+          "remaining": 80
+        },
+        {
+          "kind": "stone_node",
+          "position": {
+            "x": 12,
+            "y": 7
+          },
+          "remaining": 80
+        }
+      ],
+      "seed": 20260813
+    },
+    "panelCollapsed": {
+      "left": false,
+      "right": false
+    },
+    "completedDecreeIds": [],
+    "npcCountries": [
+      {
+        "id": "npc_song",
+        "stance": 0,
+        "militaryPower": 30,
+        "renown": 55,
+        "tradeRoute": false,
+        "tradeCooldown": 0,
+        "warStatus": "peace",
+        "lastEnvoyDay": -1,
+        "lastWarDay": -1,
+        "allyIds": [],
+        "aggression": 30,
+        "lastActionDay": 1
+      },
+      {
+        "id": "npc_qi",
+        "stance": 40,
+        "militaryPower": 61,
+        "renown": 50,
+        "tradeRoute": false,
+        "tradeCooldown": 0,
+        "warStatus": "peace",
+        "lastEnvoyDay": -1,
+        "lastWarDay": -1,
+        "allyIds": [],
+        "aggression": 30,
+        "lastActionDay": 25
+      },
+      {
+        "id": "npc_jin",
+        "stance": 20,
+        "militaryPower": 94,
+        "renown": 40,
+        "tradeRoute": false,
+        "tradeCooldown": 0,
+        "warStatus": "peace",
+        "lastEnvoyDay": -1,
+        "lastWarDay": -1,
+        "allyIds": [],
+        "aggression": 60,
+        "lastActionDay": 9
+      },
+      {
+        "id": "npc_rong",
+        "stance": -10,
+        "militaryPower": 73,
+        "renown": 20,
+        "tradeRoute": false,
+        "tradeCooldown": 0,
+        "warStatus": "peace",
+        "lastEnvoyDay": -1,
+        "lastWarDay": -1,
+        "allyIds": [],
+        "aggression": 80,
+        "lastActionDay": 25
+      }
+    ],
+    "playerMorale": 45,
+    "playerMilitaryPower": 20,
+    "publicWrath": 0,
+    "lastWrathDemandDay": null,
+    "worldWariness": 20,
+    "lastWarinessReason": "国格晋阶",
+    "lastPropagandaDay": null,
+    "relicSites": [
+      {
+        "id": "r0",
+        "chainId": "ancient_battlefield",
+        "name": "古战场",
+        "position": {
+          "x": 11,
+          "y": 9
+        },
+        "stage": 0,
+        "done": false
+      },
+      {
+        "id": "r1",
+        "chainId": "ancient_altar",
+        "name": "古祭坛",
+        "position": {
+          "x": 2,
+          "y": 6
+        },
+        "stage": 0,
+        "done": false
+      },
+      {
+        "id": "r2",
+        "chainId": "ancient_mine",
+        "name": "古矿坑",
+        "position": {
+          "x": 15,
+          "y": 6
+        },
+        "stage": 0,
+        "done": false
+      }
+    ],
+    "endgameAscendDay": null,
+    "endgameLastWaveDay": null,
+    "wrathUltimatumEndDay": null,
+    "grade": 1,
+    "gradeReached": 1,
+    "tianxiaAcknowledged": false,
+    "dualZeroDays": 0,
+    "crisisActive": false,
+    "crisisRecoverDays": 0,
+    "mode": "sandbox",
+    "populationCarry": 0.399999999999999,
+    "crisisCount": 0,
+    "vassalOf": null,
+    "storyFlags": null,
+    "populationClasses": {
+      "farmer": 42,
+      "worker": 4,
+      "soldier": 0,
+      "scholar": 0
+    },
+    "conversionQueue": [],
+    "grainNegativeDays": 13,
+    "factionState": {
+      "active": false,
+      "lastEventDay": -1,
+      "nextEventDay": -1,
+      "activeDemand": null,
+      "acceptedDemands": [],
+      "rejectedDemands": []
+    },
+    "megaProjects": [],
+    "exclusivePolicies": [],
+    "generals": [],
+    "activeExpeditions": [],
+    "defenseAlerts": []
+  }
+}
