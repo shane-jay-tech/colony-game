@@ -39,6 +39,7 @@
 - colony-missing-assets-20260916.md — colony 启动面缺图清单核对（n916f-08，2026-09-16 建单 / 2026-09-17 夜执行）
 - colony-onboarding-walkthrough-20260918.md — colony P2-1 新手引导三件套只读走查（c918-24 材料单）
 - colony-optibacklog-status-draft-20260922.md — colony OPTIMIZATION_BACKLOG 未勾 11 项逐行对账草稿：合入文本＋已勾项锚过期 5 处＋索引自身账不齐（c922-19，2026-09-22T02:39，只读零写入该 M 域文件）
+- colony-orphan-commit-precheck-20260922.md — colony 孤儿交付物归位预检：四件在途 M 的 10 hunks 全归族 A/B、混入 0，附 2 笔精确路径 message 草案与门禁命令清单；否证 c922-08 两处锚点（族 A 实为 4 调用点非 5；用例跳变现口径 1341→1345 非 1268→1272）（c922-127，2026-09-22T07:0x，只读＋计划，零提交）
 - colony-p23-hooks-map-20260919.md — colony P2-3 操作反馈钩子盘点（s918-13 / 只读缺口表，零改动）
 - colony-p32-closure-20260918.md — colony P3-2 闭单证据复核（s918-14 / 只读，backlog 文件未动）
 - colony-p43-dress-20260918.md — colony P4-3 终检预演：verify + build 证据（c918-27）
