@@ -1,4 +1,4 @@
-# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05，条目 70 份 ＋ 本索引自身 1 份 = 磁盘 71 份）
+# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52，条目 71 份 ＋ 本索引自身 1 份 = 磁盘 72 份）
 
 - colony-aegis-cadence-20260915.md — aegis 索引校验纳入例行方案（n915-64，只出设计）
 - colony-art-full-20260919.md — public/art 全量资产双向对账（n919-32 批次 c920-14，只读零删除）
@@ -58,6 +58,7 @@
 - colony-storynpcs-terrain-reachability-20260913.md — colony storyNpcs/terrainTextures 可达性实证与退役记录（a-45，2026-09-13）
 - colony-stray-eq-file-20260917.md — colony 仓根 0 字节误入库文件 `=` 处置（916p-a3-001，2026-09-17）
 - colony-terrain-naming-inventory-20260921.md — colony B-139 地形命名三方差异盘点（c921-06，重锚，只读零代码改动，仅新增本报告）
+- colony-test-asset-map-20260921.md — colony 测试资产分布图＋零直接测试模块清单（c922-13，基线纠正为 124 文件/1291 例，零生产码改动）
 - colony-typed-events-20260913.md — colony 状态事件面类型化落地（c-13，2026-09-13）
 - colony-ui-adapter-guard-20260913.md — colony UI 适配器守卫测试（c-16，2026-09-13）
 - colony-ui-webp-reuse-20260914.md — colony assets/ui 6 个 webp 的 UI 复用核查（d914-35，2026-09-14，只读）
