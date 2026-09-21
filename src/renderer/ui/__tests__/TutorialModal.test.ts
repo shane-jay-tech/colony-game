@@ -9,6 +9,9 @@ import { GameStore, STATE_EVENTS } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
 import { TutorialModal } from '../TutorialModal';
+import { makeFakeContainer, makeFakeZone } from './fakeScene';
+
+type FakeZone = ReturnType<typeof makeFakeZone>;
 
 function makeFakeText() {
   const t = {
@@ -40,47 +43,8 @@ function makeFakeGraphics() {
   };
 }
 
-interface FakeZone {
-  x: number; y: number; width: number; height: number;
-  setOrigin: ReturnType<typeof vi.fn>;
-  setInteractive: ReturnType<typeof vi.fn>;
-  setPosition: ReturnType<typeof vi.fn>;
-  setSize: ReturnType<typeof vi.fn>;
-  setVisible: ReturnType<typeof vi.fn>;
-  on: ReturnType<typeof vi.fn>;
-  destroy: ReturnType<typeof vi.fn>;
-}
 
-function makeFakeZone(): FakeZone {
-  const z: FakeZone = {
-    x: 0, y: 0, width: 1, height: 1,
-    setOrigin: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockImplementation(function (this: FakeZone, x: number, y: number) {
-      this.x = x; this.y = y; return this;
-    }),
-    setSize: vi.fn().mockImplementation(function (this: FakeZone, w: number, h: number) {
-      this.width = w; this.height = h; return this;
-    }),
-    setVisible: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-  return z;
-}
 
-function makeFakeContainer() {
-  const c = {
-    setScrollFactor: vi.fn().mockReturnThis(),
-    setDepth: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    add: vi.fn(),
-    destroy: vi.fn(),
-    visible: false,
-  };
-  c.setVisible = vi.fn().mockImplementation((v: boolean) => { c.visible = v; return c; });
-  return c;
-}
 
 function makeFakeScene(scale = { width: 1366, height: 800 }) {
   return {

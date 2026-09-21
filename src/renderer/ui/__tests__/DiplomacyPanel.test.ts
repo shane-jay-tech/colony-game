@@ -9,6 +9,7 @@ import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
 import { warinessBand, WARINESS_COALITION_THRESHOLD } from '../../state/wariness';
 import { DiplomacyPanel } from '../DiplomacyPanel';
+import { makeFakeZone } from './fakeScene';
 
 function makeFakeText() {
   const t = {
@@ -42,20 +43,6 @@ function makeFakeGraphics() {
     setVisible: vi.fn().mockReturnThis(),
     destroy: vi.fn(),
   };
-}
-
-function makeFakeZone() {
-  const z = {
-    x: 0, y: 0, width: 1, height: 1,
-    setOrigin: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setSize: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-  return z;
 }
 
 function makeFakeScene() {

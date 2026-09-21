@@ -6,20 +6,6 @@ import { GameStore, STATE_EVENTS } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
 
-
-
-function makeFakeZone() {
-  return {
-    setOrigin: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setSize: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-}
-
 function makeFakeScene() {
   return {
     scale: { width: 1366, height: 800 },
@@ -53,7 +39,7 @@ function makeStore(): GameStore {
 }
 
 import { PopulationPanel } from '../PopulationPanel';
-import { makeFakeText, makeFakeGraphics } from './fakeScene';
+import { makeFakeGraphics, makeFakeText, makeFakeZone } from './fakeScene';
 
 describe('PopulationPanel', () => {
   let scene: ReturnType<typeof makeFakeScene>;

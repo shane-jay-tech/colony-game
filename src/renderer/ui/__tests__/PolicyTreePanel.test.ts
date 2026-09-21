@@ -10,6 +10,9 @@ import type { IEventEmitter } from '../../state/gameStore';
 import type { PolicyNode, RoyalDecree } from '../../data/schema';
 import type { WorldMap } from '../../data/mapSchema';
 import { PolicyTreePanel } from '../PolicyTreePanel';
+import { makeFakeContainer, makeFakeZone } from './fakeScene';
+
+type FakeZone = ReturnType<typeof makeFakeZone>;
 
 function makeFakeText() {
   const t = {
@@ -43,42 +46,8 @@ function makeFakeGraphics() {
   };
 }
 
-interface FakeZone {
-  x: number; y: number; width: number; height: number;
-  setOrigin: ReturnType<typeof vi.fn>;
-  setInteractive: ReturnType<typeof vi.fn>;
-  setPosition: ReturnType<typeof vi.fn>;
-  setSize: ReturnType<typeof vi.fn>;
-  setVisible: ReturnType<typeof vi.fn>;
-  on: ReturnType<typeof vi.fn>;
-  destroy: ReturnType<typeof vi.fn>;
-}
 
-function makeFakeZone(): FakeZone {
-  const z: FakeZone = {
-    x: 0, y: 0, width: 1, height: 1,
-    setOrigin: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockImplementation(function (this: FakeZone, x: number, y: number) { this.x = x; this.y = y; return this; }),
-    setSize: vi.fn().mockImplementation(function (this: FakeZone, w: number, h: number) { this.width = w; this.height = h; return this; }),
-    setVisible: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-  return z;
-}
 
-function makeFakeContainer() {
-  return {
-    setScrollFactor: vi.fn().mockReturnThis(),
-    setDepth: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setScale: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    add: vi.fn(),
-    destroy: vi.fn(),
-  };
-}
 
 function makeFakeScene(toast?: { show: ReturnType<typeof vi.fn> }) {
   const registryStore = new Map<string, unknown>();

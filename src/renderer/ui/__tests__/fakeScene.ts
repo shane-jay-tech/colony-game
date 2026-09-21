@@ -7,6 +7,7 @@ import { vi } from 'vitest';
  * 文本 union：HUD（setFontSize/setScrollFactor/setDepth）∪ Legend（setStyle）∪ BuildingPopover 基础集
  * ∪ SaveLoadPanel（disableInteractive/on + alpha/handlers 状态位）；setText 记录文本、
  * setAlpha 记录 alpha、on 按事件名登记回调到 handlers（供测试凭 handlers[ev] 模拟点击）。
+ * c922-125：本文件的 builder 族是 UI 面板测试的**唯一定义处**（原 8 个自带本地副本的测试文件已收编）。
  */
 export function makeFakeText() {
   const t = {
@@ -47,38 +48,53 @@ export function makeFakeGraphics() {
   return g;
 }
 
-/** 交互区 union：BuildingPopover 携带 x/y/width/height 字段。 */
+/** 交互区 union：BuildingPopover 携带 x/y/width/height（setPosition/setSize 记值）
+ * ∪ handlers/on 登记（c922-125 批四收编 8 文件时补齐，供测试凭 handlers[ev] 模拟点击；
+ * 对既有消费者为超集——vi.fn 仍保留 .mock.calls，只多加副作用）。 */
 export function makeFakeZone() {
   const z = {
     x: 0, y: 0, width: 1, height: 1,
+    handlers: {} as Record<string, (...args: unknown[]) => void>,
     setOrigin: vi.fn().mockReturnThis(),
     setInteractive: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setSize: vi.fn().mockReturnThis(),
+    setPosition: vi.fn(),
+    setSize: vi.fn(),
     setVisible: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(),
+    on: vi.fn(),
     destroy: vi.fn(),
   };
+  z.setPosition.mockImplementation((x: number, y: number) => { z.x = x; z.y = y; return z; });
+  z.setSize.mockImplementation((w: number, h: number) => { z.width = w; z.height = h; return z; });
+  z.on.mockImplementation((ev: string, fn: (...args: unknown[]) => void) => { z.handlers[ev] = fn; return z; });
   return z;
 }
 
-/** 容器 union：HUD（setAlpha/setPosition）∪ BuildingPopover（setScale）。 */
+/** 容器 union：HUD（setAlpha/setPosition）∪ BuildingPopover（setScale）
+ * ∪ EventModal/TutorialModal（setVisible 记值——isVisible() 直读 container.visible，见 EventModal.ts:364）
+ * ∪ handlers/on 登记。 */
 export function makeFakeContainer() {
-  return {
+  const c = {
+    // 初值 false：面板构造期即 .setVisible(false)（EventModal.ts:89 / TutorialModal.ts:57），
+    // 故原 undefined→false 不翻转任何分支；setVisible 必须记值，因 isVisible() 直读该字段。
+    visible: false,
+    handlers: {} as Record<string, (...args: unknown[]) => void>,
     setDepth: vi.fn().mockReturnThis(),
     setScrollFactor: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
+    setVisible: vi.fn(),
     setAlpha: vi.fn().mockReturnThis(),
     setPosition: vi.fn().mockReturnThis(),
     setScale: vi.fn().mockReturnThis(),
     setInteractive: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(),
+    on: vi.fn(),
     setSize: vi.fn().mockReturnThis(),
     setText: vi.fn().mockReturnThis(),
     setColor: vi.fn().mockReturnThis(),
     add: vi.fn(),
     destroy: vi.fn(),
   };
+  c.setVisible.mockImplementation((v: boolean) => { c.visible = v; return c; });
+  c.on.mockImplementation((ev: string, fn: (...args: unknown[]) => void) => { c.handlers[ev] = fn; return c; });
+  return c;
 }
 
 export interface FakeSceneOpts {

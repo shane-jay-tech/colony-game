@@ -8,30 +8,7 @@ import { GameStore } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
 import { CodexPanel } from '../CodexPanel';
-import { makeFakeText, makeFakeGraphics } from './fakeScene';
-
-
-
-function makeFakeZone() {
-  return {
-    setOrigin: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setSize: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-}
-
-function makeFakeContainer() {
-  return {
-    setScrollFactor: vi.fn().mockReturnThis(),
-    setDepth: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    add: vi.fn(),
-    destroy: vi.fn(),
-  };
-}
+import { makeFakeContainer, makeFakeGraphics, makeFakeText, makeFakeZone } from './fakeScene';
 
 function makeFakeScene() {
   return {

@@ -6,6 +6,9 @@ import { POLICIES, EVENTS, DECREES } from '../../data';
 import { ProductionPanel } from '../ProductionPanel';
 import { GradePanel } from '../GradePanel';
 import { getBuildingDef } from '../../data/buildingRegistry';
+import { makeFakeContainer, makeFakeZone } from './fakeScene';
+
+type FakeZone = ReturnType<typeof makeFakeZone>;
 
 /**
  * P1 信息可视化面板（供需速率 / 升格目标）纯逻辑测试。Phaser 全 mock。
@@ -47,42 +50,8 @@ function makeFakeGraphics() {
   };
 }
 
-interface FakeZone {
-  x: number; y: number; width: number; height: number;
-  handlers: Record<string, (...args: unknown[]) => void>;
-  setOrigin: ReturnType<typeof vi.fn>;
-  setInteractive: ReturnType<typeof vi.fn>;
-  setPosition: ReturnType<typeof vi.fn>;
-  setSize: ReturnType<typeof vi.fn>;
-  setVisible: ReturnType<typeof vi.fn>;
-  on: ReturnType<typeof vi.fn>;
-  destroy: ReturnType<typeof vi.fn>;
-}
 
-function makeFakeZone(): FakeZone {
-  const z: FakeZone = {
-    x: 0, y: 0, width: 1, height: 1, handlers: {},
-    setOrigin: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockImplementation(function (this: FakeZone, x: number, y: number) { this.x = x; this.y = y; return this; }),
-    setSize: vi.fn().mockImplementation(function (this: FakeZone, w: number, h: number) { this.width = w; this.height = h; return this; }),
-    setVisible: vi.fn().mockReturnThis(),
-    on: vi.fn().mockImplementation(function (this: FakeZone, ev: string, fn: (...args: unknown[]) => void) { this.handlers[ev] = fn; return this; }),
-    destroy: vi.fn(),
-  };
-  return z;
-}
 
-function makeFakeContainer() {
-  return {
-    setScrollFactor: vi.fn().mockReturnThis(),
-    setDepth: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    add: vi.fn(),
-    destroy: vi.fn(),
-  };
-}
 
 function makeFakeScene() {
   return {
