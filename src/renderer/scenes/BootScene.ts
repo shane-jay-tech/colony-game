@@ -29,7 +29,7 @@ export class BootScene extends Phaser.Scene {
     // v0.9 Pillar 3.2：尝试加载每个建筑的 sprite。
     // 缺图不崩——loaderror 事件上报后 textures.exists(key) 返 false，
     // MapRenderer 据此自动回退到现有 fillRect+沙印渲染。审核通过的 baseline
-    // 落在 public/art/buildings/<defId>.webp（c921-02 整批转码；原 png 已按授权删除，回滚件在 tmp/assets-backup-20260920/）；
+    // 落在 public/art/buildings/<defId>.webp（c921-02 整批转码；原 png 已按授权删除，回滚件在 D:/attic/colony-art-backup-20260920/）；
     // 尚未生成的 defId 直接走 fallback。
     this.load.on('loaderror', (file: Phaser.Loader.File) => {
       // 仅打 debug，不污染 console.error——大量缺图属预期状态
@@ -53,7 +53,7 @@ export class BootScene extends Phaser.Scene {
     }
     // W4：2.5D 散布素材（树/石/灌木/芦苇；缺则 MapRenderer 跳过散布）。
     // h912-11：manifest 无 scatter 类目，保留原清单。
-    // c921-02：散布 9 图已整批转码为 .webp（原 png 已按授权删除，回滚件在 tmp/assets-backup-20260920/）——此处的硬编码路径同步改指，
+    // c921-02：散布 9 图已整批转码为 .webp（原 png 已按授权删除，回滚件在 D:/attic/colony-art-backup-20260920/）——此处的硬编码路径同步改指，
     // 属「manifest 之外的第二事实源」，改扩展名时必须与本行一起改（c921-01 报告第四节已登记）。
     for (const id of SCATTER_IDS) {
       this.load.image(`scatter_${id}`, `art/scatter/${id}.webp`);
@@ -65,7 +65,7 @@ export class BootScene extends Phaser.Scene {
       this.load.image(item.key, item.url);
     }
     // P0-3：事件插画清单以 artManifest.EVENT_ART 为唯一权威源（去重本地 EVENT_ART_NAMES）
-    // c921-02：URL 模板同步改指 .webp（与 manifest 的 path 同扩展名；原 png 已按授权删除，回滚件在 tmp/assets-backup-20260920/）
+    // c921-02：URL 模板同步改指 .webp（与 manifest 的 path 同扩展名；原 png 已按授权删除，回滚件在 D:/attic/colony-art-backup-20260920/）
     for (const asset of EVENT_ART) {
       const name = asset.key.startsWith('evt_art_') ? asset.key.slice('evt_art_'.length) : asset.key;
       this.load.image(asset.key, `art/events/${name}.webp`);

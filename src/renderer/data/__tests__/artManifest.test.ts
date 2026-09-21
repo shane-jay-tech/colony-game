@@ -52,7 +52,7 @@ describe('Phase D art manifest', () => {
         expect(a.path).toBe(`assets/buildings/${a.key}.webp`);
         expect(existsSync(join(PUBLIC, a.path))).toBe(false); // 方案 B：确无素材，不是漏改
       } else {
-        // c921-02 翻桩：整批转码后统一 .webp（c921-01 时为 .png；原 png 已按授权删除，回滚件在 tmp/assets-backup-20260920/）
+        // c921-02 翻桩：整批转码后统一 .webp（c921-01 时为 .png；原 png 已按授权删除，回滚件在 D:/attic/colony-art-backup-20260920/）
         expect(a.path.endsWith('.webp')).toBe(true);
         expect(existsSync(join(PUBLIC, a.path))).toBe(true);
       }

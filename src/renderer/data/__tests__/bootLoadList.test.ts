@@ -9,7 +9,7 @@ describe('h912-11 boot load list derived from artManifest', () => {
   it('① 派生序列与旧硬编码加载列表逐项相等（same=true）', () => {
     const oldBuildingItems = BUILDINGS.map(def => ({
       key: def.assetKey,
-      // c921-02：整批转码后 URL 模板同步改指 .webp（原 png 已按授权删除，回滚件在 tmp/assets-backup-20260920/）
+      // c921-02：整批转码后 URL 模板同步改指 .webp（原 png 已按授权删除，回滚件在 D:/attic/colony-art-backup-20260920/）
     url: `art/buildings/${BUILDING_ART_REUSE[def.id] ?? def.id}.webp`,
     }));
     const oldGeneralItems = GENERAL_POOL.map(g => ({

@@ -8,7 +8,7 @@ import { ALL_SCATTER_IDS, SCATTER_KEY_PREFIX } from '../scatterConfig';
 const SCATTER_DIR = join(__dirname, '..', '..', '..', '..', 'public', 'art', 'scatter');
 
 test('ALL_SCATTER_IDS 共 8 键（键数不绑定磁盘文件数：盘上多 1 个孤儿，由末条反向用例守）', () => {
-  expect(ALL_SCATTER_IDS).toHaveLength(8); // c918-09：bush_dry 闲臵项已删除（原 png 已随 f0c9754 授权删除，回滚件在 tmp/assets-backup-20260920/art/scatter/bush_dry.png 可随时恢复）
+  expect(ALL_SCATTER_IDS).toHaveLength(8); // c918-09：bush_dry 闲臵项已删除（原 png 已随 f0c9754 授权删除，回滚件在 D:/attic/colony-art-backup-20260920/art/scatter/bush_dry.png 可随时恢复）
 });
 
 // c921-02：散布图整批转码为 .webp，BootScene 加载的是 .webp——对账对象改为被加载的文件。

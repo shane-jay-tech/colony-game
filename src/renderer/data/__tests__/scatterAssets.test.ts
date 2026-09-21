@@ -19,13 +19,13 @@ function idsInPools(): Set<string> {
 
 describe('n916d-22 scatter 配置与磁盘资源对账', () => {
   // c921-02：散布图整批转码为 .webp，BootScene 加载的已是 .webp——① 改为守卫**被加载的那个文件**；
-  // 原 png 已按授权删除（f0c9754，62 件；回滚件在 tmp/assets-backup-20260920/），故下述 ①b 断言为「原件已不在盘」。
+  // 原 png 已按授权删除（f0c9754，62 件；回滚件在 D:/attic/colony-art-backup-20260920/），故下述 ①b 断言为「原件已不在盘」。
   it('① ALL_SCATTER_IDS 每一项都有被加载的 public/art/scatter/<id>.webp', () => {
     const missing = ALL_SCATTER_IDS.filter(id => !existsSync(resolve(SCATTER_DIR, `${id}.webp`)));
     expect(missing).toEqual([]);
   });
 
-  it('①b 原 png 已按授权删除（art 只发 .webp；原件备份在 tmp/assets-backup-20260920/）', () => {
+  it('①b 原 png 已按授权删除（art 只发 .webp；原件备份在 D:/attic/colony-art-backup-20260920/）', () => {
     // 2026-09-20 用户授权：c921-02 的「零删除」约束解除，62 个原 png 已删（释放 92.32 MiB）。
     // 断言随之翻转：散布图原 png 不应再在盘上；被加载的 .webp 由 ① 守卫。
     const stillPng = ALL_SCATTER_IDS.filter(id => existsSync(resolve(SCATTER_DIR, `${id}.png`)));

@@ -32,7 +32,7 @@ describe('n916d-23 artManifest 建筑条项资源解析', () => {
     const list = getBootLoadList('building');
     const broken = list.filter(item => !existsSync(resolve(process.cwd(), 'public', item.url)));
     expect(broken).toEqual([]);
-    // c921-02：URL 模板随整批转码改指 .webp（复用目标本身也已转码；原 png 已按授权删除，回滚件在 tmp/assets-backup-20260920/）
+    // c921-02：URL 模板随整批转码改指 .webp（复用目标本身也已转码；原 png 已按授权删除，回滚件在 D:/attic/colony-art-backup-20260920/）
     expect(list.find(item => item.key === 'bld_tin_mine')?.url).toBe('art/buildings/bld_quarry.webp');
     expect(list.find(item => item.key === 'bld_hemp_field')?.url).toBe('art/buildings/bld_mulberry_grove.webp');
   });

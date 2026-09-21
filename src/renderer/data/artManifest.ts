@@ -41,7 +41,7 @@ export const BUILDING_ART: ArtAssetDef[] = [
 ].map(id => ({
   key: id,
   // c921-01 方案 A：同 id 的 png 实存 ⇒ 改指 public/art/buildings/<id>.png（说真话）；
-  // c921-02 整批转码后同提交改指 .webp（原 png 已按授权删除，见 f0c9754；回滚件在 tmp/assets-backup-20260920/）。
+  // c921-02 整批转码后同提交改指 .webp（原 png 已按授权删除，见 f0c9754；回滚件在 D:/attic/colony-art-backup-20260920/）。
   // 方案 B：NO_OWN_ART 两型无同 id 素材 ⇒ 保持原占位 path，不改。
   path: NO_OWN_ART.has(id) ? `assets/buildings/${id}.webp` : `art/buildings/${id}.webp`,
   category: 'building' as const,
@@ -110,7 +110,7 @@ export function getArtByCategory(category: ArtAssetDef['category']): ArtAssetDef
 //
 // PLAN.md：manifest 已描述的资产以 manifest 为权威 boot-loading 源，删除重复加载列表。
 // URL 约定说明（c921-02 更正）：仓库真实落盘为 public/art/<类别>/<id>.webp（c921-02 整批转码；
-// 原 png 已按授权删除、回滚件在 tmp/assets-backup-20260920/），本表 path 字段与下方 URL 模板**同义且同扩展名**（仅 NO_OWN_ART 两型保留占位）。
+// 原 png 已按授权删除、回滚件在 D:/attic/colony-art-backup-20260920/），本表 path 字段与下方 URL 模板**同义且同扩展名**（仅 NO_OWN_ART 两型保留占位）。
 // 派生仍只取「键与顺序」（+ 复用表），URL 模板保留在此以免多层派生。
 // 地形/散布/音频 manifest 地形已等价描述（c918-04：TERRAIN_ART 5 型指向实存 art/terrain/*；c921-02 转码后为 .webp）；散布/音频 manifest 未等价描述，仍由 BootScene 保留。
 
