@@ -62,6 +62,7 @@
 - colony-storynpcs-terrain-reachability-20260913.md — colony storyNpcs/terrainTextures 可达性实证与退役记录（a-45，2026-09-13）
 - colony-stray-eq-file-20260917.md — colony 仓根 0 字节误入库文件 `=` 处置（916p-a3-001，2026-09-17）
 - colony-suite-slowtail-20260922.md — colony 测试套件慢尾定位：Top5 文件×慢因分类×墙钟口径×提速序列 S1-S5（c922-17，2026-09-22T00:52，只读未改测试码）
+- colony-terrain-ab-equal-20260922.md — colony 地形三方互等钉桩：terrainPaths 补 A×B 集合相等／逐项拼接／size／A×B×C 四块（定向 6→14 例，全量 1310，swamp 变异 4 红，c922-101，2026-09-22T03:0x，仅动 1 测试文件）
 - colony-terrain-naming-inventory-20260921.md — colony B-139 地形命名三方差异盘点（c921-06，重锚，只读零代码改动，仅新增本报告）
 - colony-test-asset-map-20260921.md — colony 测试资产分布图＋零直接测试模块清单（c922-13，基线纠正为 124 文件/1291 例，零生产码改动）
 - colony-test-baseline-20260921.md — colony 测试基线常驻档：工作树 1302／HEAD 干净态推 1298 ＠9d418ee，两口径分列＋过期档点名（n922-09，2026-09-22T02:5x，只读零改码）
