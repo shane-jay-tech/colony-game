@@ -74,6 +74,7 @@
 - colony-ui-adapter-guard-20260913.md — colony UI 适配器守卫测试（c-16，2026-09-13）
 - colony-ui-webp-reuse-20260914.md — colony assets/ui 6 个 webp 的 UI 复用核查（d914-35，2026-09-14，只读）
 - colony-uncommitted-inventory-20260917.md — colony 未提交生产改动盘点与提交就绪度核验（916p-a3-010，2026-09-17，只读）
+- colony-unreachable-recheck-20260922.md — colony 三退役模块不可达性双口径复查＋历史文档头注建议清单（c922-114，2026-09-22，只建议不改写历史正文）
 - colony-unreachable-resourceSystem-20260912.md — colony resourceSystem.ts 不可达模块处置报告（h912-14，2026-09-13 夜班）
 - colony-untracked-residue-20260917.md — colony tmp/ 与 _archive/ 未跟踪残留盘点＋.gitignore 补丁（916p-a3-008，2026-09-17）
 - colony-untracked-tests-intake-20260917.md — colony 未跟踪测试与 src/shared 入库收口（916p-a3-002，2026-09-17）
