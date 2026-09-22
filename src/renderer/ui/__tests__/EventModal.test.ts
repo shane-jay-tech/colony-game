@@ -10,63 +10,33 @@ import type { IEventEmitter } from '../../state/gameStore';
 import type { CourtEvent } from '../../data/schema';
 import type { WorldMap } from '../../data/mapSchema';
 import { EventModal } from '../EventModal';
-import { makeFakeContainer, makeFakeZone } from './fakeScene';
+import { makeFakeContainer, makeFakeGraphics, makeFakeTextSized, makeFakeZone } from './fakeScene';
 
 type FakeZone = ReturnType<typeof makeFakeZone>;
 
 // ---- fake Phaser scene ---------------------------------------------------
-
-function makeFakeText() {
-  const t = {
-    setOrigin: vi.fn().mockReturnThis(),
-    setColor: vi.fn().mockReturnThis(),
-    setText: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-    displayHeight: 24,
-    text: '',
-  };
-  // 让 setText 同步更新 text 字段，方便断言
-  t.setText.mockImplementation((s: string) => { t.text = s; return t; });
-  return t;
-}
-
-function makeFakeGraphics() {
-  return {
-    clear: vi.fn().mockReturnThis(),
-    fillStyle: vi.fn().mockReturnThis(),
-    fillRect: vi.fn().mockReturnThis(),
-    lineStyle: vi.fn().mockReturnThis(),
-    strokeRect: vi.fn().mockReturnThis(),
-    lineBetween: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-    input: { hitArea: { width: 0, height: 0 } },
-  };
-}
-
-
-
+// c923-02（批五）：本地 makeFakeText/makeFakeGraphics 副本收编进共享 fakeScene。
+// 本模态把 text.displayHeight 当**布局输入**（EventModal.ts:265/266 直读），原副本是 24，
+// 故经 makeFakeTextSized(24) 显式声明而非退回共享件默认 18。
+// 原 graphics 副本多出的 `input: { hitArea }` 为死字段（`git grep -w hitArea -- src` 除本行外
+// 只剩两处注释），未并入共享件。
+// 原容器可见性 setter 的本地覆写亦删：共享 makeFakeContainer 已把该赋值记进 .visible
+// （fakeScene.ts:95），本文件 isVisible() 断言走的是同一字段——覆写属重复建设（c922-125 遗留3）。
 
 function makeFakeScene(scale = { width: 1366, height: 800 }) {
   const containers: ReturnType<typeof makeFakeContainer>[] = [];
   const zones: FakeZone[] = [];
-  const texts: ReturnType<typeof makeFakeText>[] = [];
+  const texts: ReturnType<typeof makeFakeTextSized>[] = [];
   const scene = {
     scale,
     add: {
       container: vi.fn(() => {
         const c = makeFakeContainer();
-        // 让 setVisible 反映到 .visible 字段，便于断言 isVisible()
-        c.setVisible = vi.fn().mockImplementation((v: boolean) => { c.visible = v; return c; });
         containers.push(c); return c;
       }),
       graphics: vi.fn(makeFakeGraphics),
       text: vi.fn(() => {
-        const t = makeFakeText();
+        const t = makeFakeTextSized(24);
         texts.push(t); return t;
       }),
       zone: vi.fn(() => {

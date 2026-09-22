@@ -9,41 +9,14 @@ import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
 import { warinessBand, WARINESS_COALITION_THRESHOLD } from '../../state/wariness';
 import { DiplomacyPanel } from '../DiplomacyPanel';
-import { makeFakeZone } from './fakeScene';
+import { makeFakeGraphics, makeFakeText, makeFakeZone } from './fakeScene';
 
-function makeFakeText() {
-  const t = {
-    setOrigin: vi.fn().mockReturnThis(),
-    setColor: vi.fn().mockReturnThis(),
-    setText: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setAlpha: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-    width: 100, height: 18, displayHeight: 18, text: '',
-  };
-  t.setText.mockImplementation((s: string) => { t.text = s; return t; });
-  return t;
-}
-
-function makeFakeGraphics() {
-  return {
-    clear: vi.fn().mockReturnThis(),
-    fillStyle: vi.fn().mockReturnThis(),
-    fillRect: vi.fn().mockReturnThis(),
-    lineStyle: vi.fn().mockReturnThis(),
-    strokeRect: vi.fn().mockReturnThis(),
-    beginPath: vi.fn().mockReturnThis(),
-    moveTo: vi.fn().mockReturnThis(),
-    lineTo: vi.fn().mockReturnThis(),
-    strokePath: vi.fn().mockReturnThis(),
-    fillCircle: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-}
+// c923-02（批五）：本文件的本地 makeFakeText/makeFakeGraphics 副本实为**两份死定义＋两份内联字面量**
+// （原命名副本 :14/:30 从未被调用，makeFakeScene 里另有同形内联副本）——tsconfig 未开 noUnusedLocals
+// 故 type-check 一直看不见它们。本次四处一并收口：死定义删除、内联改指共享件（字段与方法表逐条
+// 均为共享件子集，displayHeight 本就是默认 18）。
+// 仍留两处内联 container/zone 未动（container 带 each/removeAll/list 三个共享件没有的方法，
+// zone 换成共享件会让 setPosition/setSize 从"空转"变成"记值"，属行为改动，超本单范围）。
 
 function makeFakeScene() {
   return {
@@ -55,19 +28,8 @@ function makeFakeScene() {
         setPosition: vi.fn().mockReturnThis(), add: vi.fn(), destroy: vi.fn(),
         each: vi.fn(), removeAll: vi.fn(), list: [] as unknown[],
       })),
-      graphics: vi.fn(() => {
-        const g: Record<string, unknown> = {};
-        const methods = ['clear', 'fillStyle', 'lineStyle', 'fillRect', 'strokeRect', 'fillCircle', 'strokeCircle',
-          'beginPath', 'moveTo', 'lineTo', 'strokePath', 'closePath', 'fillPath', 'fillRoundedRect',
-          'strokeRoundedRect', 'generateTexture', 'setScrollFactor', 'setDepth', 'setPosition', 'setVisible', 'destroy'];
-        for (const name of methods) g[name] = vi.fn().mockReturnThis();
-        return g;
-      }),
-      text: vi.fn(() => {
-        const t = { setOrigin: vi.fn().mockReturnThis(), setColor: vi.fn().mockReturnThis(), setText: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(), setAlpha: vi.fn().mockReturnThis(), setInteractive: vi.fn().mockReturnThis(), destroy: vi.fn(), width: 100, height: 18, displayHeight: 18, text: '' };
-        t.setText.mockImplementation((s: string) => { t.text = s; return t; });
-        return t;
-      }),
+      graphics: vi.fn(makeFakeGraphics),
+      text: vi.fn(makeFakeText),
       zone: vi.fn(() => {
         const z = { x: 0, y: 0, width: 1, height: 1, setOrigin: vi.fn().mockReturnThis(), setInteractive: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(), setSize: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(), on: vi.fn().mockReturnThis(), destroy: vi.fn() };
         return z;

@@ -9,42 +9,13 @@ import { GameStore, STATE_EVENTS } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
 import { TutorialModal } from '../TutorialModal';
-import { makeFakeContainer, makeFakeZone } from './fakeScene';
+import { makeFakeContainer, makeFakeGraphics, makeFakeTextSized, makeFakeZone } from './fakeScene';
 
 type FakeZone = ReturnType<typeof makeFakeZone>;
 
-function makeFakeText() {
-  const t = {
-    setOrigin: vi.fn().mockReturnThis(),
-    setColor: vi.fn().mockReturnThis(),
-    setText: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-    displayHeight: 22,
-    text: '',
-  };
-  t.setText.mockImplementation((s: string) => { t.text = s; return t; });
-  return t;
-}
-
-function makeFakeGraphics() {
-  return {
-    clear: vi.fn().mockReturnThis(),
-    fillStyle: vi.fn().mockReturnThis(),
-    fillRect: vi.fn().mockReturnThis(),
-    lineStyle: vi.fn().mockReturnThis(),
-    strokeRect: vi.fn().mockReturnThis(),
-    lineBetween: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setInteractive: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-}
-
-
-
+// c923-02（批五）：本地 makeFakeText/makeFakeGraphics 副本收编进共享 fakeScene。
+// 本模态把 text.displayHeight 当**布局输入**（TutorialModal.ts:210/215 直读），原副本是 22，
+// 故经 makeFakeTextSized(22) 显式声明而非退回共享件默认 18；graphics 方法表是共享件子集、直用共享件。
 
 function makeFakeScene(scale = { width: 1366, height: 800 }) {
   return {
@@ -52,7 +23,7 @@ function makeFakeScene(scale = { width: 1366, height: 800 }) {
     add: {
       container: vi.fn(makeFakeContainer),
       graphics: vi.fn(makeFakeGraphics),
-      text: vi.fn(makeFakeText),
+      text: vi.fn(() => makeFakeTextSized(22)),
       zone: vi.fn(makeFakeZone),
     },
     registry: { get: vi.fn().mockReturnValue(undefined) },

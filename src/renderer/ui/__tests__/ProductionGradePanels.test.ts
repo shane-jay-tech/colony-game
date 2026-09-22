@@ -6,7 +6,7 @@ import { POLICIES, EVENTS, DECREES } from '../../data';
 import { ProductionPanel } from '../ProductionPanel';
 import { GradePanel } from '../GradePanel';
 import { getBuildingDef } from '../../data/buildingRegistry';
-import { makeFakeContainer, makeFakeZone } from './fakeScene';
+import { makeFakeContainer, makeFakeGraphics, makeFakeText, makeFakeZone } from './fakeScene';
 
 type FakeZone = ReturnType<typeof makeFakeZone>;
 
@@ -15,43 +15,9 @@ type FakeZone = ReturnType<typeof makeFakeZone>;
  * 验证：供需面板的净亏点名与配色 / 名望特行 / 升格面板的逐项 ✓✗ 与页脚引导。
  */
 
-function makeFakeText() {
-  const t = {
-    setOrigin: vi.fn().mockReturnThis(),
-    setColor: vi.fn().mockReturnThis(),
-    setText: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setAlpha: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-    width: 100, height: 18, text: '',
-  };
-  t.setText.mockImplementation((s: string) => { t.text = s; return t; });
-  t.setColor.mockImplementation(function (this: typeof t, c: string) { (this as unknown as { color?: string }).color = c; return this as typeof t; });
-  return t;
-}
-
-function makeFakeGraphics() {
-  return {
-    clear: vi.fn().mockReturnThis(),
-    fillStyle: vi.fn().mockReturnThis(),
-    fillRect: vi.fn().mockReturnThis(),
-    lineStyle: vi.fn().mockReturnThis(),
-    strokeRect: vi.fn().mockReturnThis(),
-    beginPath: vi.fn().mockReturnThis(),
-    moveTo: vi.fn().mockReturnThis(),
-    lineTo: vi.fn().mockReturnThis(),
-    strokePath: vi.fn().mockReturnThis(),
-    fillCircle: vi.fn().mockReturnThis(),
-    strokeCircle: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-}
-
-
-
+// c923-02（批五）：本地 makeFakeText/makeFakeGraphics 副本收编进共享 fakeScene。
+// 本文件 :106/:109 断言 `t.color === '#B71C1C'`，原副本靠自定义 setColor 记色——
+// 该能力已并入共享 makeFakeText（fakeScene.ts:37），故配色断言不降级；graphics 方法表为共享件子集。
 
 function makeFakeScene() {
   return {

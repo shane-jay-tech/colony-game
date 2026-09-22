@@ -8,6 +8,8 @@ import { vi } from 'vitest';
  * ∪ SaveLoadPanel（disableInteractive/on + alpha/handlers 状态位）；setText 记录文本、
  * setAlpha 记录 alpha、on 按事件名登记回调到 handlers（供测试凭 handlers[ev] 模拟点击）。
  * c922-125：本文件的 builder 族是 UI 面板测试的**唯一定义处**（原 8 个自带本地副本的测试文件已收编）。
+ * c923-02（批五）：∪ ProductionGradePanels 的 setColor 记值（该文件 :106/:109 断言 `t.color === '#B71C1C'`，
+ * 原为本地副本独有能力）；新增 `makeFakeTextSized` 供布局直读 displayHeight 的 EventModal/TutorialModal 用。
  */
 export function makeFakeText() {
   const t = {
@@ -25,16 +27,33 @@ export function makeFakeText() {
     setStyle: vi.fn().mockReturnThis(),
     on: vi.fn().mockReturnThis(),
     destroy: vi.fn(),
-    width: 100, height: 18, displayHeight: 18, text: '', alpha: 1,
+    width: 100, height: 18, displayHeight: 18, text: '', alpha: 1, color: '',
     handlers: {} as Record<string, (...args: unknown[]) => void>,
   };
   t.setText.mockImplementation((s: string) => { t.text = s; return t; });
   t.setAlpha.mockImplementation((a: number) => { t.alpha = a; return t; });
+  t.setColor.mockImplementation((c: string) => { t.color = c; return t; });
   t.on.mockImplementation((ev: string, fn: (...args: unknown[]) => void) => { t.handlers[ev] = fn; return t; });
   return t;
 }
 
-/** 图形 union：HUD 全集 ∪ Legend/BuildingPopover 子集（含 lineBetween/strokeRoundedRect）∪ SaveLoadPanel（setInteractive/on）。 */
+/**
+ * 指定 displayHeight 的文本 fake（c923-02）。
+ * 存在理由：EventModal.ts:265-266 与 TutorialModal.ts:210/215 把 `displayHeight` 当**布局输入**
+ * （面板高度直读它），二者原本地副本分别是 24／22，而本共享件默认 18——
+ * 收编时若把它们压成默认值就是改夹具语义，故用本工厂显式声明，实现仍只有 makeFakeText 一份。
+ * ⚠ 本工厂首参是**数字**，不可当 Phaser `add.text(x, y, str)` 的位置参直传
+ * （`text: vi.fn(() => makeFakeTextSized(24))` 才是正确接法）。
+ */
+export function makeFakeTextSized(displayHeight: number) {
+  const t = makeFakeText();
+  t.displayHeight = displayHeight;
+  return t;
+}
+
+/** 图形 union：HUD 全集 ∪ Legend/BuildingPopover 子集（含 lineBetween/strokeRoundedRect）∪ SaveLoadPanel（setInteractive/on）
+ * ∪ c923-02 批五五件（EventModal/TutorialModal/PolicyTreePanel/ProductionGradePanels/DiplomacyPanel 的本地副本方法表
+ * 逐条实测均为本表子集；EventModal 原多出的 `input: { hitArea }` 经 `git grep -w hitArea -- src/` 证其无任何读者，属死字段未并入）。 */
 export function makeFakeGraphics() {
   const handlers: Record<string, (...args: unknown[]) => void> = {};
   const g: Record<string, unknown> = {

@@ -10,44 +10,12 @@ import type { IEventEmitter } from '../../state/gameStore';
 import type { PolicyNode, RoyalDecree } from '../../data/schema';
 import type { WorldMap } from '../../data/mapSchema';
 import { PolicyTreePanel } from '../PolicyTreePanel';
-import { makeFakeContainer, makeFakeZone } from './fakeScene';
+import { makeFakeContainer, makeFakeGraphics, makeFakeText, makeFakeZone } from './fakeScene';
 
 type FakeZone = ReturnType<typeof makeFakeZone>;
 
-function makeFakeText() {
-  const t = {
-    setOrigin: vi.fn().mockReturnThis(),
-    setColor: vi.fn().mockReturnThis(),
-    setText: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    setAlpha: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-    width: 100, height: 18, displayHeight: 18, text: '',
-  };
-  t.setText.mockImplementation((s: string) => { t.text = s; return t; });
-  return t;
-}
-
-function makeFakeGraphics() {
-  return {
-    clear: vi.fn().mockReturnThis(),
-    fillStyle: vi.fn().mockReturnThis(),
-    fillRect: vi.fn().mockReturnThis(),
-    lineStyle: vi.fn().mockReturnThis(),
-    strokeRect: vi.fn().mockReturnThis(),
-    beginPath: vi.fn().mockReturnThis(),
-    moveTo: vi.fn().mockReturnThis(),
-    lineTo: vi.fn().mockReturnThis(),
-    strokePath: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-}
-
-
-
+// c923-02（批五）：本地 makeFakeText/makeFakeGraphics 副本收编进共享 fakeScene——
+// 两者方法表逐条均为共享件子集，displayHeight 本就是默认 18，故直用共享件、无行为差。
 
 function makeFakeScene(toast?: { show: ReturnType<typeof vi.fn> }) {
   const registryStore = new Map<string, unknown>();
