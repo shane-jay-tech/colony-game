@@ -216,3 +216,37 @@ git log --all --oneline --grep='audit-b151-tmp' | wc -l                   # 现�
 node scripts/audit-dead-exports.mjs --out tmp/replay.json                 # 今日读数：124 文件 / 107 条 / 86+21
 npx vitest run                                                           # 现值 130 文件 / 1395 例
 ```
+
+## 十、落案 B 执行记录（2026-09-23 夜，`20260922-1833-pd04`／班 `qoder-executor-20260923-0022-colony1`）
+
+> 用户 2026-09-22 18:2x 拍板采纳**案 B**（见 §六「案 B —— 加 `.gitignore`」）。本节＝执行留痕 ＋ **基线变更集中说明**（§六 采纳步骤 4 点名的「12 份 tracked 文档自证句」按集中处理、**不逐份改写**）。
+
+### 10.1 改了什么
+
+- `.gitignore`：末段追加**注释一行＋规则一行**（规则行 `.audit-b151-tmp/` 现落第 29 行，注释自带指回本档的指针）。其余 26 行规则一字未动。
+- **未 `rm`、未 `mv`、未 `git add`、未 commit**：四件原件仍在原地，§二表 sha256 逐字未变（复算见 10.3）。
+- 台账同步三处：`docs/insights/drain-20260922-pending-human.md` 编号 31 条（物理第 51 行）结案 ＋ 第 70／71／99 行同批标注、分区纪律档 `tmp/executor-drain-discipline-20260923.md`「colony-game 段」8 项→7 项、本节。
+
+### 10.2 「colony 工作树基线」变更集中说明（覆盖全部历史自证句）
+
+**基线变更：自 `.gitignore` 落 `.audit-b151-tmp/` 一行起，colony-game `git status --porcelain` 由 8 项 → 7 项。**
+
+- 本节生效**之前**写入的档里，凡「脏树 8 项＝开工同数」／「未跟踪 `.audit-b151-tmp/` 零夹带」式自证句，都是**当时盘态的真实读数，一律不回改**（信箱历史 result 同属留痕，§六 步骤 4 已明令不改）。
+- 份数订正：本夜现取 `git grep -l "\.audit-b151-tmp" -- docs` ＝ **14 份／42 命中行**（不是 §六 写的 12 份），其中同时含「8 项」字样的仅 **6 份**。＋2 份＝本档自身与其在 `colony-insights-index` 的登记行，属 c922-133 之后新增。集中说明按**目录命中面**生效，故 14 份同样适用。
+- ⚠️ 复验口径两条坑：① **"改完即 7"是错的**——本单两笔受版件（`.gitignore` ＋ 本档）在主班代提交前各自占一行脏位：只落 `.gitignore` 时 porcelain 读 **8**（`?? .audit-b151-tmp/` 消失、`.gitignore` 转 ` M`），本档也写完即读 **9**（他班 7 ＋ 本单 2）；**主班按精确路径提交这两笔后才落 7 项稳态**。② `wc -l` 口径坑（本夜实测）：`?? .audit-b151-tmp/` 作 porcelain **末行**时，`git status --porcelain | wc -l` 报 **7 而权威行数是 8**（末行不带换行符）；忽略生效后无 `?? ` 行，`wc -l` 与权威行数相等（9＝9）。计数一律用 `python` splitlines 或 `cat -n`。§六 步骤 2 的「8 → 7」即时读数因此不成立。
+- 本机无 ripgrep（夜纪律档 §四 已点名）⇒ §六／§九 里的 `rg` 命令本夜一律以 `git grep` 等价复算。
+
+### 10.3 本夜实测读数（命令可复算）
+
+```bash
+cd /d/code/colony-game
+git check-ignore -v .audit-b151-tmp .audit-b151-tmp/*   # 5 目标全命中 .gitignore:29:.audit-b151-tmp/（改前 5 次全 rc=1）
+git status --porcelain                                  # `?? .audit-b151-tmp/` 已消失
+sha256sum .audit-b151-tmp/*                             # 四串与 §二表逐字相同 ⇒ 案 B 零数据面动作
+git diff --cached --name-only | wc -l                   # 0：子班未 add
+```
+
+- **案 C 未采纳的后果留痕（§七 需裁决项 ③ 自此不适用）**：走的是 B 而非 C ⇒ 目录保留、只忽略，故 `355e9ec` 的「留档 `.audit-b151-tmp/de-before.json+de-after.json+diff-summary.txt`」指针**不悬空**，无需再补"改指新档"的说明行；另 23 条点名 commit message 的自证句本就无害。若将来改走 C，须回 §六「回滚 C」三条出口重议，且 `git` 层面无解这一点不因本案改变。
+- **§七 需裁决项 ② 已收口**：14 份文档的自证句走「集中说明」（本节），未逐份改写。
+- 未触碰面（红线自查）：经济平衡数值／`CRISIS_*`／存档兼容／`SAVE_SLOTS` 零改动；`vitest.config.ts` 的 include 不含 `docs/`，故本档与 `.gitignore` 都不动用例面（§三 结论 1）。
+- 本机在途他班 7 项一行未改；`.bak` 的 ` D` 状态保持原样未复活。

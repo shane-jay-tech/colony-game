@@ -24,3 +24,6 @@ user-data/
 art-library/
 tmp/
 _archive/
+
+# c921-05 B-151 对账证据留档（本机物证，不入库；四件 sha256 与三案对照见 docs/insights/colony-auditb151-tmp-20260922.md）
+.audit-b151-tmp/
