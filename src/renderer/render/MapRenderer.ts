@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { MASK_FILL_WHITE } from '../../shared/visualConstants';
 import type { WorldMapAccessor } from '../state/worldMap';
 import type { BuildingInstance } from '../data/schema';
 import { getBuildingDef } from '../data/buildingRegistry';
@@ -192,7 +193,7 @@ export class MapRenderer {
     const sx = (cam.scrollX as number | undefined) || 0;
     const sy = (cam.scrollY as number | undefined) || 0;
     mg.clear();
-    mg.fillStyle(0xffffff, 1);
+    mg.fillStyle(MASK_FILL_WHITE, 1);
     mg.fillRect(vp.x / z + sx, vp.y / z + sy, vp.w / z, vp.h / z);
   }
 
@@ -534,7 +535,7 @@ export class MapRenderer {
       const key = `terrain_${terr}`;
       if (!textures.exists(key)) continue;
       const maskGfx = this.scene.add.graphics({ x: this.originX, y: this.originY }).setVisible(false);
-      maskGfx.fillStyle(0xffffff, 1);
+      maskGfx.fillStyle(MASK_FILL_WHITE, 1);
       let any = false;
       for (let y = 0; y < this.height; y++) {
         for (let x = 0; x < this.width; x++) {
@@ -1134,7 +1135,7 @@ export class MapRenderer {
     const texKey = '__snow_flake__';
     if (!this.scene.textures.exists(texKey)) {
       const g = make.graphics({ x: 0, y: 0 }, false) as Phaser.GameObjects.Graphics;
-      g.fillStyle(0xffffff, 0.8);
+      g.fillStyle(MASK_FILL_WHITE, 0.8);
       g.fillCircle(3, 3, 3);
       (g as unknown as { generateTexture(k: string, w: number, h: number): void }).generateTexture(texKey, 6, 6);
       g.destroy();

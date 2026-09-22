@@ -1,3 +1,4 @@
+import { MASK_FILL_WHITE } from '../../shared/visualConstants';
 import Phaser from 'phaser';
 import { COLORS, COLORS_HEX, FONTS, UI } from './palette';
 import { REGISTRY_KEYS, registryGet } from './registry';
@@ -440,7 +441,7 @@ export class BuildPanel {
     // 重画 mask 矩形
     if (this.rowsMaskGfx && !collapsed) {
       this.rowsMaskGfx.clear();
-      this.rowsMaskGfx.fillStyle(0xffffff, 1);
+      this.rowsMaskGfx.fillStyle(MASK_FILL_WHITE, 1);
       this.rowsMaskGfx.fillRect(x + 8, rowsAreaTop, w - 16, rowsAreaH);
     } else if (this.rowsMaskGfx) {
       this.rowsMaskGfx.clear();
