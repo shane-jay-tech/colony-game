@@ -1,23 +1,49 @@
-# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22 / c922-15 追加 1 条 2026-09-22T00:33 / c922-16 追加 1 条 2026-09-22T00:41 / c922-17 追加 1 条 2026-09-22T00:52 / c922-19 追加 1 条 2026-09-22T02:39，本班后磁盘 .md 77 份＝条目 75 ＋ 本索引自身 1 ＋ 未列 1（见下⚠️）；另有 2 份 .json 不在条目口径。⚠️c922-19 comm 机验：本行既往自述「条目 75＋自身 1＝磁盘 76」的加和式自洽但条目实测只有 74 ⇒ 少列 1 份＝colony-unreachable-resourceSystem-20260912.md（在盘且在 HEAD，非本单留下），本单不代补他人条目，复算法与出口见 colony-optibacklog-status-draft-20260922.md 第四节）
+# colony docs/insights 索引（c920-01 生成 / c922-01 刷新 2026-09-21T21:05 / c922-13 追加 1 条 2026-09-21T22:52 / c922-14 追加 1 条 2026-09-22T00:22 / c922-15 追加 1 条 2026-09-22T00:33 / c922-16 追加 1 条 2026-09-22T00:41 / c922-17 追加 1 条 2026-09-22T00:52 / c922-19 追加 1 条 2026-09-22T02:39 / **c923-01 条目区按 `ls | sort` 整体重建＋头部改为下述机读口径 2026-09-23T01:1x / c923-03 追加 1 条 2026-09-23T01:3x**）
 
+> **机读口径：下面这组命令就是本档的全部自述数。改条目区必复跑并同步本块，勿抄旧数。取数时刻 2026-09-23T01:1x，cwd `D:\code\colony-game`，HEAD `bee6310`。**
+> - 条目数（不含本索引自身）：`grep -c '^- ' docs/insights/colony-insights-index-20260919.md` → **97**
+> - 磁盘 .md：`ls docs/insights/*.md | wc -l` → **98**（本档末行带换行，故 `wc -l` 与 `python splitlines()` 此处同数；末行不带换行时 `wc -l` 会少 1，一律以 splitlines 为准）
+> - **恒等式（本档唯一设计约定＝本索引不自列）：磁盘 .md ＝ 条目数 ＋ 1** → 98 ＝ 97 ＋ 1 ✓
+> - 双向差集两条，重建后两向皆空（左＝磁盘集，右＝条目集）：
+>   `comm -23 <(ls docs/insights/*.md | xargs -n1 basename | sort) <(grep '^- ' docs/insights/colony-insights-index-20260919.md | sed 's/^- //;s/ —.*//' | sort)` ＝ 盘上有而索引漏列 → **0 行**（c923-01 前 8 行；此后每新增 1 档而不同步本索引即重新 +1）
+>   `comm -13 <(同上一条左段) <(同上一条右段)` ＝ 索引有而盘上没有（幽灵条目）→ **0 行**（本单前后皆 0 行）
+>   注：`sed 's/ —.*//'` 顺手吃掉行尾 `\r`，所以纯 CRLF 档上 comm 可直接用；前提是**每条条目行都含 ` — ` 分隔符**（本档现 97/97 满足），否则该口径失真。
+> - `.json` 台账现 2 份（`colony-dead-exports-20260914.json`／`colony-suite-timings-20260921.json`）**不入条目口径**，此现行口径保持不动。
+> - 🔴 **条目计数禁用大小写敏感字符类**：`grep -oE '^- [a-z0-9-]+\.md' | wc -l` 在同一份文件上实跑比 `grep -c '^- '` **少 1**——本目录有 camelCase 文件名 `colony-unreachable-resourceSystem-20260912.md`（大写 `S` 不被 `[a-z0-9-]` 匹配），被该口径**静默漏计**。这就是 74/75 争议的根因。**条目数只认 `grep '^- '` ＋ sed 切分隔符这一条口径。**
+> - 本机 `rg` 只在交互式 shell 里是 alias（指向 Qoder 内置 ripgrep），非全局可执行文件 ⇒ 跨班复算一律用 `grep`／`git grep`／python，别假设 `rg` 可脚本化调用。
+
+> **74/75 条目数争议结案（c922-19 提出 → c923-01 结案；原出口见 colony-optibacklog-status-draft-20260922.md §四）**
+> - 争议原句：c922-19 在本档头部写「本班后磁盘 .md 77 份＝条目 75 ＋ 本索引自身 1 ＋ 未列 1」，并称 comm 机验「条目实测只有 74」「少列 1 份＝colony-unreachable-resourceSystem-20260912.md（在盘且在 HEAD，非本单留下）」，据此「不代补他人条目」。
+> - **否证「少列」**：`git log -S'colony-unreachable-resourceSystem-20260912.md —' --oneline -- docs/insights/colony-insights-index-20260919.md` → 唯一命中 `bb721ea`（c920-01 索引首次生成，2026-09-20T04:56）⇒ **该条自初版即在列，从未缺失**；本档重建后现列第 112 行。c922-114 早在 9/22 05:05 已现场复核并留话「实测该条已在列，人工复核时先确认再定 74/75 口径」，本单据此结案。
+> - **「74」从哪来**：同一时点两条命令各自都真——`grep -c '^- '` → 75（正确口径）；`grep -oE '^- [a-z0-9-]+\.md' | wc -l` → 74（camelCase 盲区）。逐行 comm 差集实证：被吞掉的正是 unreachable 那一条 ⇒「少列 1 份」与「条目只有 74」是**同一条命令的两个症状，互为伪证**（用它自己漏计的那条去指控别人漏列）。
+> - **头部加和式错位**：c922-19 落笔时（`3a47d59`）实测条目 76、磁盘 .md 77，正确分解＝`77 ＝ 条目 76 ＋ 自身 1`；其「条目 75」是**追加前**的读数写进了**追加后**的自述，再用「未列 1」把差补平。
+> - **逐笔复算**（条目＝`grep -c '^- '`，磁盘＝`git ls-tree -r --name-only <c> -- docs/insights` 里的 .md 数）：`99dcaa7` 74/75 ✓、`5dc41f1` 75/76 ✓、`3a47d59` 76/77 ✓、`1bcf506` 88/97 ✗ ⇒ **恒等式在 c922-19 之前的每一笔提交上都成立，历史上不存在真缺列**。
+> - **本单真补的是 8 行**（不是 1 行）：c922-105…c922-133 各批出稿时有 8 档没追加索引行——p23-batch1／scatter-bidir／b152-close／codex-jit-link-eval／deadexports-refresh-recon／intro-backflow-decision／econ-inventory-appendix-draft／p4-docs-audit。这才是 `磁盘 97 vs 条目 88` 的真实缺口；本单按 `ls | sort` 反推补入并把条目区重排为文件名升序（顺带修掉 c922-13 遗留的一处排序倒置：auditb151 曾排在 art-full 之前）。
+
+---
 - colony-aegis-cadence-20260915.md — aegis 索引校验纳入例行方案（n915-64，只出设计）
-- colony-auditb151-tmp-20260922.md — colony `.audit-b151-tmp/` 未跟踪残留处置三案建议（c922-133，2026-09-22，建议单零处置：4 件 sha256／3 口径引用面／22 条翻案全表誊写＋三案回滚说明）
 - colony-art-full-20260919.md — public/art 全量资产双向对账（n919-32 批次 c920-14，只读零删除）
 - colony-artmanifest-coverage-20260917.md — colony artManifest 三类覆盖矩阵＋path 字段消费者核验（916p-a3-006，2026-09-17，只读）
 - colony-artmanifest-gap-20260917.md — colony U2：artManifest 两建筑缺图处置（n916d-23）
 - colony-artmanifest-relink-20260920.md — 美术 manifest 双向断链修复、55 键改指实存图（c921-01，修数据＋翻 3 条把缺陷当契约的断言）
 - colony-assets-size-20260919.md — assets 体积与重复文件普查（c920-15，只读零删除，9/20 06:3x 复测）
 - colony-assets-slim-20260920.md — 资产瘦身第一批 62 图 png→webp（c921-02，含授权后删除原 png）
+- colony-auditb151-tmp-20260922.md — colony `.audit-b151-tmp/` 未跟踪残留处置三案建议（c922-133，2026-09-22，建议单零处置：4 件 sha256／3 口径引用面／22 条翻案全表誊写＋三案回滚说明）
+- colony-b152-close-20260922.md — colony B-152 关单口径核对：把 917-33 方案 B 的注释改写做成可直接 apply 的一行 diff，并说清为什么执行班不能自己按下去（c922-108，2026-09-22T03:54，未落地待拍板；src/renderer/data/scatterConfig.ts 零字节改动）
 - colony-backlog-dup-ids-20260917.md — colony OPTIMIZATION_BACKLOG 编号重号与状态冲突核验（916p-a2-007 任务书同名族，2026-09-17，只读）
 - colony-bgm-audio-profile-20260922.md — colony BGM 音频体积画像：9 条 mp3 逐文件码率/采样率/时长实测 ＋ 96k/128k 两档收益估算（c922-14，2026-09-22T00:22，只读零资产改动；本机无 ffprobe，口径为自写帧走查＋四路互证）
 - colony-boot-manifest-gaps-20260913.md — colony 散布/音频/UI_ART 入 boot 清单差异核查（c-19，2026-09-13，零改码）
 - colony-bootscene-loaderror-20260916.md — colony BootScene loaderror 重复注册核查（n916f-07，只读判定）
 - colony-build-size-20260920.md — 构建产物体积基线（c921-09，仅新增报告档、零代码改动；文件名沿用 20260920 而取数在 9/21 凌晨，报告首行已声明）
 - colony-bushdry-triage-20260918.md — colony bush_dry 闲臵清单项处置（核报＋执行版，c918-09）
+- colony-codex-jit-link-eval-20260922.md — colony CodexPanel × JIT 联动最小接线评估（c922-120，2026-09-22，工程评估＋可实施方案设计、零实施：jitHints/Toast/CodexPanel/JitHintManager/UIScene 一行未改）
 - colony-deadcode-dispose-20260916.md — colony toPhaserStyle/getExclusionGroup 死码处置材料（n916x-33）——标的已不存在，核验收口
 - colony-deadexports-entries-recon-20260917.md — colony dead-exports entries 三处数字链条对账（917-39，只读零回写）
 - colony-deadexports-out-param-20260917.md — colony audit-dead-exports.mjs `--out`/`--write` 参数化（n916d-25）
 - colony-deadexports-readonly-20260916.md — colony audit-dead-exports.mjs 只读化改造（n916f-04）
+- colony-deadexports-refresh-exec-20260923.md — colony dead-exports 台账刷新批·前置核验执行档（c923-03，2026-09-23，**零写分支**：git status 核得 JSON ` M`／`.bak` ` D` 两笔均未收口 ⇒ 未跑 `--write`；记 `.bak` 复活点 audit-dead-exports.mjs:122、实测在途污染面（saveLoad.test.ts 使 SaveLoadError 测试面命中 99→103，余三件在途 src 文件对 107 符号零影响）、今日只读回放现值 124 文件/107 条/86+21，并对 `:28`「22/108」给出「加时效注记而非改数」的出口 A/B）
+- colony-deadexports-refresh-recon-20260922.md — colony dead-exports 默认 JSON 108 vs 复跑值对账（c922-118，2026-09-22，只读对账：全程未写他班在途 ` M` 的 colony-dead-exports-20260914.json、未 git add 任何文件）
+- colony-econ-inventory-appendix-draft-20260922.md — colony 0905 经济参数清单 · 附录增补稿：逐键全表＋行号化＋账实差异登记（c922-123，2026-09-22，只读增补稿；红线域经济平衡数值零改动，权威基线仍是 economy-params-inventory-20260905.md，本稿不替代它）
 - colony-econ-params-audit-20260918.md — colony 经济参数对账只读审计（c918-25 / P2-2 收尾欠账）
 - colony-font-chain-gap-20260922.md — colony 字体链路缺口核查：3 处 @font-face 指向空且从未入库的 public/fonts/、本机因装了 Noto SC 系统字体而看不见缺口、构建产物 /fonts/ 绝对路径未重写⇒补资产也不生效、CSP font-src 拦死外链⇒三案建议＋体积 40.91 MiB 与 OFL 注意（c922-111，2026-09-22T04:2x，只读零改动；字体面测试断言为 0）
 - colony-hardcoded-inventory-20260916.md — colony P1-4 terrain/scatter/audio 硬编码清单与切片设计（c916-03）
@@ -27,6 +53,7 @@
 - colony-insights-index-20260915.md — colony docs/insights 与 README/索引一致性（n915-78，只读）
 - colony-insights-index-recount-20260917.md — colony insights 索引与现实份数漂移重算（916p-a3-003 关联单，2026-09-17）
 - colony-insights-unref-20260917.md — colony 未引用 insights 收口核对（r917-19，p917-19 重投，只读零改动；9/20 12:46 生成，晚于旧索引故此前未列）
+- colony-intro-backflow-decision-20260922.md — colony IntroScene 单向门回流出口裁决材料：三落点〔A 左上常驻／B 首屏仅／C 迷路检测触发〕结论与存档兼容状态各异，不打包裁决（c922-121，2026-09-22，裁决材料不实施；⚠ §四方案 C 命中存档兼容硬触发，需 GPT 独立复核后方可当定稿）
 - colony-introscene-slice-20260919.md — colony IntroScene 序章流程薄切片核报（c918-21 / 锚点漂移记录）
 - colony-kiln-market-semantics-20260916.md — colony 陶窑→市集多源指向语义材料（c916-02，只列不改）
 - colony-loaderror-dedup-20260916.md — colony BootScene loaderror 重复注册核查与最小修复（n916e-08）
@@ -41,8 +68,10 @@
 - colony-onboarding-walkthrough-20260918.md — colony P2-1 新手引导三件套只读走查（c918-24 材料单）
 - colony-optibacklog-status-draft-20260922.md — colony OPTIMIZATION_BACKLOG 未勾 11 项逐行对账草稿：合入文本＋已勾项锚过期 5 处＋索引自身账不齐（c922-19，2026-09-22T02:39，只读零写入该 M 域文件）
 - colony-orphan-commit-precheck-20260922.md — colony 孤儿交付物归位预检：四件在途 M 的 10 hunks 全归族 A/B、混入 0，附 2 笔精确路径 message 草案与门禁命令清单；否证 c922-08 两处锚点（族 A 实为 4 调用点非 5；用例跳变现口径 1341→1345 非 1268→1272）（c922-127，2026-09-22T07:0x，只读＋计划，零提交）
+- colony-p23-batch1-20260922.md — colony P2-3 操作反馈钩子批次一核对（危机 warn ＋ 资源不足两族落地状态，供后续批次〔放置/完工/晋升〕派单用真实现值；c922-106，2026-09-22T03:44 取数，零代码改动、零测试新增、未触碰 public/ 与任何在途禁区文件）
 - colony-p23-hooks-map-20260919.md — colony P2-3 操作反馈钩子盘点（s918-13 / 只读缺口表，零改动）
 - colony-p32-closure-20260918.md — colony P3-2 闭单证据复核（s918-14 / 只读，backlog 文件未动）
+- colony-p4-docs-audit-20260922.md — colony P4 发布域文档巡检：FRIEND_GUIDE／PLAYTEST_CHECKLIST × v0.10 现状对账（c922-124，2026-09-22，只读对账，两份文档修订一律「加订正行／头注、原句一字不删」沿 c922-114 口径；OPTIMIZATION_BACKLOG 他班在途只登记）
 - colony-p43-dress-20260918.md — colony P4-3 终检预演：verify + build 证据（c918-27）
 - colony-packsprites-deadtool-20260922.md — colony pack-sprites 死工具链核查（c922-112，2026-09-22，只读＋建议级，含实跑探针还原）
 - colony-plan-ledger-20260922.md — colony PLAN.md 7 项工作条逐子条完成度对账（30 条子条 × 状态 × 文件锚）＋夜间可切残余清单 R1-R8（c922-16，2026-09-22T00:41，只读零改动）
@@ -59,6 +88,7 @@
 - colony-savematrix-extend-20260916.md — colony saveMatrix 组 B 字段保留断言扩展（c916-07）
 - colony-scatter-asset-decision-20260917.md — colony scatter rock_cluster 替代方案拍板材料（917-33/B-152，只读零改动）
 - colony-scatter-asset-gap-20260917.md — colony 散布资产缺口核验（916p-a3-005，2026-09-17，只读）
+- colony-scatter-bidir-20260922.md — colony scatter 键×盘双向对账补强：登记散布素材族对账判据从单向改双向的现值与白名单裁决归属，供 c922-16 item2.3 接续（c922-107，2026-09-22T03:49，只改 1 个测试文件＋本档；public/ 零触碰、scatterConfig.ts 数据未动）
 - colony-scatter-gap-20260917.md — colony U1：scatterConfig rock_cluster 引用落差最小修复（n916d-22）
 - colony-scripts-consistency-20260918.md — colony package.json scripts 与文档一致性核对（c918-28 / 只读，零改动）
 - colony-shared-visual-constants-20260913.md — colony render/UI 共用视觉常量抽离（c-15，2026-09-13）
