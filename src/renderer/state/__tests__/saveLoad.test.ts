@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { EventEmitter } from 'eventemitter3';
 import { serialize, deserialize, validateSlot, saveToSlot, SaveLoadError, SAVE_SCHEMA_VERSION } from '../saveLoad';
@@ -101,6 +102,18 @@ describe('deserialize error handling', () => {
 
   it('missing schemaVersion throws SaveLoadError', () => {
     expect(() => deserialize({ data: 'something' })).toThrow(SaveLoadError);
+  });
+
+  it('d914-17：迁移入口（v2→current）遇畸形存档抛 SaveLoadError 而非 TypeError', () => {
+    // v2 存档缺迁移目标字段：走 runMigrations 迁移链后仍因 shape 校验失败，
+    // 错误类型必须是统一通道 SaveLoadError（不得裸抛 TypeError）。
+    const legacy = { schemaVersion: 2, state: { resources: 'not-an-object' } };
+    try {
+      deserialize(legacy);
+      assert.fail('畸形 v2 存档应当抛错');
+    } catch (err) {
+      expect(err instanceof SaveLoadError).toBe(true);
+    }
   });
 
   it('null input throws SaveLoadError', () => {
@@ -628,5 +641,41 @@ describe('Phase2 故事 storyFlags 存档', () => {
       },
     };
     expect(deserialize(blob).storyFlags).toBeNull();
+  });
+});
+
+// c-22：schema v3 兼容读取回归（PLAN Constraints——存档格式兼容）。
+describe('c22 schema v3 compat read', () => {
+  const makeV3Blob = (overrides: Record<string, unknown> = {}) => ({
+    schemaVersion: 3,
+    state: {
+      resources: { grain: 100, gold: 50, cloth: 10, timber: 20, tools: 5 },
+      currentDay: 12,
+      rngSeed: 42,
+      speed: 1,
+      paused: false,
+      buildings: [],
+      populationClasses: { farmer: 10, worker: 4, scholar: 2, merchant: 1, soldier: 3 },
+      ...overrides,
+    },
+    worldMap: null,
+  });
+
+  it('v3 存档经迁移链读取成功且补齐 v4+ 新字段的默认值', () => {
+    const restored = deserialize(makeV3Blob());
+    expect(restored.currentDay).toBe(12);
+    expect(restored.rngSeed).toBe(42);
+  });
+
+  it('v3 路径钳制生效（speed=99 腐化值仍钳到 1）', () => {
+    const blob = makeV3Blob({ speed: 99 });
+    const restored = deserialize(blob);
+    expect(restored.speed).toBe(1);
+  });
+
+  it('v3 存档缺 state 形状非法 → 迁移中抛错而非静默（TypeError 会穿透为未处理异常）', () => {
+    // 现行为：state=null 的 v3 blob 在迁移链里解引用抛原生 TypeError——
+    // 是「报明确错误而非静默」的边界形态（非 SaveLoadError 类型，修复另批）。
+    expect(() => deserialize({ schemaVersion: 3, state: null, worldMap: null })).toThrow();
   });
 });

@@ -45,8 +45,7 @@ function v7Blob(overrides: Record<string, unknown> = {}): Record<string, unknown
 describe('#4 顶层非对象输入一律 SaveLoadError', () => {
   it('截断 JSON 字符串被入口拒绝（不裸抛 SyntaxError）', () => {
     // serialize 产物截断后是 string；deserialize 只收对象——现状在入口即拒。
-    // TODO(日间): loadFromSlot(saveLoad.ts:771) 的 JSON.parse 不包异常，真·截断档
-    // 从磁盘路径会裸抛 SyntaxError——若要收敛需包一层 SaveLoadError（本测试不钉该路径）。
+    // 磁盘路径的损坏档已于 saveLoadIo.test.ts 钉住（020c 已收敛为 SaveLoadError）。
     const truncated = '{"schemaVersion":9,"state":{"rngSeed":7,"speed":2,"resou';
     expect(() => deserialize(truncated)).toThrow(SaveLoadError);
     expect(() => deserialize(truncated)).toThrow(/must be a non-null object/);
