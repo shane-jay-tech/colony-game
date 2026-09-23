@@ -85,6 +85,38 @@ const EVT_NOTIFY: CourtEvent = {
   // 没有 choices → 单 [知道了] 按钮路径
 };
 
+// ---- c923-21：真实点击路径的取数口 ----------------------------------------
+// 卷宗锚点（c922-125 遗留）：本文件此前所有「点击」用例都走 modal.clickChoice() **直调**，
+// 而共享 fakeScene 的 handlers 登记面（fakeScene.ts:76/:87，zone.on 把回调记进 zone.handlers）
+// 零消费方 ⇒「点一下按钮真的接到 handleChoice 上」这一判别力从未建立。
+// 下面几例的差别：拿生产代码亲手 on(...) 过的那枚 zone，**触发它登记着的 handler**，
+// 走 Phaser 事件回调本体，不经 clickChoice 这条测试后门。
+// ⚠ fakeScene.ts 属在册待裁决件（colony6 档 B），本班零触碰——zone 引用一律从面板内部字段取回。
+/** 与 EventModal.ts:28-33 的 ChoiceButton 同构（只声明本批断言要读的字段）。 */
+type ModalButton = { zone: FakeZone; text: { text: string }; idx: number };
+
+const buttonsOf = (m: EventModal): ModalButton[] =>
+  (m as unknown as { buttons: ModalButton[] }).buttons;
+const toggleZoneOf = (m: EventModal): FakeZone =>
+  (m as unknown as { toggleZone: FakeZone }).toggleZone;
+const bodyTextOf = (m: EventModal): { text: string } =>
+  (m as unknown as { bodyText: { text: string } }).bodyText;
+const toggleLabelOf = (m: EventModal): { text: string } =>
+  (m as unknown as { toggleText: { text: string } }).toggleText;
+const eventHistoryOf = (s: GameStore): string[] =>
+  (s as unknown as { state: { eventHistory: string[] } }).state.eventHistory;
+
+/** 让事件进入 pending 并发 EVENT_TRIGGERED（与上方既有用例同一入口）；顺带确认模态确实起了。 */
+function triggerEvent(s: GameStore, m: EventModal, eventId: string): void {
+  const st = (s as unknown as {
+    state: { pendingEventId: string | null; pendingEventDayStart: number | null };
+  }).state;
+  st.pendingEventId = eventId;
+  st.pendingEventDayStart = 0;
+  s['emitter'].emit(STATE_EVENTS.EVENT_TRIGGERED, { eventId });
+  expect(m.isVisible()).toBe(true);
+}
+
 // ---- tests ---------------------------------------------------------------
 
 describe('EventModal', () => {
@@ -195,6 +227,82 @@ describe('EventModal', () => {
     expect(store.isPaused()).toBe(true);
     modal.destroy();
     // 没有 resolveEvent 路径，但 destroy 必须释放 pause hold
+    expect(store.isPaused()).toBe(false);
+  });
+
+  // ---- c923-21：真实点击路径（触发 zone 上登记的 handler，断具体状态字段变化）----
+
+  it('真实路径：点第二枚选项 zone 的 pointerdown → 事件落进 history、模态自毁按钮并释放时停', () => {
+    triggerEvent(store, modal, EVT_CHOICE.id);
+    const btns = buttonsOf(modal);
+    // 覆盖面自证：登记面确实挂着生产代码注册的 handler；并**按标签**锁定这就是 idx 1，不靠数组下标猜。
+    expect(btns).toHaveLength(2);
+    expect(typeof btns[1]!.zone.handlers.pointerdown).toBe('function');
+    expect(btns[1]!.text.text).toBe('婉拒。');
+    // 动手前的状态读数
+    expect(store.getPendingEventId()).toBe(EVT_CHOICE.id);
+    expect(eventHistoryOf(store)).toEqual([]);
+    expect(store.isPaused()).toBe(true);
+
+    btns[1]!.zone.handlers.pointerdown!(); // ← 真实 handler，不经 clickChoice
+
+    // 状态字段逐项翻转
+    expect(store.getPendingEventId()).toBeNull();
+    expect(eventHistoryOf(store)).toEqual([EVT_CHOICE.id]);
+    expect(modal.isVisible()).toBe(false);
+    expect(modal.getButtonCount()).toBe(0);
+    expect(store.isPaused()).toBe(false);
+    expect(btns[1]!.zone.destroy).toHaveBeenCalledOnce();
+
+    // 反向自证：按钮已随 clearButtons 销毁，重放同一枚旧 handler 不得再结一次（判据非恒绿）
+    btns[1]!.zone.handlers.pointerdown!();
+    expect(eventHistoryOf(store)).toEqual([EVT_CHOICE.id]);
+  });
+
+  it('真实路径：点「古文/白话」toggle zone 的 pointerdown → 正文与两枚选项标签整套翻面且不误结算', () => {
+    triggerEvent(store, modal, EVT_CHOICE.id);
+    const tz = toggleZoneOf(modal);
+    expect(typeof tz.handlers.pointerdown).toBe('function');
+    const body = bodyTextOf(modal);
+    const label = toggleLabelOf(modal);
+    const btns = buttonsOf(modal);
+    // 默认白话态基线。⚠ label 不检初值：本件 local add.text 的 vi.fn 丢弃构造位置参（:38-41），
+    // '古文' 只在 toggleLanguage 调过 setText 后可读 ⇒ 故改检**两次点击的方向**，比检一个静态串更有判别力。
+    expect(body.text).toBe('齐使来访。');
+    expect(btns.map((b) => b.text.text)).toEqual(['答应结盟。', '婉拒。']);
+
+    tz.handlers.pointerdown!();
+
+    // 古文态：正文换源、toggle 自证文案换向、选项标签跟着重渲染
+    expect(body.text).toBe('齐使持璧来朝。');
+    expect(label.text).toBe('白话');
+    expect(btns.map((b) => b.text.text)).toEqual(['设宴', '却之']);
+    // 而模态本身没被这一下点掉，事件也没被结清
+    expect(store.getPendingEventId()).toBe(EVT_CHOICE.id);
+    expect(eventHistoryOf(store)).toEqual([]);
+    expect(modal.isVisible()).toBe(true);
+
+    // 再点一次 → 整套回到白话（证明点的是真开关，不是单向副作用）
+    tz.handlers.pointerdown!();
+    expect(body.text).toBe('齐使来访。');
+    expect(label.text).toBe('古文');
+    expect(btns.map((b) => b.text.text)).toEqual(['答应结盟。', '婉拒。']);
+  });
+
+  it('真实路径：无 choices 事件的那枚 [知道了] zone → 一次点击即清 pending 并落 history', () => {
+    triggerEvent(store, modal, EVT_NOTIFY.id);
+    const btns = buttonsOf(modal);
+    // 单按钮路径的 idx 由 makeChoiceButton(0,'知道了') 定（EventModal.ts:179）；
+    // 文字不经 setText 落地（无 choices ⇒ refreshTexts 的重渲染循环空转），故检 idx 而非 label。
+    expect(btns).toHaveLength(1);
+    expect(btns[0]!.idx).toBe(0);
+    expect(typeof btns[0]!.zone.handlers.pointerdown).toBe('function');
+
+    btns[0]!.zone.handlers.pointerdown!();
+
+    expect(store.getPendingEventId()).toBeNull();
+    expect(eventHistoryOf(store)).toEqual([EVT_NOTIFY.id]);
+    expect(modal.getButtonCount()).toBe(0);
     expect(store.isPaused()).toBe(false);
   });
 });

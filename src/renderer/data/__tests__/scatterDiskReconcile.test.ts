@@ -1,4 +1,4 @@
-// c918-08：散布键×磁盘对账——ALL_SCATTER_IDS 每键必须有实存 png
+// c918-08：散布键×磁盘对账——ALL_SCATTER_IDS 每键必须有实存 webp（文件后缀口径由 c921-02 转码时定；c923-19 纠正本行遗留的旧后缀表述）
 // （防 n916d-22「rock_cluster 缺盘静默缺失」复发：缺盘即红，不再静默跳过）。
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';

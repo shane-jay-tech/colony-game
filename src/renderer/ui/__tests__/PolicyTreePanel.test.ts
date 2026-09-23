@@ -77,6 +77,28 @@ function makeStore(): GameStore {
     { policies: [POL_FREE, POL_NEEDS_PREREQ, POL_EXPENSIVE], decrees: [DECREE_FREE, DECREE_EXPENSIVE] });
 }
 
+// ---- c923-21：真实点击路径的取数口 ----------------------------------------
+// 卷宗锚点（c922-125 遗留）：本文件此前所有「点节点/点卡片」都走 panel.clickPolicyByIndex()/
+// clickDecreeByIndex() 这两条**测试后门直调**，共享 fakeScene.makeFakeZone 的 handlers 登记面
+// （fakeScene.ts:76/:87）在此零消费方 ⇒「zone.on('pointerup', …) 真的挂上了、且挂在对的 def 上」
+// 这一判别力从未建立。下列用例改为**触发生产代码亲手登记的那个回调**。
+// ⚠ fakeScene.ts 属在册待裁决件（colony6 档 B），本班零触碰——zone 引用从面板内部字段取回。
+type NodeUI = { def: { id: string; name: string }; label: { text: string }; zone: FakeZone };
+type CardUI = { def: { id: string }; status: { text: string }; zone: FakeZone };
+
+const nodesOf = (p: PolicyTreePanel): NodeUI[] =>
+  (p as unknown as { policyNodes: NodeUI[] }).policyNodes;
+const cardsOf = (p: PolicyTreePanel): CardUI[] =>
+  (p as unknown as { decreeCards: CardUI[] }).decreeCards;
+const tabZoneOf = (p: PolicyTreePanel, which: 'tabPolicyZone' | 'tabDecreeZone'): FakeZone =>
+  (p as unknown as Record<'tabPolicyZone' | 'tabDecreeZone', FakeZone>)[which];
+const closeZoneOf = (p: PolicyTreePanel): FakeZone =>
+  (p as unknown as { closeZone: FakeZone }).closeZone;
+/** 取面板 registry 影子表里 treePanelOpen 的当前值（GameScene 据它跳过地图滚轮缩放）。 */
+function treePanelOpenFlag(s: unknown): unknown {
+  return (s as { registry: { get: (k: string) => unknown } }).registry.get('treePanelOpen');
+}
+
 describe('PolicyTreePanel', () => {
   let scene: ReturnType<typeof makeFakeScene>;
   let store: GameStore;
@@ -167,5 +189,69 @@ describe('PolicyTreePanel', () => {
     panel.destroy();
     expect(store.listenerCount(STATE_EVENTS.RESOURCES_CHANGED)).toBe(before - 1);
     expect(store.isPaused()).toBe(false); // 释放了 pause holder
+  });
+
+  // ---- c923-21：真实点击路径（触发 zone 上登记的 handler，断具体状态字段变化）----
+
+  it('真实路径：点国策节点的 pointerup → 政策真落账、面板标签自己翻成已采纳，重复点只弹提示不落账', () => {
+    panel.open();
+    const nodes = nodesOf(panel);
+    // 覆盖面自证：登记面确实挂着生产代码登记的 handler，且按 def.id 锁定枚数，不靠下标猜
+    expect(nodes).toHaveLength(3);
+    const node = nodes[0]!;
+    expect(node.def.id).toBe('pol_a');
+    expect(typeof node.zone.handlers.pointerup).toBe('function');
+    // 动手前读数：open→layout→refreshPolicies 已把裸名字写进标签
+    expect(store.getAdoptedPolicyIds().has('pol_a')).toBe(false);
+    expect(node.label.text).toBe('甲策');
+
+    node.zone.handlers.pointerup!(); // ← 真实 handler，不经 clickPolicyByIndex
+
+    expect(store.getAdoptedPolicyIds().has('pol_a')).toBe(true);
+    expect(node.label.text).toBe('✓ 甲策');
+    expect(toast.show).not.toHaveBeenCalled();
+
+    // 反向自证：同枚再点一次 → adoptPolicy 拒已采纳、弹提示且**不产生第二次落账**（判据非恒绿）
+    node.zone.handlers.pointerup!();
+    expect(store.getAdoptedPolicyIds().size).toBe(1);
+    expect(String(toast.show.mock.calls.at(-1)?.[0])).toContain('此策已在国');
+    expect(node.label.text).toBe('✓ 甲策');
+  });
+
+  it('真实路径：点「朝令」tab 的 pointerup → currentTab 与卡片状态文案同步刷新，点回原 tab 则整体不动', () => {
+    panel.open();
+    const decreeTab = tabZoneOf(panel, 'tabDecreeZone');
+    const policyTab = tabZoneOf(panel, 'tabPolicyZone');
+    expect(typeof decreeTab.handlers.pointerup).toBe('function');
+    expect(panel.getCurrentTab()).toBe('policy');
+    // 朝令卡片此刻还没被 refreshDecrees 写过（policy tab 下它不跑）
+    expect(cardsOf(panel)).toHaveLength(2);
+    expect(cardsOf(panel)[0]!.status.text).toBe('');
+
+    policyTab.handlers.pointerup!(); // 点的就是当前所在 tab → setTab 同值早退
+    expect(panel.getCurrentTab()).toBe('policy');
+    expect(cardsOf(panel)[0]!.status.text).toBe('');
+
+    decreeTab.handlers.pointerup!(); // ← 真实 handler，不经 switchTo
+    expect(panel.getCurrentTab()).toBe('decree');
+    expect(cardsOf(panel)[0]!.status.text).toContain('首阶');
+
+    policyTab.handlers.pointerup!();
+    expect(panel.getCurrentTab()).toBe('policy');
+  });
+
+  it('真实路径：点 × 的 pointerup → isOpen／时停／treePanelOpen 三处状态一起复位', () => {
+    panel.open();
+    expect(panel.isVisible()).toBe(true);
+    expect(store.isPaused()).toBe(true);
+    expect(treePanelOpenFlag(scene)).toBe(true);
+    const close = closeZoneOf(panel);
+    expect(typeof close.handlers.pointerup).toBe('function');
+
+    close.handlers.pointerup!(); // ← 真实 handler，不经 close() 直调
+
+    expect(panel.isVisible()).toBe(false);
+    expect(store.isPaused()).toBe(false);
+    expect(treePanelOpenFlag(scene)).toBe(false);
   });
 });
