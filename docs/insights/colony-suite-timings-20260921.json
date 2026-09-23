@@ -1,857 +1,1057 @@
 {
- "generatedAt": "2026-09-21T21:56:50+0800",
- "producedBy": "c922-07（scripts/domain-counts.mts 同批；时长台账生成命令见 command 字段）",
- "command": "npx vitest run --reporter=json --outputFile=tmp/c922-07/vitest.json",
- "measureNote": "durationMs = 该文件 endTime-startTime（含 collect/setup 的文件墙钟），非 vitest 终端 summary 的 tests 汇总口径；故本表总和 109.97s 大于并跑墙钟 39~40s——文件是并发跑的，本表用于「哪个文件慢」排序，不可当套件总时长用。",
- "gitHead": "4d004c0",
- "dirtyFilesAtRun": [
-  " M docs/design/OPTIMIZATION_BACKLOG.md",
-  " M docs/insights/colony-dead-exports-20260914.json",
-  " D docs/insights/colony-dead-exports-20260914.json.bak",
-  " M src/renderer/render/MapRenderer.ts",
-  " M src/renderer/state/__tests__/saveGuard3.test.ts",
-  " M src/renderer/state/__tests__/saveLoad.test.ts",
-  " M src/renderer/ui/BuildPanel.ts",
-  "?? .audit-b151-tmp/",
-  "?? scripts/domain-counts.mts"
- ],
- "vitestVersion": "1.6.1",
- "totals": {
-  "testFiles": 120,
-  "tests": 1272,
-  "passed": 1272,
-  "failed": 0,
-  "pending": 0,
-  "todo": 0,
-  "suitesReportedByVitest": 419,
-  "sumFileWallClockMs": 109973,
-  "headBaselineNote": "c921-08（9/21 00:35）记 120 文件/1269 用例；本次 1272 = HEAD 态 1268 + 在途 saveLoad.test.ts 新增 4 例（该文件 HEAD 45 个 it/test 声明、工作树 49 个，vitest 实报 49）。1269 与 1268 的 1 例差跨 c922-01..05 五提交未归因，不在本单范围。"
- },
- "top10": [
-  {
-   "file": "src/renderer/state/__tests__/sandboxSimulation.test.ts",
-   "tests": 2,
-   "durationMs": 29863,
-   "sharePct": 27.15
-  },
-  {
-   "file": "src/renderer/state/__tests__/sandboxSnapshot.test.ts",
-   "tests": 3,
-   "durationMs": 28228,
-   "sharePct": 25.67
-  },
-  {
-   "file": "scripts/__tests__/auditDeadExportsReadonly.test.ts",
-   "tests": 1,
-   "durationMs": 27681,
-   "sharePct": 25.17
-  },
-  {
-   "file": "src/renderer/scenes/__tests__/UIScene.test.ts",
-   "tests": 4,
-   "durationMs": 5595,
-   "sharePct": 5.09
-  },
-  {
-   "file": "src/renderer/state/__tests__/gameStore.test.ts",
-   "tests": 106,
-   "durationMs": 3359,
-   "sharePct": 3.05
-  },
-  {
-   "file": "src/renderer/data/__tests__/economyBalance.test.ts",
-   "tests": 12,
-   "durationMs": 1390,
-   "sharePct": 1.26
-  },
-  {
-   "file": "src/renderer/render/__tests__/MapRenderer.test.ts",
-   "tests": 41,
-   "durationMs": 653,
-   "sharePct": 0.59
-  },
-  {
-   "file": "src/renderer/state/__tests__/tickPerf.test.ts",
-   "tests": 1,
-   "durationMs": 641,
-   "sharePct": 0.58
-  },
-  {
-   "file": "src/renderer/state/__tests__/placementSystem.test.ts",
-   "tests": 17,
-   "durationMs": 606,
-   "sharePct": 0.55
-  },
-  {
-   "file": "src/renderer/ui/__tests__/HUD.test.ts",
-   "tests": 3,
-   "durationMs": 565,
-   "sharePct": 0.51
-  }
- ],
- "concentration": {
-  "top3Ms": 85772,
-  "top3SharePct": 78.0,
-  "rest117Ms": 24201,
-  "filesUnder100ms": 77
- },
- "byDir": {
-  "src/renderer/state/__tests__": {
-   "files": 57,
-   "tests": 809,
-   "durationMs": 67599
-  },
-  "scripts/__tests__": {
-   "files": 1,
-   "tests": 1,
-   "durationMs": 27681
-  },
-  "src/renderer/scenes/__tests__": {
-   "files": 9,
-   "tests": 31,
-   "durationMs": 6465
-  },
-  "src/renderer/ui/__tests__": {
-   "files": 25,
-   "tests": 126,
-   "durationMs": 5229
-  },
-  "src/renderer/data/__tests__": {
-   "files": 20,
-   "tests": 217,
-   "durationMs": 2202
-  },
-  "src/renderer/render/__tests__": {
-   "files": 7,
-   "tests": 86,
-   "durationMs": 790
-  },
-  "src/shared/__tests__": {
-   "files": 1,
-   "tests": 2,
-   "durationMs": 7
-  }
- },
- "files": [
-  {
-   "file": "src/renderer/state/__tests__/sandboxSimulation.test.ts",
-   "tests": 2,
-   "durationMs": 29863,
-   "sharePct": 27.15
-  },
-  {
-   "file": "src/renderer/state/__tests__/sandboxSnapshot.test.ts",
-   "tests": 3,
-   "durationMs": 28228,
-   "sharePct": 25.67
-  },
-  {
-   "file": "scripts/__tests__/auditDeadExportsReadonly.test.ts",
-   "tests": 1,
-   "durationMs": 27681,
-   "sharePct": 25.17
-  },
-  {
-   "file": "src/renderer/scenes/__tests__/UIScene.test.ts",
-   "tests": 4,
-   "durationMs": 5595,
-   "sharePct": 5.09
-  },
-  {
-   "file": "src/renderer/state/__tests__/gameStore.test.ts",
-   "tests": 106,
-   "durationMs": 3359,
-   "sharePct": 3.05
-  },
-  {
-   "file": "src/renderer/data/__tests__/economyBalance.test.ts",
-   "tests": 12,
-   "durationMs": 1390,
-   "sharePct": 1.26
-  },
-  {
-   "file": "src/renderer/render/__tests__/MapRenderer.test.ts",
-   "tests": 41,
-   "durationMs": 653,
-   "sharePct": 0.59
-  },
-  {
-   "file": "src/renderer/state/__tests__/tickPerf.test.ts",
-   "tests": 1,
-   "durationMs": 641,
-   "sharePct": 0.58
-  },
-  {
-   "file": "src/renderer/state/__tests__/placementSystem.test.ts",
-   "tests": 17,
-   "durationMs": 606,
-   "sharePct": 0.55
-  },
-  {
-   "file": "src/renderer/ui/__tests__/HUD.test.ts",
-   "tests": 3,
-   "durationMs": 565,
-   "sharePct": 0.51
-  },
-  {
-   "file": "src/renderer/ui/__tests__/PolicyTreePanel.test.ts",
-   "tests": 12,
-   "durationMs": 556,
-   "sharePct": 0.51
-  },
-  {
-   "file": "src/renderer/state/__tests__/storyPlaythrough.test.ts",
-   "tests": 1,
-   "durationMs": 516,
-   "sharePct": 0.47
-  },
-  {
-   "file": "src/renderer/scenes/__tests__/IntroScene.test.ts",
-   "tests": 3,
-   "durationMs": 448,
-   "sharePct": 0.41
-  },
-  {
-   "file": "src/renderer/ui/__tests__/SaveLoadPanel.test.ts",
-   "tests": 6,
-   "durationMs": 439,
-   "sharePct": 0.4
-  },
-  {
-   "file": "src/renderer/state/__tests__/saveLoad.test.ts",
-   "tests": 49,
-   "durationMs": 372,
-   "sharePct": 0.34
-  },
-  {
-   "file": "src/renderer/ui/__tests__/CodexPanel.test.ts",
-   "tests": 5,
-   "durationMs": 365,
-   "sharePct": 0.33
-  },
-  {
-   "file": "src/renderer/ui/__tests__/TutorialModal.test.ts",
-   "tests": 12,
-   "durationMs": 359,
-   "sharePct": 0.33
-  },
-  {
-   "file": "src/renderer/ui/__tests__/ProductionGradePanels.test.ts",
-   "tests": 5,
-   "durationMs": 340,
-   "sharePct": 0.31
-  },
-  {
-   "file": "src/renderer/ui/__tests__/DiplomacyPanel.test.ts",
-   "tests": 5,
-   "durationMs": 337,
-   "sharePct": 0.31
-  },
-  {
-   "file": "src/renderer/state/__tests__/populationClass.test.ts",
-   "tests": 21,
-   "durationMs": 323,
-   "sharePct": 0.29
-  },
-  {
-   "file": "src/renderer/ui/__tests__/EventModal.test.ts",
-   "tests": 9,
-   "durationMs": 288,
-   "sharePct": 0.26
-  },
-  {
-   "file": "src/renderer/state/__tests__/saveMatrix.test.ts",
-   "tests": 14,
-   "durationMs": 246,
-   "sharePct": 0.22
-  },
-  {
-   "file": "src/renderer/state/__tests__/timeSystem.test.ts",
-   "tests": 16,
-   "durationMs": 245,
-   "sharePct": 0.22
-  },
-  {
-   "file": "src/renderer/scenes/__tests__/ModeSelectScene.test.ts",
-   "tests": 4,
-   "durationMs": 233,
-   "sharePct": 0.21
-  },
-  {
-   "file": "src/renderer/ui/__tests__/BuildingPopover.test.ts",
-   "tests": 9,
-   "durationMs": 230,
-   "sharePct": 0.21
-  },
-  {
-   "file": "src/renderer/ui/__tests__/MegaProjectPanel.test.ts",
-   "tests": 5,
-   "durationMs": 221,
-   "sharePct": 0.2
-  },
-  {
-   "file": "src/renderer/ui/__tests__/registry.test.ts",
-   "tests": 3,
-   "durationMs": 220,
-   "sharePct": 0.2
-  },
-  {
-   "file": "src/renderer/ui/__tests__/Legend.test.ts",
-   "tests": 5,
-   "durationMs": 216,
-   "sharePct": 0.2
-  },
-  {
-   "file": "src/renderer/state/__tests__/influence.test.ts",
-   "tests": 6,
-   "durationMs": 206,
-   "sharePct": 0.19
-  },
-  {
-   "file": "src/renderer/state/__tests__/jitHintsStore.test.ts",
-   "tests": 4,
-   "durationMs": 201,
-   "sharePct": 0.18
-  },
-  {
-   "file": "src/renderer/state/__tests__/publicWrath.test.ts",
-   "tests": 9,
-   "durationMs": 201,
-   "sharePct": 0.18
-  },
-  {
-   "file": "src/renderer/state/__tests__/saveGuard.test.ts",
-   "tests": 17,
-   "durationMs": 185,
-   "sharePct": 0.17
-  },
-  {
-   "file": "src/renderer/state/__tests__/endgameEscalation.test.ts",
-   "tests": 6,
-   "durationMs": 181,
-   "sharePct": 0.16
-  },
-  {
-   "file": "src/renderer/state/__tests__/saveGuard3.test.ts",
-   "tests": 14,
-   "durationMs": 171,
-   "sharePct": 0.16
-  },
-  {
-   "file": "src/renderer/state/__tests__/relicSystem.test.ts",
-   "tests": 5,
-   "durationMs": 165,
-   "sharePct": 0.15
-  },
-  {
-   "file": "src/renderer/state/__tests__/buildMode.test.ts",
-   "tests": 20,
-   "durationMs": 158,
-   "sharePct": 0.14
-  },
-  {
-   "file": "src/renderer/state/__tests__/mapGen.test.ts",
-   "tests": 16,
-   "durationMs": 153,
-   "sharePct": 0.14
-  },
-  {
-   "file": "src/renderer/ui/__tests__/FactionDemandModal.test.ts",
-   "tests": 5,
-   "durationMs": 151,
-   "sharePct": 0.14
-  },
-  {
-   "file": "src/renderer/state/__tests__/ultimatum.test.ts",
-   "tests": 7,
-   "durationMs": 146,
-   "sharePct": 0.13
-  },
-  {
-   "file": "src/renderer/state/__tests__/wariness.test.ts",
-   "tests": 7,
-   "durationMs": 136,
-   "sharePct": 0.12
-  },
-  {
-   "file": "src/renderer/ui/__tests__/paletteGuard.test.ts",
-   "tests": 1,
-   "durationMs": 132,
-   "sharePct": 0.12
-  },
-  {
-   "file": "src/renderer/ui/__tests__/PopulationPanel.test.ts",
-   "tests": 4,
-   "durationMs": 123,
-   "sharePct": 0.11
-  },
-  {
-   "file": "src/renderer/ui/__tests__/fontSizeGuard.test.ts",
-   "tests": 1,
-   "durationMs": 118,
-   "sharePct": 0.11
-  },
-  {
-   "file": "src/renderer/ui/__tests__/MilitaryPanel.test.ts",
-   "tests": 4,
-   "durationMs": 98,
-   "sharePct": 0.09
-  },
-  {
-   "file": "src/renderer/state/__tests__/saveMatrix.extend.test.ts",
-   "tests": 5,
-   "durationMs": 97,
-   "sharePct": 0.09
-  },
-  {
-   "file": "src/renderer/ui/__tests__/ScoreCardPanel.test.ts",
-   "tests": 3,
-   "durationMs": 96,
-   "sharePct": 0.09
-  },
-  {
-   "file": "src/renderer/state/__tests__/dayClamp.test.ts",
-   "tests": 2,
-   "durationMs": 91,
-   "sharePct": 0.08
-  },
-  {
-   "file": "src/renderer/data/__tests__/v08_j3_content.test.ts",
-   "tests": 68,
-   "durationMs": 90,
-   "sharePct": 0.08
-  },
-  {
-   "file": "src/renderer/data/__tests__/artManifest.test.ts",
-   "tests": 11,
-   "durationMs": 88,
-   "sharePct": 0.08
-  },
-  {
-   "file": "src/renderer/data/__tests__/buildingRegistry.test.ts",
-   "tests": 11,
-   "durationMs": 88,
-   "sharePct": 0.08
-  },
-  {
-   "file": "src/renderer/state/__tests__/dayPipeline.test.ts",
-   "tests": 5,
-   "durationMs": 82,
-   "sharePct": 0.07
-  },
-  {
-   "file": "src/renderer/state/__tests__/eventEngine.test.ts",
-   "tests": 23,
-   "durationMs": 77,
-   "sharePct": 0.07
-  },
-  {
-   "file": "src/renderer/data/__tests__/artManifestReuse.test.ts",
-   "tests": 3,
-   "durationMs": 76,
-   "sharePct": 0.07
-  },
-  {
-   "file": "src/renderer/state/__tests__/typedEvents.test.ts",
-   "tests": 3,
-   "durationMs": 72,
-   "sharePct": 0.07
-  },
-  {
-   "file": "src/renderer/data/__tests__/policies.test.ts",
-   "tests": 9,
-   "durationMs": 69,
-   "sharePct": 0.06
-  },
-  {
-   "file": "src/renderer/ui/__tests__/uiAdapterGuard.test.ts",
-   "tests": 2,
-   "durationMs": 65,
-   "sharePct": 0.06
-  },
-  {
-   "file": "src/renderer/ui/__tests__/SettingsPanel.test.ts",
-   "tests": 4,
-   "durationMs": 61,
-   "sharePct": 0.06
-  },
-  {
-   "file": "src/renderer/scenes/__tests__/TransitionScene.test.ts",
-   "tests": 3,
-   "durationMs": 59,
-   "sharePct": 0.05
-  },
-  {
-   "file": "src/renderer/ui/__tests__/BuildPanel.test.ts",
-   "tests": 7,
-   "durationMs": 58,
-   "sharePct": 0.05
-  },
-  {
-   "file": "src/renderer/state/__tests__/decreeSystem.test.ts",
-   "tests": 16,
-   "durationMs": 57,
-   "sharePct": 0.05
-  },
-  {
-   "file": "src/renderer/state/__tests__/saveGuard2.test.ts",
-   "tests": 19,
-   "durationMs": 56,
-   "sharePct": 0.05
-  },
-  {
-   "file": "src/renderer/ui/__tests__/InfluencePanel.test.ts",
-   "tests": 4,
-   "durationMs": 54,
-   "sharePct": 0.05
-  },
-  {
-   "file": "src/renderer/ui/__tests__/ZoomControl.test.ts",
-   "tests": 4,
-   "durationMs": 52,
-   "sharePct": 0.05
-  },
-  {
-   "file": "src/renderer/data/__tests__/storyGoals.test.ts",
-   "tests": 15,
-   "durationMs": 48,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/state/__tests__/policySystem.test.ts",
-   "tests": 15,
-   "durationMs": 48,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/data/__tests__/npcCountries.test.ts",
-   "tests": 7,
-   "durationMs": 46,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/state/__tests__/worldMap.test.ts",
-   "tests": 23,
-   "durationMs": 45,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/scenes/__tests__/GameSceneLifecycle.test.ts",
-   "tests": 5,
-   "durationMs": 44,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/state/__tests__/npcDynamics.test.ts",
-   "tests": 16,
-   "durationMs": 44,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/data/__tests__/scatterAssets.test.ts",
-   "tests": 4,
-   "durationMs": 43,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/state/__tests__/breathingSystem.test.ts",
-   "tests": 10,
-   "durationMs": 43,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/ui/__tests__/StoryBar.test.ts",
-   "tests": 4,
-   "durationMs": 43,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/ui/__tests__/AudioManager.test.ts",
-   "tests": 4,
-   "durationMs": 42,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/data/__tests__/buildingsExpanded.test.ts",
-   "tests": 9,
-   "durationMs": 40,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/state/__tests__/megaProjectSystem.test.ts",
-   "tests": 20,
-   "durationMs": 39,
-   "sharePct": 0.04
-  },
-  {
-   "file": "src/renderer/data/__tests__/bootLoadList.test.ts",
-   "tests": 10,
-   "durationMs": 37,
-   "sharePct": 0.03
-  },
-  {
-   "file": "src/renderer/state/__tests__/rng.test.ts",
-   "tests": 6,
-   "durationMs": 37,
-   "sharePct": 0.03
-  },
-  {
-   "file": "src/renderer/scenes/__tests__/GameSceneFeedbackBatch2.test.ts",
-   "tests": 4,
-   "durationMs": 35,
-   "sharePct": 0.03
-  },
-  {
-   "file": "src/renderer/state/__tests__/classNeeds.test.ts",
-   "tests": 9,
-   "durationMs": 35,
-   "sharePct": 0.03
-  },
-  {
-   "file": "src/renderer/data/__tests__/eventsExpanded.test.ts",
-   "tests": 10,
-   "durationMs": 34,
-   "sharePct": 0.03
-  },
-  {
-   "file": "src/renderer/scenes/__tests__/GameSceneToastFailure.test.ts",
-   "tests": 3,
-   "durationMs": 34,
-   "sharePct": 0.03
-  },
-  {
-   "file": "src/renderer/state/__tests__/eventTempo.test.ts",
-   "tests": 21,
-   "durationMs": 34,
-   "sharePct": 0.03
-  },
-  {
-   "file": "src/renderer/state/__tests__/audioKeys.test.ts",
-   "tests": 3,
-   "durationMs": 33,
-   "sharePct": 0.03
-  },
-  {
-   "file": "src/renderer/state/__tests__/dslEval.test.ts",
-   "tests": 16,
-   "durationMs": 33,
-   "sharePct": 0.03
-  },
-  {
-   "file": "src/renderer/state/__tests__/generals.test.ts",
-   "tests": 19,
-   "durationMs": 31,
-   "sharePct": 0.03
-  },
-  {
-   "file": "src/renderer/render/__tests__/buildingSigils.test.ts",
-   "tests": 7,
-   "durationMs": 28,
-   "sharePct": 0.03
-  },
-  {
-   "file": "src/renderer/data/__tests__/storyContent.test.ts",
-   "tests": 4,
-   "durationMs": 27,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/data/__tests__/resourceRegistry.test.ts",
-   "tests": 13,
-   "durationMs": 26,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/render/__tests__/mapColors.test.ts",
-   "tests": 15,
-   "durationMs": 26,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/storyDriver.test.ts",
-   "tests": 17,
-   "durationMs": 26,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/render/__tests__/cameraMath.test.ts",
-   "tests": 9,
-   "durationMs": 25,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/factionSystem.test.ts",
-   "tests": 12,
-   "durationMs": 25,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/saveLoadIo.test.ts",
-   "tests": 4,
-   "durationMs": 24,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/render/__tests__/iso.test.ts",
-   "tests": 6,
-   "durationMs": 23,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/crisis.test.ts",
-   "tests": 12,
-   "durationMs": 23,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/historianSystem.test.ts",
-   "tests": 14,
-   "durationMs": 23,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/data/__tests__/copyBias.test.ts",
-   "tests": 4,
-   "durationMs": 22,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/data/__tests__/scatterDiskReconcile.test.ts",
-   "tests": 10,
-   "durationMs": 22,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/render/__tests__/buildingAnchorOverrides.test.ts",
-   "tests": 4,
-   "durationMs": 22,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/modifierDescriber.test.ts",
-   "tests": 9,
-   "durationMs": 22,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/scoreCard.test.ts",
-   "tests": 6,
-   "durationMs": 22,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/countryGrade.test.ts",
-   "tests": 10,
-   "durationMs": 21,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/modifierAggregator.test.ts",
-   "tests": 10,
-   "durationMs": 20,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/population.test.ts",
-   "tests": 18,
-   "durationMs": 19,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/supplyChain.test.ts",
-   "tests": 3,
-   "durationMs": 19,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/diplomacySystem.test.ts",
-   "tests": 27,
-   "durationMs": 18,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/military.test.ts",
-   "tests": 26,
-   "durationMs": 18,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/data/__tests__/terrainPaths.test.ts",
-   "tests": 6,
-   "durationMs": 17,
-   "sharePct": 0.02
-  },
-  {
-   "file": "src/renderer/state/__tests__/diplomacyExpanded.test.ts",
-   "tests": 25,
-   "durationMs": 16,
-   "sharePct": 0.01
-  },
-  {
-   "file": "src/renderer/data/__tests__/buildingRefs.test.ts",
-   "tests": 5,
-   "durationMs": 14,
-   "sharePct": 0.01
-  },
-  {
-   "file": "src/renderer/data/__tests__/jitHints.test.ts",
-   "tests": 3,
-   "durationMs": 14,
-   "sharePct": 0.01
-  },
-  {
-   "file": "src/renderer/state/__tests__/productionSystem.test.ts",
-   "tests": 28,
-   "durationMs": 14,
-   "sharePct": 0.01
-  },
-  {
-   "file": "src/renderer/state/__tests__/seasonSystem.test.ts",
-   "tests": 11,
-   "durationMs": 14,
-   "sharePct": 0.01
-  },
-  {
-   "file": "src/renderer/render/__tests__/buildingAnims.test.ts",
-   "tests": 4,
-   "durationMs": 13,
-   "sharePct": 0.01
-  },
-  {
-   "file": "src/renderer/data/__tests__/actTimeline.test.ts",
-   "tests": 3,
-   "durationMs": 11,
-   "sharePct": 0.01
-  },
-  {
-   "file": "src/renderer/state/__tests__/audioDirector.test.ts",
-   "tests": 3,
-   "durationMs": 11,
-   "sharePct": 0.01
-  },
-  {
-   "file": "src/renderer/scenes/__tests__/bootLoadErrorDedup.test.ts",
-   "tests": 2,
-   "durationMs": 10,
-   "sharePct": 0.01
-  },
-  {
-   "file": "src/renderer/state/__tests__/stateEvents.test.ts",
-   "tests": 2,
-   "durationMs": 8,
-   "sharePct": 0.01
-  },
-  {
-   "file": "src/shared/__tests__/visualConstants.test.ts",
-   "tests": 2,
-   "durationMs": 7,
-   "sharePct": 0.01
-  },
-  {
-   "file": "src/renderer/scenes/__tests__/scatterSourceGuard.test.ts",
-   "tests": 3,
-   "durationMs": 7,
-   "sharePct": 0.01
-  }
- ]
+  "ledgerMaintenanceNote": "口径头注：本台账只由「刷新单」维护，不随功能单顺手改；每次刷新必须用同一条 command、同一次 run 的读数整体重生成，不得手填单个文件耗时。durationMs 是文件级墙钟（endTime-startTime），并发跑测时互相污染，跨次比较只比 totals 与 top 序、不比绝对毫秒。刷新史：c922-07 首版 2026-09-21 → c922-13 判过期（文件数 124／工作树 1295／top3 78%→85%）→ c923-12 于 regeneratedAt 重生成。",
+  "generatedAt": "2026-09-21T21:56:50+0800",
+  "regeneratedAt": "2026-09-23T10:41:26+0800",
+  "producedBy": "c923-12（班 qoder-executor-20260923-0022-colony5，重生成）；首版 c922-07",
+  "command": "npx vitest run --reporter=json --outputFile=tmp/c923-12/vitest.json",
+  "measureNote": "durationMs = 该文件 endTime-startTime（含 collect/setup 的文件墙钟），非 vitest 终端 summary 的 tests 汇总口径；故本表总和 109.97s 大于并跑墙钟 39~40s——文件是并发跑的，本表用于「哪个文件慢」排序，不可当套件总时长用。",
+  "loadNote": {
+    "machine": "16 逻辑核 / 15.73GB 物理内存",
+    "freememGBBeforeRun": 7.26,
+    "memLoadPctBeforeRun": 53,
+    "freememGBAfterRun": 6.28,
+    "memLoadPctAfterRun": 60,
+    "siblingShiftsActive": "有：claims.log 10:18-10:34 窗口内 quant4 / kaoyan7 / kaoyan8 / learn4 / psy7 各有 claim|done 行（colony 侧仅本班）",
+    "wallClockSec": 107,
+    "caveat": "并发窗内跑的全量：totals（testFiles/tests/passed）不受并发影响，durations 受。班简报口径是「多路并发不跑全量」，而本单产物就是全量读数，故按卷宗只跑 1 次、不做第 2 次（减半污染面），负载记在本字段。要干净时长请在无并发窗重跑同一条 command。"
+  },
+  "gitHead": "74cbfa6",
+  "dirtyFilesAtRun": [
+    " M docs/design/OPTIMIZATION_BACKLOG.md",
+    " M docs/insights/colony-dead-exports-20260914.json",
+    " D docs/insights/colony-dead-exports-20260914.json.bak",
+    " M src/renderer/data/dslCore.ts",
+    " M src/renderer/state/__tests__/calendar.test.ts",
+    " M src/renderer/state/calendar.ts",
+    "?? docs/insights/colony-day-sanitize-census-20260923.md"
+  ],
+  "vitestVersion": "1.6.1",
+  "superseded": {
+    "by": "c923-12 本次重生成",
+    "generatedAt": "2026-09-21T21:56:50+0800",
+    "declaredStaleBy": "zcode-bridge/done/c922-13-colony-testmap.result.md：自该档起旧读数过期（文件数 124、工作树 1295、top3 占比 78%→85% 三项全变）",
+    "totals": {
+      "testFiles": 120,
+      "tests": 1272,
+      "passed": 1272,
+      "failed": 0,
+      "pending": 0,
+      "todo": 0,
+      "suitesReportedByVitest": 419,
+      "sumFileWallClockMs": 109973,
+      "headBaselineNote": "c921-08（9/21 00:35）记 120 文件/1269 用例；本次 1272 = HEAD 态 1268 + 在途 saveLoad.test.ts 新增 4 例（该文件 HEAD 45 个 it/test 声明、工作树 49 个，vitest 实报 49）。1269 与 1268 的 1 例差跨 c922-01..05 五提交未归因，不在本单范围。"
+    },
+    "concentration": {
+      "top3Ms": 85772,
+      "top3SharePct": 78.0,
+      "rest117Ms": 24201,
+      "filesUnder100ms": 77
+    },
+    "byDir": {
+      "src/renderer/state/__tests__": {
+        "files": 57,
+        "tests": 809,
+        "durationMs": 67599
+      },
+      "scripts/__tests__": {
+        "files": 1,
+        "tests": 1,
+        "durationMs": 27681
+      },
+      "src/renderer/scenes/__tests__": {
+        "files": 9,
+        "tests": 31,
+        "durationMs": 6465
+      },
+      "src/renderer/ui/__tests__": {
+        "files": 25,
+        "tests": 126,
+        "durationMs": 5229
+      },
+      "src/renderer/data/__tests__": {
+        "files": 20,
+        "tests": 217,
+        "durationMs": 2202
+      },
+      "src/renderer/render/__tests__": {
+        "files": 7,
+        "tests": 86,
+        "durationMs": 790
+      },
+      "src/shared/__tests__": {
+        "files": 1,
+        "tests": 2,
+        "durationMs": 7
+      }
+    },
+    "top10": [
+      {
+        "file": "src/renderer/state/__tests__/sandboxSimulation.test.ts",
+        "tests": 2,
+        "durationMs": 29863,
+        "sharePct": 27.15
+      },
+      {
+        "file": "src/renderer/state/__tests__/sandboxSnapshot.test.ts",
+        "tests": 3,
+        "durationMs": 28228,
+        "sharePct": 25.67
+      },
+      {
+        "file": "scripts/__tests__/auditDeadExportsReadonly.test.ts",
+        "tests": 1,
+        "durationMs": 27681,
+        "sharePct": 25.17
+      },
+      {
+        "file": "src/renderer/scenes/__tests__/UIScene.test.ts",
+        "tests": 4,
+        "durationMs": 5595,
+        "sharePct": 5.09
+      },
+      {
+        "file": "src/renderer/state/__tests__/gameStore.test.ts",
+        "tests": 106,
+        "durationMs": 3359,
+        "sharePct": 3.05
+      },
+      {
+        "file": "src/renderer/data/__tests__/economyBalance.test.ts",
+        "tests": 12,
+        "durationMs": 1390,
+        "sharePct": 1.26
+      },
+      {
+        "file": "src/renderer/render/__tests__/MapRenderer.test.ts",
+        "tests": 41,
+        "durationMs": 653,
+        "sharePct": 0.59
+      },
+      {
+        "file": "src/renderer/state/__tests__/tickPerf.test.ts",
+        "tests": 1,
+        "durationMs": 641,
+        "sharePct": 0.58
+      },
+      {
+        "file": "src/renderer/state/__tests__/placementSystem.test.ts",
+        "tests": 17,
+        "durationMs": 606,
+        "sharePct": 0.55
+      },
+      {
+        "file": "src/renderer/ui/__tests__/HUD.test.ts",
+        "tests": 3,
+        "durationMs": 565,
+        "sharePct": 0.51
+      }
+    ],
+    "filesRecoverVia": "git show 74cbfa6:docs/insights/colony-suite-timings-20260921.json 取旧 files 全 120 条（未内嵌，避免台账翻倍）"
+  },
+  "totals": {
+    "testFiles": 131,
+    "tests": 1395,
+    "passed": 1395,
+    "failed": 0,
+    "pending": 0,
+    "todo": 0,
+    "suitesReportedByVitest": 466,
+    "sumFileWallClockMs": 131362,
+    "headBaselineNote": "c923-12（9/23 10:38，HEAD 74cbfa6 ＋ 本班 c923-10 未提交三件）：131 文件 / 1395 例 / 全绿 rc=0。对旧台账 120/1272 的 +11 文件 +123 例来自 c922→c923 各单新增测试件；本班 calendar 族改的是断言写法，例数改前改后同（5 例），与本台账无耦合。班简报给的「130 文件／1395 例」中文件数现读 131（例数一致），属锚点漂移，见 result 否证节。"
+  },
+  "top10": [
+    {
+      "file": "scripts/__tests__/auditDeadExportsReadonly.test.ts",
+      "tests": 1,
+      "durationMs": 94703,
+      "sharePct": 72.09
+    },
+    {
+      "file": "src/renderer/state/__tests__/sandboxSimulation.test.ts",
+      "tests": 2,
+      "durationMs": 13581,
+      "sharePct": 10.34
+    },
+    {
+      "file": "src/renderer/state/__tests__/sandboxSnapshot.test.ts",
+      "tests": 3,
+      "durationMs": 13450,
+      "sharePct": 10.24
+    },
+    {
+      "file": "src/renderer/scenes/__tests__/UIScene.test.ts",
+      "tests": 4,
+      "durationMs": 2081,
+      "sharePct": 1.58
+    },
+    {
+      "file": "src/renderer/state/__tests__/gameStore.test.ts",
+      "tests": 106,
+      "durationMs": 1080,
+      "sharePct": 0.82
+    },
+    {
+      "file": "src/renderer/state/__tests__/economyBalance.test.ts",
+      "tests": 12,
+      "durationMs": 535,
+      "sharePct": 0.41
+    },
+    {
+      "file": "src/renderer/render/__tests__/MapRenderer.test.ts",
+      "tests": 41,
+      "durationMs": 304,
+      "sharePct": 0.23
+    },
+    {
+      "file": "src/renderer/ui/__tests__/SaveLoadPanel.test.ts",
+      "tests": 6,
+      "durationMs": 283,
+      "sharePct": 0.22
+    },
+    {
+      "file": "src/renderer/state/__tests__/tickPerf.test.ts",
+      "tests": 1,
+      "durationMs": 269,
+      "sharePct": 0.2
+    },
+    {
+      "file": "src/renderer/state/__tests__/saveIoSemantics.test.ts",
+      "tests": 10,
+      "durationMs": 268,
+      "sharePct": 0.2
+    }
+  ],
+  "concentration": {
+    "top3Ms": 121734,
+    "top3SharePct": 92.7,
+    "restFiles": 128,
+    "rest128Ms": 9628,
+    "filesUnder100ms": 105
+  },
+  "slowTailNote": "慢尾读数（本次刷新要点）：单文件 scripts/__tests__/auditDeadExportsReadonly.test.ts 吃掉 94.7s = 全量文件墙钟的 72.1%，top3 占比由旧 78.0% 升到 92.7%；同一文件在旧台账是 27.7s（3.4 倍）。105/131 文件 <100ms ⇒ 套件时长问题不是\"普遍慢\"而是\"一个文件慢\"。本条只在无并发窗复核后才可作为整改依据（并发会放大重文件），但\"单文件独占 7 成\"这一形态对并发不敏感。另：economyBalance.test.ts 已从 data/__tests__ 迁到 state/__tests__（旧 byDir 的 data 20 文件 → 现 19）。",
+  "byDir": {
+    "scripts/__tests__": {
+      "files": 1,
+      "tests": 1,
+      "durationMs": 94703
+    },
+    "src/renderer/state/__tests__": {
+      "files": 67,
+      "tests": 950,
+      "durationMs": 31378
+    },
+    "src/renderer/scenes/__tests__": {
+      "files": 9,
+      "tests": 31,
+      "durationMs": 2438
+    },
+    "src/renderer/ui/__tests__": {
+      "files": 27,
+      "tests": 157,
+      "durationMs": 2234
+    },
+    "src/renderer/render/__tests__": {
+      "files": 7,
+      "tests": 86,
+      "durationMs": 351
+    },
+    "src/renderer/data/__tests__": {
+      "files": 19,
+      "tests": 168,
+      "durationMs": 255
+    },
+    "src/shared/__tests__": {
+      "files": 1,
+      "tests": 2,
+      "durationMs": 3
+    }
+  },
+  "files": [
+    {
+      "file": "scripts/__tests__/auditDeadExportsReadonly.test.ts",
+      "tests": 1,
+      "durationMs": 94703,
+      "sharePct": 72.09
+    },
+    {
+      "file": "src/renderer/state/__tests__/sandboxSimulation.test.ts",
+      "tests": 2,
+      "durationMs": 13581,
+      "sharePct": 10.34
+    },
+    {
+      "file": "src/renderer/state/__tests__/sandboxSnapshot.test.ts",
+      "tests": 3,
+      "durationMs": 13450,
+      "sharePct": 10.24
+    },
+    {
+      "file": "src/renderer/scenes/__tests__/UIScene.test.ts",
+      "tests": 4,
+      "durationMs": 2081,
+      "sharePct": 1.58
+    },
+    {
+      "file": "src/renderer/state/__tests__/gameStore.test.ts",
+      "tests": 106,
+      "durationMs": 1080,
+      "sharePct": 0.82
+    },
+    {
+      "file": "src/renderer/state/__tests__/economyBalance.test.ts",
+      "tests": 12,
+      "durationMs": 535,
+      "sharePct": 0.41
+    },
+    {
+      "file": "src/renderer/render/__tests__/MapRenderer.test.ts",
+      "tests": 41,
+      "durationMs": 304,
+      "sharePct": 0.23
+    },
+    {
+      "file": "src/renderer/ui/__tests__/SaveLoadPanel.test.ts",
+      "tests": 6,
+      "durationMs": 283,
+      "sharePct": 0.22
+    },
+    {
+      "file": "src/renderer/state/__tests__/tickPerf.test.ts",
+      "tests": 1,
+      "durationMs": 269,
+      "sharePct": 0.2
+    },
+    {
+      "file": "src/renderer/state/__tests__/saveIoSemantics.test.ts",
+      "tests": 10,
+      "durationMs": 268,
+      "sharePct": 0.2
+    },
+    {
+      "file": "src/renderer/state/__tests__/placementSystem.test.ts",
+      "tests": 17,
+      "durationMs": 235,
+      "sharePct": 0.18
+    },
+    {
+      "file": "src/renderer/ui/__tests__/PolicyTreePanel.test.ts",
+      "tests": 12,
+      "durationMs": 207,
+      "sharePct": 0.16
+    },
+    {
+      "file": "src/renderer/scenes/__tests__/IntroScene.test.ts",
+      "tests": 3,
+      "durationMs": 199,
+      "sharePct": 0.15
+    },
+    {
+      "file": "src/renderer/state/__tests__/storyPlaythrough.test.ts",
+      "tests": 1,
+      "durationMs": 166,
+      "sharePct": 0.13
+    },
+    {
+      "file": "src/renderer/state/__tests__/saveLoad.test.ts",
+      "tests": 49,
+      "durationMs": 147,
+      "sharePct": 0.11
+    },
+    {
+      "file": "src/renderer/ui/__tests__/paletteGuard.test.ts",
+      "tests": 1,
+      "durationMs": 145,
+      "sharePct": 0.11
+    },
+    {
+      "file": "src/renderer/ui/__tests__/ProductionGradePanels.test.ts",
+      "tests": 5,
+      "durationMs": 138,
+      "sharePct": 0.11
+    },
+    {
+      "file": "src/renderer/ui/__tests__/fontSizeGuard.test.ts",
+      "tests": 1,
+      "durationMs": 133,
+      "sharePct": 0.1
+    },
+    {
+      "file": "src/renderer/ui/__tests__/HUD.test.ts",
+      "tests": 3,
+      "durationMs": 133,
+      "sharePct": 0.1
+    },
+    {
+      "file": "src/renderer/ui/__tests__/registry.test.ts",
+      "tests": 3,
+      "durationMs": 126,
+      "sharePct": 0.1
+    },
+    {
+      "file": "src/renderer/state/__tests__/timeSystem.test.ts",
+      "tests": 16,
+      "durationMs": 123,
+      "sharePct": 0.09
+    },
+    {
+      "file": "src/renderer/ui/__tests__/CodexPanel.test.ts",
+      "tests": 5,
+      "durationMs": 121,
+      "sharePct": 0.09
+    },
+    {
+      "file": "src/renderer/ui/__tests__/EventModal.test.ts",
+      "tests": 9,
+      "durationMs": 115,
+      "sharePct": 0.09
+    },
+    {
+      "file": "src/renderer/ui/__tests__/DiplomacyPanel.test.ts",
+      "tests": 5,
+      "durationMs": 111,
+      "sharePct": 0.08
+    },
+    {
+      "file": "src/renderer/ui/__tests__/TutorialModal.test.ts",
+      "tests": 12,
+      "durationMs": 105,
+      "sharePct": 0.08
+    },
+    {
+      "file": "src/renderer/state/__tests__/populationClass.test.ts",
+      "tests": 21,
+      "durationMs": 100,
+      "sharePct": 0.08
+    },
+    {
+      "file": "src/renderer/scenes/__tests__/ModeSelectScene.test.ts",
+      "tests": 4,
+      "durationMs": 94,
+      "sharePct": 0.07
+    },
+    {
+      "file": "src/renderer/ui/__tests__/MegaProjectPanel.test.ts",
+      "tests": 5,
+      "durationMs": 93,
+      "sharePct": 0.07
+    },
+    {
+      "file": "src/renderer/state/__tests__/migrationGapMessage.test.ts",
+      "tests": 17,
+      "durationMs": 89,
+      "sharePct": 0.07
+    },
+    {
+      "file": "src/renderer/state/__tests__/saveGuard.test.ts",
+      "tests": 17,
+      "durationMs": 88,
+      "sharePct": 0.07
+    },
+    {
+      "file": "src/renderer/ui/__tests__/FactionDemandModal.test.ts",
+      "tests": 5,
+      "durationMs": 87,
+      "sharePct": 0.07
+    },
+    {
+      "file": "src/renderer/ui/__tests__/Legend.test.ts",
+      "tests": 5,
+      "durationMs": 85,
+      "sharePct": 0.06
+    },
+    {
+      "file": "src/renderer/ui/__tests__/BuildingPopover.test.ts",
+      "tests": 9,
+      "durationMs": 84,
+      "sharePct": 0.06
+    },
+    {
+      "file": "src/renderer/state/__tests__/publicWrath.test.ts",
+      "tests": 9,
+      "durationMs": 81,
+      "sharePct": 0.06
+    },
+    {
+      "file": "src/renderer/state/__tests__/v08_j3_content.test.ts",
+      "tests": 68,
+      "durationMs": 74,
+      "sharePct": 0.06
+    },
+    {
+      "file": "src/renderer/state/__tests__/influence.test.ts",
+      "tests": 6,
+      "durationMs": 67,
+      "sharePct": 0.05
+    },
+    {
+      "file": "src/renderer/state/__tests__/saveGuard3.test.ts",
+      "tests": 14,
+      "durationMs": 57,
+      "sharePct": 0.04
+    },
+    {
+      "file": "src/renderer/state/__tests__/saveMatrix.test.ts",
+      "tests": 14,
+      "durationMs": 57,
+      "sharePct": 0.04
+    },
+    {
+      "file": "src/renderer/state/__tests__/mapGen.test.ts",
+      "tests": 16,
+      "durationMs": 56,
+      "sharePct": 0.04
+    },
+    {
+      "file": "src/renderer/state/__tests__/buildMode.test.ts",
+      "tests": 20,
+      "durationMs": 54,
+      "sharePct": 0.04
+    },
+    {
+      "file": "src/renderer/state/__tests__/jitHintsStore.test.ts",
+      "tests": 4,
+      "durationMs": 54,
+      "sharePct": 0.04
+    },
+    {
+      "file": "src/renderer/state/__tests__/relicSystem.test.ts",
+      "tests": 5,
+      "durationMs": 54,
+      "sharePct": 0.04
+    },
+    {
+      "file": "src/renderer/state/__tests__/endgameEscalation.test.ts",
+      "tests": 6,
+      "durationMs": 51,
+      "sharePct": 0.04
+    },
+    {
+      "file": "src/renderer/state/__tests__/wariness.test.ts",
+      "tests": 7,
+      "durationMs": 49,
+      "sharePct": 0.04
+    },
+    {
+      "file": "src/renderer/ui/__tests__/ScoreCardPanel.test.ts",
+      "tests": 3,
+      "durationMs": 45,
+      "sharePct": 0.03
+    },
+    {
+      "file": "src/renderer/state/__tests__/ultimatum.test.ts",
+      "tests": 7,
+      "durationMs": 42,
+      "sharePct": 0.03
+    },
+    {
+      "file": "src/renderer/ui/__tests__/PopulationPanel.test.ts",
+      "tests": 4,
+      "durationMs": 41,
+      "sharePct": 0.03
+    },
+    {
+      "file": "src/renderer/state/__tests__/dayClamp.test.ts",
+      "tests": 2,
+      "durationMs": 41,
+      "sharePct": 0.03
+    },
+    {
+      "file": "src/renderer/data/__tests__/artManifest.test.ts",
+      "tests": 11,
+      "durationMs": 37,
+      "sharePct": 0.03
+    },
+    {
+      "file": "src/renderer/data/__tests__/bootLoadList.test.ts",
+      "tests": 10,
+      "durationMs": 35,
+      "sharePct": 0.03
+    },
+    {
+      "file": "src/renderer/state/__tests__/calendar.test.ts",
+      "tests": 5,
+      "durationMs": 31,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/ui/__tests__/MilitaryPanel.test.ts",
+      "tests": 4,
+      "durationMs": 29,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/ui/__tests__/panelDecoration.test.ts",
+      "tests": 13,
+      "durationMs": 28,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/state/__tests__/saveGuard2.test.ts",
+      "tests": 26,
+      "durationMs": 26,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/state/__tests__/saveMatrix.extend.test.ts",
+      "tests": 5,
+      "durationMs": 26,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/state/__tests__/saveV9Fixture.test.ts",
+      "tests": 7,
+      "durationMs": 26,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/ui/__tests__/SettingsPanel.test.ts",
+      "tests": 4,
+      "durationMs": 25,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/state/__tests__/audioDirectorKeys.test.ts",
+      "tests": 6,
+      "durationMs": 23,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/state/__tests__/dayPipeline.test.ts",
+      "tests": 5,
+      "durationMs": 23,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/data/__tests__/storyEffectsTargets.test.ts",
+      "tests": 23,
+      "durationMs": 22,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/ui/__tests__/uiAdapterGuard.test.ts",
+      "tests": 2,
+      "durationMs": 21,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/ui/__tests__/ZoomControl.test.ts",
+      "tests": 4,
+      "durationMs": 21,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/state/__tests__/typedEvents.test.ts",
+      "tests": 3,
+      "durationMs": 21,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/data/__tests__/policies.test.ts",
+      "tests": 9,
+      "durationMs": 20,
+      "sharePct": 0.02
+    },
+    {
+      "file": "src/renderer/state/__tests__/crisis.test.ts",
+      "tests": 12,
+      "durationMs": 19,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/rng.test.ts",
+      "tests": 6,
+      "durationMs": 19,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/scenes/__tests__/TransitionScene.test.ts",
+      "tests": 3,
+      "durationMs": 17,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/audioKeys.test.ts",
+      "tests": 3,
+      "durationMs": 17,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/render/__tests__/mapColors.test.ts",
+      "tests": 15,
+      "durationMs": 16,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/scenes/__tests__/GameSceneFeedbackBatch2.test.ts",
+      "tests": 4,
+      "durationMs": 16,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/ui/__tests__/InfluencePanel.test.ts",
+      "tests": 4,
+      "durationMs": 16,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/dataLayerBoundary.test.ts",
+      "tests": 2,
+      "durationMs": 16,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/eventsExpanded.test.ts",
+      "tests": 10,
+      "durationMs": 16,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/decreeSystem.test.ts",
+      "tests": 16,
+      "durationMs": 15,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/generals.test.ts",
+      "tests": 19,
+      "durationMs": 15,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/worldMap.test.ts",
+      "tests": 23,
+      "durationMs": 15,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/scenes/__tests__/GameSceneToastFailure.test.ts",
+      "tests": 3,
+      "durationMs": 13,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/ui/__tests__/StoryBar.test.ts",
+      "tests": 4,
+      "durationMs": 13,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/scatterDiskReconcile.test.ts",
+      "tests": 11,
+      "durationMs": 13,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/storyGoals.test.ts",
+      "tests": 15,
+      "durationMs": 13,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/scenes/__tests__/GameSceneLifecycle.test.ts",
+      "tests": 5,
+      "durationMs": 12,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/ui/__tests__/BuildPanel.test.ts",
+      "tests": 7,
+      "durationMs": 12,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/artManifestReuse.test.ts",
+      "tests": 3,
+      "durationMs": 12,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/eventEngine.test.ts",
+      "tests": 23,
+      "durationMs": 12,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/eventTempo.test.ts",
+      "tests": 21,
+      "durationMs": 12,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/megaProjectSystem.test.ts",
+      "tests": 20,
+      "durationMs": 12,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/policySystem.test.ts",
+      "tests": 15,
+      "durationMs": 12,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/diplomacyExpanded.test.ts",
+      "tests": 25,
+      "durationMs": 11,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/diplomacySystem.test.ts",
+      "tests": 27,
+      "durationMs": 11,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/military.test.ts",
+      "tests": 26,
+      "durationMs": 11,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/npcDynamics.test.ts",
+      "tests": 16,
+      "durationMs": 11,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/render/__tests__/cameraMath.test.ts",
+      "tests": 9,
+      "durationMs": 10,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/buildingRegistry.test.ts",
+      "tests": 11,
+      "durationMs": 10,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/buildingsExpanded.test.ts",
+      "tests": 9,
+      "durationMs": 10,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/copyBias.test.ts",
+      "tests": 4,
+      "durationMs": 10,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/factionSystem.test.ts",
+      "tests": 12,
+      "durationMs": 10,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/storyContent.test.ts",
+      "tests": 4,
+      "durationMs": 10,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/ui/__tests__/courtFormat.test.ts",
+      "tests": 18,
+      "durationMs": 9,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/artManifestEvtArtUsage.test.ts",
+      "tests": 5,
+      "durationMs": 9,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/npcCountries.test.ts",
+      "tests": 7,
+      "durationMs": 9,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/scatterAssets.test.ts",
+      "tests": 4,
+      "durationMs": 9,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/countryGrade.test.ts",
+      "tests": 10,
+      "durationMs": 9,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/dslEval.test.ts",
+      "tests": 16,
+      "durationMs": 9,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/population.test.ts",
+      "tests": 18,
+      "durationMs": 9,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/productionSystem.test.ts",
+      "tests": 28,
+      "durationMs": 9,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/saveLoadIo.test.ts",
+      "tests": 4,
+      "durationMs": 9,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/ui/__tests__/AudioManager.test.ts",
+      "tests": 4,
+      "durationMs": 8,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/terrainPaths.test.ts",
+      "tests": 14,
+      "durationMs": 8,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/classNeeds.test.ts",
+      "tests": 9,
+      "durationMs": 8,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/modifierAggregator.test.ts",
+      "tests": 10,
+      "durationMs": 8,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/render/__tests__/buildingAnchorOverrides.test.ts",
+      "tests": 4,
+      "durationMs": 7,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/render/__tests__/buildingSigils.test.ts",
+      "tests": 7,
+      "durationMs": 7,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/historianSystem.test.ts",
+      "tests": 14,
+      "durationMs": 7,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/state/__tests__/storyDriver.test.ts",
+      "tests": 17,
+      "durationMs": 7,
+      "sharePct": 0.01
+    },
+    {
+      "file": "src/renderer/data/__tests__/resourceRegistry.test.ts",
+      "tests": 13,
+      "durationMs": 6,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/state/__tests__/breathingSystem.test.ts",
+      "tests": 10,
+      "durationMs": 6,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/state/__tests__/modifierDescriber.test.ts",
+      "tests": 9,
+      "durationMs": 6,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/state/__tests__/seasonSystem.test.ts",
+      "tests": 11,
+      "durationMs": 6,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/state/__tests__/supplyChain.test.ts",
+      "tests": 3,
+      "durationMs": 6,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/state/__tests__/scoreCard.test.ts",
+      "tests": 6,
+      "durationMs": 5,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/render/__tests__/iso.test.ts",
+      "tests": 6,
+      "durationMs": 4,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/data/__tests__/buildingRefs.test.ts",
+      "tests": 5,
+      "durationMs": 4,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/state/__tests__/dslEvalCompat.test.ts",
+      "tests": 1,
+      "durationMs": 4,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/shared/__tests__/visualConstants.test.ts",
+      "tests": 2,
+      "durationMs": 3,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/render/__tests__/buildingAnims.test.ts",
+      "tests": 4,
+      "durationMs": 3,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/scenes/__tests__/bootLoadErrorDedup.test.ts",
+      "tests": 2,
+      "durationMs": 3,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/scenes/__tests__/scatterSourceGuard.test.ts",
+      "tests": 3,
+      "durationMs": 3,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/data/__tests__/actTimeline.test.ts",
+      "tests": 3,
+      "durationMs": 3,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/data/__tests__/jitHints.test.ts",
+      "tests": 3,
+      "durationMs": 3,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/state/__tests__/audioDirector.test.ts",
+      "tests": 3,
+      "durationMs": 2,
+      "sharePct": 0.0
+    },
+    {
+      "file": "src/renderer/state/__tests__/stateEvents.test.ts",
+      "tests": 2,
+      "durationMs": 2,
+      "sharePct": 0.0
+    }
+  ]
 }

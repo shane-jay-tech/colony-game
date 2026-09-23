@@ -6,8 +6,8 @@
 //   - 因此本文件的增量是：day 119（旧四点里唯一缺的年内末点）、负数、小数、SEASON_NAMES 顺序、
 //     以及「30 天一季 / 120 天一年」的不变量与跨文件季名漂移探测。生产码零改动。
 import { describe, expect, it } from 'vitest';
-import { dayToCalendar, SEASON_NAMES } from '../calendar';
-import { SEASON_NAMES_DSL } from '../../data/dslCore';
+import { dayToCalendar, SEASON_NAMES as SEASON_NAMES_VIA_CALENDAR } from '../calendar';
+import { SEASON_NAMES } from '../../data/dslCore'; // 唯一事实源（c922-131 去重）在 data 侧
 import { dayToCalendar as viaTimeSystem } from '../timeSystem'; // timeSystem.ts:4 的再导出，应与本源同一函数
 
 type Cal = { year: number; season: 0 | 1 | 2 | 3; dayOfSeason: number };
@@ -16,9 +16,10 @@ describe('c922-12 dayToCalendar 边界钉桩', () => {
   it('① 纯函数自证 + SEASON_NAMES 顺序与跨文件一致', () => {
     expect(SEASON_NAMES).toEqual(['spring', 'summer', 'autumn', 'winter']); // 顺序即 season 索引语义
     expect(SEASON_NAMES).toHaveLength(4);
-    // 全库有第二份季名表：data/dslCore.ts 的 SEASON_NAMES_DSL（DSL 里 'season == summer' 用它）。
-    // 两份都是手写数组、任一处调序都会让「日历季」与「DSL 季名」静默错位，故钉逐项相等。
-    expect([...SEASON_NAMES_DSL]).toEqual([...SEASON_NAMES]);
+    // 四季名表自 c922-131 起只剩 data/dslCore.ts 一份，state/calendar.ts 是再导出 ⇒
+    // 原「逐项相等」断言比的是同一个对象、永不失败（在册假绿，c922-131 result 已记护栏失效面）。
+    // c923-10 改为身份断言：只要 state 侧敢再另立第二份字面量表（漂移复发），这一条当场红。
+    expect(SEASON_NAMES_VIA_CALENDAR).toBe(SEASON_NAMES);
     const a = dayToCalendar(45);
     const b = dayToCalendar(45);
     expect(b).toEqual(a);                       // 同输入同输出

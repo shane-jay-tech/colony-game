@@ -33,8 +33,9 @@ export type SeasonName = 'spring' | 'summer' | 'autumn' | 'winter';
 /**
  * 全仓唯一的四季名表（c922-131）：state/calendar.ts 直接再导出本常量，不再另立字面量，
  * 以免「索引 0..3 即 season」的顺序契约出现两份漂移。表留在 data 侧是 c922-11 门禁的要求。
+ * c923-10：原名带的「_DSL」后缀在唯一化后已名不副实（它不是 DSL 专用表），故去后缀。
  */
-export const SEASON_NAMES_DSL: readonly SeasonName[] = ['spring', 'summer', 'autumn', 'winter'];
+export const SEASON_NAMES: readonly SeasonName[] = ['spring', 'summer', 'autumn', 'winter'];
 
 /**
  * DSL 求值时 caller 提供的状态快照。所有"国家级"指标在调用前由 ModifierAggregator
@@ -101,7 +102,7 @@ function parseComparison(expr: string): Comparison | null {
 
 function resolveLhs(key: string, ctx: CountryMetrics): { kind: 'number' | 'string'; value: number | string } {
   if (key === 'year') return { kind: 'number', value: ctx.year };
-  if (key === 'season') return { kind: 'string', value: SEASON_NAMES_DSL[ctx.season] ?? 'spring' };
+  if (key === 'season') return { kind: 'string', value: SEASON_NAMES[ctx.season] ?? 'spring' };
   if (key === 'day_of_year') return { kind: 'number', value: ctx.dayOfYear };
   if (key === 'grade') return { kind: 'number', value: ctx.grade ?? 0 };
   if (key === 'country_population') return { kind: 'number', value: ctx.population };
