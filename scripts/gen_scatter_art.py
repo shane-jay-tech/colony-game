@@ -33,6 +33,12 @@ SCATTER_STYLE = (
     "ground texture, drop shadow on floor, text, watermark, frame, border, UI."
 )
 
+# c923-18（出口 B 停产）：HEAD 版 :44 的「枯灌丛」条目已删——该键早在 c918-09 就退出 ALL_SCATTER_IDS，
+# 生成器却仍列着它 ⇒ 每次转码/补图都会把那张枯灌丛产回 public/art/scatter/ 成为零引用孤儿
+# （孤儿件已随本单删除，反向哨兵的白名单同步清空；来历与两条出口写在 src/renderer/data/__tests__/scatterDiskReconcile.test.ts 末条注释）。
+# 回滚：原 png 备份在 D:/attic/colony-art-backup-20260920/art/scatter/；本文件请按 `git show HEAD:scripts/gen_scatter_art.py`
+#   字节级写回（本机 core.autocrlf 为开，`git checkout --` 会把 LF 转成 CRLF），删掉的那件 webp 是二进制、可 git restore。
+# ⚠ 本脚本依赖已缺盘的 D:/code/scripts/gen_wanxiang_batch.py（万象已退役）⇒ 改动只能静态核验（ast 计数）。
 SCATTER: list[tuple[str, str]] = [
     ("tree_pine", "A single tall ancient Chinese pine/conifer tree with a dark blue-green layered needle canopy and a weathered reddish-brown trunk, slightly gnarled, north-China highland pine."),
     ("tree_locust", "A single old Chinese scholar-tree (locust / huai), broad rounded leafy crown of small bright-and-dark green compound leaves, thick gnarled grey-brown trunk and spreading branches."),
@@ -41,7 +47,6 @@ SCATTER: list[tuple[str, str]] = [
     ("rock_boulder", "A single large weathered grey granite boulder, rounded and cracked, with subtle moss patches and lichen, sitting alone, ancient and mossy."),
     ("rock_cluster", "A small cluster of three or four weathered grey fieldstones and rubble of varying sizes piled loosely together, dry and dusty."),
     ("bush_shrub", "A single low green leafy wild shrub bush, dense rounded foliage of small leaves, a bit of dry twig showing, temperate wild brush."),
-    ("bush_dry", "A single dry brown-yellow withered scrub bush / tumbleweed-like dry brush clump, sparse brittle twigs, arid hill vegetation."),
     ("reed_clump", "A single clump of tall green-and-tan riverside reeds and rushes, slender vertical blades with feathery tops, the kind growing at a water's edge, leaning slightly."),
     ("grass_tuft", "A single small tuft of wild grass and weeds, a low clump of mixed green and dry-yellow blades sprouting from bare earth."),
 ]
