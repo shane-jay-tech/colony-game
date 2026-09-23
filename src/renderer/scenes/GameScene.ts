@@ -114,6 +114,7 @@ export class GameScene extends Phaser.Scene {
     if (uiWasActive) this.scene.pause('UIScene');
     const data: TransitionData = {
       lines: DYNASTY_TRANSITION_NARRATION,
+      imageKey: 'evt_art_unification', // c923-08 接线（承 c922-113 §4.1）：序章→第一章“天下一统”跳变配图。键在册 artManifest:71、BootScene 已把该纹理装进来；缺图时 TransitionScene 静默回退纯文字。刻意不动 BootScene 的 EVENT_ART URL 重拼面（属 P1-4，禁合批）。
       onDone: () => {
         store.advanceStoryChapter(1);
         this.scene.resume();
