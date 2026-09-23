@@ -6,7 +6,7 @@ import { IntroScene } from './scenes/IntroScene';
 import { GameScene } from './scenes/GameScene';
 import { TransitionScene } from './scenes/TransitionScene';
 import { UIScene } from './scenes/UIScene';
-import { COLORS } from './ui/palette';
+import { COLORS } from '../shared/palette';
 import { GameStore } from './state/gameStore';
 import type { IEventEmitter } from './state/gameStore';
 import { BuildMode } from './state/buildMode';

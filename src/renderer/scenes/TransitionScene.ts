@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, COLORS_HEX, FONTS } from '../ui/palette';
+import { COLORS, COLORS_HEX, FONTS } from '../../shared/palette';
 
 /**
  * TransitionScene — 全屏旁白过场（Phase2 跳变）。

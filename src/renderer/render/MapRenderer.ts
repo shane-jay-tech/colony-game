@@ -3,7 +3,7 @@ import { MASK_FILL_WHITE } from '../../shared/visualConstants';
 import type { WorldMapAccessor } from '../state/worldMap';
 import type { BuildingInstance } from '../data/schema';
 import { getBuildingDef } from '../data/buildingRegistry';
-import { COLORS, COLORS_HEX, UI } from '../ui/palette';
+import { COLORS, COLORS_HEX, UI } from '../../shared/palette';
 import { terrainColor, resourceNodeColor, TILE_SIZE, NODE_MARKER_INSET } from './mapColors';
 import { getBuildingSigil } from './buildingSigils';
 import { getBuildingAnchor } from './buildingAnchorOverrides';

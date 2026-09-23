@@ -11,13 +11,26 @@
 //   src/renderer/render/MapRenderer.ts:6 import { COLORS, COLORS_HEX, UI } from '../ui/palette';
 // ⇒ 命中 2，与 ALLOWED 白名单逐条一致 ⇒ 判据「命中>0 则白名单化并留 TODO」走白名单分支。
 //
-// 范围刻意只到 render/，不含 scenes/：scenes 是组装层，天然要造 UI 面板（现值同口径命中
+// 🔵 c923-26（R1 前半）收口后的现值（2026-09-23T13:5x，同一命令）：**命中 0**。
+//   色板已整体下沉 `src/shared/palette.ts`，`src/renderer/ui/palette.ts` 改为再导出 shim，
+//   上述两文件现 import `'../../shared/palette'` ⇒ ALLOWED 随之清空（下方 ③ 把「空账」钉成判据）。
+//   ⚠ 同型命令仍须保留 ① 的覆盖面自证：命中为 0 有两种成因（真收口 / 扫描器失效），
+//     只有 ① 的 FILES 与 SPECIFIERS 下界能区分二者，故 ① 一条判据不可删。
+//   $ rg -n "from ['\"][^'\"]*/ui/" src/renderer/render --glob '!**/__tests__/**' --glob '!tmp/**'
+//   （无输出，rc=1）
+//   $ rg -n "shared/palette" src/renderer/render --glob '!**/__tests__/**'
+//   src/renderer/render/mapColors.ts:18 / src/renderer/render/MapRenderer.ts:6
+//
+// 范围刻意只到 render/，不含 scenes/ 与 main.ts：scenes 是组装层，天然要造 UI 面板（现值同口径命中
 // 36 条 / 6 文件，UIScene.ts 独占 25 条），纳进来等于把正常分层判成违规。
+//   ⇒ 本单虽也改了 scenes×4 与 main.ts 的 import 面（c923-26 完成标准 ① 要求生产命中归零），
+//     但**不扩门禁范围**：扩它属判据改动，另单裁决。
 //
 // 本文件钉三件事（全部「扫到东西才算数」，防空扫假绿）：
 //   ① 覆盖面自证：扫描集非空且含点名文件、解析出的说明符数有下界；
 //   ② 命中集与白名单**逐条相等**：新增上引即红，存量上引消失也红（逼着同步删档，防白名单变收容所）；
-//   ③ 白名单自身形状：每条必须带非空 TODO（未收口的理由）且所指文件真实在扫描集内。
+//   ③ 白名单自身形状：c923-16 建门时＝每条必须带非空 TODO（未收口的理由）且所指文件真实在扫描集内；
+//     c923-26 收口后追加「必须为空账」判据，理由见下方 ③ 用例体。
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -74,19 +87,13 @@ interface AllowedReverseImport {
   todo: string;
 }
 
-// 存量债登记（2026-09-23 现值 2 条，与文件头 rg 读数一致）。
-const ALLOWED: readonly AllowedReverseImport[] = [
-  {
-    file: 'mapColors.ts',
-    specifier: '../ui/palette',
-    todo: 'PLAN.md:39/c-15 后续：COLORS 是 render 与 UI 共用视觉常量，待下沉 src/shared/visualConstants.ts（现该模块只有 MASK_FILL_WHITE）后删本条',
-  },
-  {
-    file: 'MapRenderer.ts',
-    specifier: '../ui/palette',
-    todo: 'PLAN.md:39/c-15 后续：同上；另 UI 色板键名与 render 无关，下沉时一并改名，删本条前不得新增任何 ui 上引',
-  },
-];
+// 存量债登记。c923-16 建门时现值 2 条；c923-26（R1 前半）把色板整体下沉 src/shared/palette.ts
+// 后**清空**——两条 TODO 的原文与去向：
+//   mapColors.ts   '../ui/palette' → '../../shared/palette'（COLORS）
+//   MapRenderer.ts '../ui/palette' → '../../shared/palette'（COLORS / COLORS_HEX / UI）
+// 结构体与下面 ③ 的逐条形状校验刻意保留：将来若有人重新挂账，必须先在此改判据，
+// 白名单不会变成随手收容所（这正是 c923-16 建门时 ③ 的设计意图）。
+const ALLOWED: readonly AllowedReverseImport[] = [];
 
 const ALLOWED_KEYS = ALLOWED.map(a => `${a.file} -> ${a.specifier}`).sort();
 
@@ -102,8 +109,11 @@ describe('c923-16 render ↛ ui 反向依赖门禁（R1 后半，PLAN.md:39）',
     expect(HITS.slice().sort()).toEqual(ALLOWED_KEYS);
   });
 
-  it('③ 白名单形状：每条带非空 TODO 且所指文件真实存在（防收容所式挂账）', () => {
-    expect(ALLOWED.length).toBeGreaterThan(0);
+  it('③ 白名单形状：收口后必须是空账；若非空则每条须带非空 TODO 且所指文件真实存在（防收容所式挂账）', () => {
+    // c923-26 起 render/ 上引 ui/ 归零 ⇒ 「空账」本身成为判据：
+    // 谁再往 ALLOWED 挂一条（而不是改 import），本用例即红，逼其回到 ① 的覆盖面自证与人工评审。
+    expect(HITS).toEqual([]); // 扫描真归零（非空扫由 ① 担保）
+    expect(ALLOWED).toEqual([]);
     const known = new Set(FILES.map(f => relative(RENDER_DIR, f).split(sep).join('/')));
     for (const a of ALLOWED) {
       expect(a.todo.length, `白名单 ${a.file} 的 todo 不能为空`).toBeGreaterThan(10);

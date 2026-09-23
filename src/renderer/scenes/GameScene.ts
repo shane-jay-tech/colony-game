@@ -10,7 +10,7 @@ import type { Toast } from '../ui/Toast';
 import { BuildingPopover } from '../ui/BuildingPopover';
 import { TimeSystem } from '../state/timeSystem';
 import { dayToCalendar } from '../state/calendar';
-import { FONTS, UI } from '../ui/palette';
+import { FONTS, UI } from '../../shared/palette';
 import { DYNASTY_TRANSITION_NARRATION, ENDING_NARRATION } from '../data/storyChapters';
 import type { TransitionData } from './TransitionScene';
 import type { EndingId } from '../state/storyDriver';

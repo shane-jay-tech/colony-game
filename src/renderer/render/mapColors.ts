@@ -15,7 +15,7 @@
  */
 
 import type { Terrain, ResourceNodeKind } from '../../renderer/data/mapSchema';
-import { COLORS } from '../ui/palette';
+import { COLORS } from '../../shared/palette';
 
 // 校验由 saveLoad 的 deep-validate 守住，但渲染层再加一道兜底：万一 raw map 绕过校验
 // 进来（mapGen bug、未来加新 terrain 忘了同步），返回 fallback 调试色而不是让 Phaser

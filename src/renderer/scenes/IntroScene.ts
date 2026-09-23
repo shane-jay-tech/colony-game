@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, COLORS_HEX, FONTS } from '../ui/palette';
+import { COLORS, COLORS_HEX, FONTS } from '../../shared/palette';
 import { REGISTRY_KEYS, registryGet, registrySet } from '../ui/registry';
 import type { GameStore } from '../state/gameStore';
 import type { ModifierInstance } from '../data/schema';
