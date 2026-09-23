@@ -92,7 +92,9 @@ describe('c922-09 钉子二：effects.target 全量过 isValidModifierTarget', (
     for (const t of used) expect(MODIFIER_TARGETS as readonly string[]).toContain(t);
   });
 
-  it('与运行时校验器同源：validateModifierEffect 逐条不抛（含 value 有限性）', () => {
+  // 标题措辞对齐（c924-07）：原判据并不查"有限性"——Infinity / -Infinity 可通过，
+  // 只拦非 number 与 NaN。写清真实边界，防"名大于实"（见 modifierValidator.ts 同处注释）。
+  it('与运行时校验器同源：validateModifierEffect 逐条不抛（value 面只拦非 number 与 NaN，无穷大不拦）', () => {
     const thrown: string[] = [];
     for (const r of effectRows) {
       try {
@@ -149,8 +151,9 @@ describe('c922-09 钉子四：removeEffects 按 modifier id 面钉（口径见�
 //
 // 红线口径（比 c922-09 更窄，按派单要求）：本段只校验 **effects 的键名与 op 合法性**，
 //   **一律不读、不比对 value**——经济平衡数值是只读域。为此本段刻意**不复用**
-//   validateModifierEffect（它的判据含 value 有限性，虽不比大小但仍会读 value）；
-//   上方 c922-09 那条 validator 用例一字未改，两种口径并存可查。
+//   validateModifierEffect（它的判据会读 value：非 number 与 NaN 两关，虽不比大小但仍读值）；
+//   上方 c922-09 那条 validator 用例本段不复用，两种口径并存可查——其标题的 value 面措辞已由
+//   c924-07 对齐为"只拦非 number 与 NaN，无穷大不拦"，判据与断言本身零改动。
 //   「泛化段的行集根本不带 value 字段」被钉成用例（钉子五），这是结构级自证，
 //   比"断言里小心一点"更硬：value 想被比对也拿不到。
 //

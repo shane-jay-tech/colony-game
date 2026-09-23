@@ -10,7 +10,8 @@
 // 🔴 红线口径（比"断言里小心一点"更硬）：本文件**一律不读、不比对任何 value/cost/days 数值**。
 //   - 只判**键名面**：effects[].target ∈ MODIFIER_TARGETS、cost 的键 ∈ RESOURCE_IDS。
 //   - 刻意**不复用** `modifierValidator.validateRoyalDecree`：它的判据含
-//     `value 有限性`（modifierValidator.ts:38-43）与 `cost 非负`（:54-58）——虽不比大小，
+//     `value 数值形状`（`validateModifierEffect` 末尾的 value 判据：只拦非 number 与 NaN，
+//     **不拦无穷大**，故不等同"有限性"——见 c924-07 措辞对齐）与 `cost 非负`（:54-58）——虽不比大小，
 //     但会**读**平衡数值。启动期由 `main.ts:164` / `BootScene.ts:23` 的
 //     `validateStaticData()` 兜那两层，本件不重复也不绕过。
 //   - 「行集拿不到 value」被钉成用例（末块），这是结构级自证。

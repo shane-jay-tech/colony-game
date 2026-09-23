@@ -39,6 +39,16 @@ export function validateModifierEffect(e: ModifierEffect, path: string): void {
       `${path}.op`,
     );
   }
+  // ⚠ 边界说明：本处 message 写的是 "finite number"，但下面的判据只有
+  //   `typeof !== 'number' || Number.isNaN(value)` 两关 ⇒ **Infinity / -Infinity 现在可通过**
+  //   （拦 NaN、不拦无穷）。文案是"应有判据"的口径，代码是"现有判据"的事实，二者不等值。
+  //   同族对照：state 层 saveLoad.ts:232/431/741 用 `Number.isFinite`（无穷也拦），
+  //   两处判据不同形 —— 排查"非有限值怎么没报错"时别互相指望。
+  //   现状已钉桩：data/__tests__/modifierValidator.test.ts 的【现状】用例（:142）。
+  //   静态数据侧 2026-09-23 卷宗实测非有限值 0 条 ⇒ 潜在缺口，非现存缺陷。
+  //   建议（本单不落码，属行为改动）：判据换成 `!Number.isFinite(e.value)` 即可一并拦无穷；
+  //   那会改动判定阈值，并连带 modifierValidator.test.ts:142 与
+  //   storyEffectsTargets.test.ts 的「validateModifierEffect 逐条不抛」用例各红一次，须另单同笔复核。
   if (typeof e.value !== 'number' || Number.isNaN(e.value)) {
     throw new ModifierValidationError(
       `value must be a finite number, got ${e.value}`,
