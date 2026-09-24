@@ -1,4 +1,3 @@
-import assert from 'node:assert';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { EventEmitter } from 'eventemitter3';
 import { serialize, deserialize, validateSlot, saveToSlot, SaveLoadError, SAVE_SCHEMA_VERSION } from '../saveLoad';
@@ -108,12 +107,10 @@ describe('deserialize error handling', () => {
     // v2 存档缺迁移目标字段：走 runMigrations 迁移链后仍因 shape 校验失败，
     // 错误类型必须是统一通道 SaveLoadError（不得裸抛 TypeError）。
     const legacy = { schemaVersion: 2, state: { resources: 'not-an-object' } };
-    try {
-      deserialize(legacy);
-      assert.fail('畸形 v2 存档应当抛错');
-    } catch (err) {
-      expect(err instanceof SaveLoadError).toBe(true);
-    }
+    // c924-05：node 内置 assert 退场。旧 `try { deserialize(); assert.fail() } catch { instanceof }` 里
+    // assert.fail 抛出的 AssertionError 会被自己的 catch 接住，判据只是"它不是 SaveLoadError"，
+    // 不抛错时报错信息误导。toThrow(Class) 同时钉住"必抛"与"抛的是 SaveLoadError"，语义等价且更强。
+    expect(() => deserialize(legacy)).toThrow(SaveLoadError);
   });
 
   it('null input throws SaveLoadError', () => {
@@ -676,6 +673,8 @@ describe('c22 schema v3 compat read', () => {
   it('v3 存档缺 state 形状非法 → 迁移中抛错而非静默（TypeError 会穿透为未处理异常）', () => {
     // 现行为：state=null 的 v3 blob 在迁移链里解引用抛原生 TypeError——
     // 是「报明确错误而非静默」的边界形态（非 SaveLoadError 类型，修复另批）。
-    expect(() => deserialize({ schemaVersion: 3, state: null, worldMap: null })).toThrow();
+    // c924-05 收紧：裸 .toThrow() 钉成实测类型 TypeError。SaveLoadError 继承 Error 而非 TypeError，
+    // 故此断言同时排除"已统一通道化"——真要改判 SaveLoadError 得动生产码，不属本单。
+    expect(() => deserialize({ schemaVersion: 3, state: null, worldMap: null })).toThrow(TypeError);
   });
 });
