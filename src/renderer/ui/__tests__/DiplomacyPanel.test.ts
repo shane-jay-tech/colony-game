@@ -9,27 +9,28 @@ import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
 import { warinessBand, WARINESS_COALITION_THRESHOLD } from '../../state/wariness';
 import { DiplomacyPanel } from '../DiplomacyPanel';
-import { makeFakeGraphics, makeFakeText, makeFakeZone } from './fakeScene';
+import { makeFakeContainer, makeFakeGraphics, makeFakeText, makeFakeZone } from './fakeScene';
 
 // c923-02（批五）：本文件的本地 makeFakeText/makeFakeGraphics 副本实为**两份死定义＋两份内联字面量**
 // （原命名副本 :14/:30 从未被调用，makeFakeScene 里另有同形内联副本）——tsconfig 未开 noUnusedLocals
 // 故 type-check 一直看不见它们。本次四处一并收口：死定义删除、内联改指共享件（字段与方法表逐条
 // 均为共享件子集，displayHeight 本就是默认 18）。
-// 仍留两处内联 container/zone 未动（container 带 each/removeAll/list 三个共享件没有的方法，
-// zone 换成共享件会让 setPosition/setSize 从"空转"变成"记值"，属行为改动，超本单范围）。
+// c924-02（批二）：container 内联字面量已并入共享 makeFakeContainer（each/removeAll/list 三项补进 union，
+// 生产码零读者 ⇒ 惰性超集）。唯一行为差是共享件 setVisible **记值**（内联为空转），
+// 而本面板 isVisible() 读自己的 isOpen（DiplomacyPanel.ts:244）、不读 container.visible ⇒ 对本文件断言无影响。
+// zone 字面量**刻意保留内联**（理由见下方 zone 处注释）：换共享 makeFakeZone 会让 setPosition/setSize 从"空转"变"记值"、
+// on 从不登记变登记 handlers，属夹具语义改动而非收编，超本单范围。
 
 function makeFakeScene() {
   return {
     scale: { width: 1366, height: 800 },
     add: {
-      container: vi.fn(() => ({
-        setScrollFactor: vi.fn().mockReturnThis(), setDepth: vi.fn().mockReturnThis(),
-        setVisible: vi.fn().mockReturnThis(), setScale: vi.fn().mockReturnThis(),
-        setPosition: vi.fn().mockReturnThis(), add: vi.fn(), destroy: vi.fn(),
-        each: vi.fn(), removeAll: vi.fn(), list: [] as unknown[],
-      })),
+      container: vi.fn(makeFakeContainer),
       graphics: vi.fn(makeFakeGraphics),
       text: vi.fn(makeFakeText),
+      // ⚠ 保留内联（c924-02）：共享 makeFakeZone 的 setPosition/setSize 会记值（:85-86 mockImplementation）、
+      // on 会把回调登记进 handlers（:87），而本内联版三者皆空转——替换=改夹具语义，
+      // 且本文件无任何断言读 x/y/width/height/handlers，改了既无收益也无人看守，故不动。
       zone: vi.fn(() => {
         const z = { x: 0, y: 0, width: 1, height: 1, setOrigin: vi.fn().mockReturnThis(), setInteractive: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(), setSize: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(), on: vi.fn().mockReturnThis(), destroy: vi.fn() };
         return z;

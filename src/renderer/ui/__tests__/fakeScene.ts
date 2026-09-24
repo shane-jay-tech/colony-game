@@ -90,13 +90,19 @@ export function makeFakeZone() {
 
 /** 容器 union：HUD（setAlpha/setPosition）∪ BuildingPopover（setScale）
  * ∪ EventModal/TutorialModal（setVisible 记值——isVisible() 直读 container.visible，见 EventModal.ts:364）
- * ∪ handlers/on 登记。 */
+ * ∪ handlers/on 登记
+ * ∪ c924-02 批二 DiplomacyPanel（each/removeAll/list 三项，原为该文件 :25-30 内联字面量独有）。
+ *   实测生产码（`rg '\.each\(|removeAll\(|\.list\b' src` 排除测试件）零命中 ⇒ 三项在本仓是**惰性超集**，
+ *   并入只为守住"builder 族唯一定义处"；实现按内联原样保留（each/removeAll 均裸 vi.fn，不另加记值语义）。 */
 export function makeFakeContainer() {
   const c = {
     // 初值 false：面板构造期即 .setVisible(false)（EventModal.ts:89 / TutorialModal.ts:57），
     // 故原 undefined→false 不翻转任何分支；setVisible 必须记值，因 isVisible() 直读该字段。
     visible: false,
     handlers: {} as Record<string, (...args: unknown[]) => void>,
+    list: [] as unknown[],
+    each: vi.fn(),
+    removeAll: vi.fn(),
     setDepth: vi.fn().mockReturnThis(),
     setScrollFactor: vi.fn().mockReturnThis(),
     setVisible: vi.fn(),
