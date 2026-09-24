@@ -10,6 +10,7 @@ import { getBuildingAnchor } from './buildingAnchorOverrides';
 import { ISO_TILE_W, ISO_TILE_H, gridToIso, gridCenterToIso } from './iso';
 import { MAP_ZOOM_MAX } from './cameraMath';
 import { fitZoomFor, coverZoomFor, closeZoomFor, clampScrollFor, scrollForZoomAtAnchor, clampZoom } from './cameraMath';
+import { worldRectForMask, worldToGridCell } from './viewportMath';
 import { SCATTER_BY_TERRAIN, RIVER_EDGE, SCATTER_KEY_PREFIX, type ScatterSlot } from '../data/scatterConfig';
 import { createRng, type RngHandle } from '../state/rng';
 import { SMOKE_BUILDING_IDS, MARKET_BUILDING_IDS, FARM_BUILDING_IDS, FARM_SEASON_TINTS, SMOKE_TEX_KEY, SPARKLE_TEX_KEY } from './buildingAnims';
@@ -181,7 +182,8 @@ export class MapRenderer {
    *  hotfix#4：vp.w / vp.h <= 0 时**不重画**，保留上一帧正确的 mask；否则中间帧
    *  把 mask 变成 0×0 会让整个地图层不可见，肉眼看就是"卡死"。
    *  v1.0 #5：mask 是世界坐标对象，相机 zoom/scroll 后会被一起变换。要让它最终 render
-   *  到固定的 screen viewport (vp.x..vp.x+vp.w)，反向除 zoom + 加 scroll 补偿。 */
+   *  到固定的 screen viewport (vp.x..vp.x+vp.w)，反向除 zoom + 加 scroll 补偿
+   *  （算式在 viewportMath.worldRectForMask）。 */
   private refreshViewportMask(): void {
     if (this.destroyed) return;
     const cam = this.scene.cameras.main;
@@ -189,12 +191,15 @@ export class MapRenderer {
     if (vp.w <= 0 || vp.h <= 0) return;
     const mg = this.viewportMaskGfx;
     if (!mg) return;
-    const z = (cam.zoom as number | undefined) || 1;
-    const sx = (cam.scrollX as number | undefined) || 0;
-    const sy = (cam.scrollY as number | undefined) || 0;
+    const r = worldRectForMask(
+      vp,
+      (cam.zoom as number | undefined),
+      (cam.scrollX as number | undefined),
+      (cam.scrollY as number | undefined),
+    );
     mg.clear();
     mg.fillStyle(MASK_FILL_WHITE, 1);
-    mg.fillRect(vp.x / z + sx, vp.y / z + sy, vp.w / z, vp.h / z);
+    mg.fillRect(r.x, r.y, r.w, r.h);
   }
 
   /**
@@ -796,18 +801,11 @@ export class MapRenderer {
     this.bakeScatter(this.accessor, occupied);
   }
 
-  /** Slice E hooks: convert screen → grid coords. Useful for click-to-place. */
+  /** Slice E hooks: convert screen → grid coords. Useful for click-to-place.
+   *  ⚠ 名为 screen 实为 world→grid：调用方传的是 pointer.worldX/worldY，本方法不除 zoom、不减 scroll
+   *  （换算在 viewportMath.worldToGridCell，越界返 null 的语义与 viewportCenterTile 的夹边语义保持两份）。 */
   screenToGrid(screenX: number, screenY: number): { x: number; y: number } | null {
-    if (!Number.isFinite(screenX) || !Number.isFinite(screenY)) return null;
-    // 世界 → 图层局部 → 去 isoOffsetX → 等距逆投影 → floor 取格
-    const lx = screenX - this.originX - this.isoOffsetX;
-    const ly = screenY - this.originY;
-    const a = lx / MapRenderer.ISO_HW;
-    const bb = ly / MapRenderer.ISO_HH;
-    const x = Math.floor((a + bb) / 2);
-    const y = Math.floor((bb - a) / 2);
-    if (x < 0 || y < 0 || x >= this.width || y >= this.height) return null;
-    return { x, y };
+    return worldToGridCell(screenX, screenY, this.originX, this.originY, this.isoOffsetX, this.width, this.height);
   }
 
   /**
