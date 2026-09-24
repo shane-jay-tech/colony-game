@@ -30,7 +30,7 @@ $ rg -n "rock_cluster|bush_dry|rock_boulder" src/renderer/data/scatterConfig.ts
 ```
 
 - rock_cluster：hills（prob 0.22）与 mountain（prob 0.42）两池引用。
-- bush_dry：仅清单成员，无池引用（闲臵）。
+- bush_dry：仅清单成员，无池引用（闲置）。
 
 ## 结论：丘陵/山地散布会因缺图静默缺失吗？
 

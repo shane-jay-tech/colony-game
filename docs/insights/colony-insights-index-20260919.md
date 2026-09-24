@@ -39,7 +39,7 @@
 - colony-bootscene-loaderror-20260916.md — colony BootScene loaderror 重复注册核查（n916f-07，只读判定）
 - colony-bootscene-runtime-test-design-20260923.md — colony BootScene 运行时错误面测试设计稿：两处 catch 真实覆盖面只有 4 条路径且其中 2 条在真链／现有测试环境下结构不可达，任务书「进度条副作用」前提按字面为假（BootScene 零 this.add／零 progress 监听），最高价值可钉物是 catch 抓不到的三类静默失败（c923-13，2026-09-23，只设计不实现、生产码与测试码零改动）
 - colony-build-size-20260920.md — 构建产物体积基线（c921-09，仅新增报告档、零代码改动；文件名沿用 20260920 而取数在 9/21 凌晨，报告首行已声明）
-- colony-bushdry-triage-20260918.md — colony bush_dry 闲臵清单项处置（核报＋执行版，c918-09）
+- colony-bushdry-triage-20260918.md — colony bush_dry 闲置清单项处置（核报＋执行版，c918-09）
 - colony-codex-jit-link-eval-20260922.md — colony CodexPanel × JIT 联动最小接线评估（c922-120，2026-09-22，工程评估＋可实施方案设计、零实施：jitHints/Toast/CodexPanel/JitHintManager/UIScene 一行未改）
 - colony-day-sanitize-census-20260923.md — colony「day 入口净化链」普查：证 **「dayClamp」是个不存在的名字**（真身＝saveLoad 范围拒载 ＋ tickDay 就地封顶两处），并给出「有限、非负成立／整数不成立（deserialize 唯独对 currentDay 不取整）」的判据；据此答复 c922-12 的删 clamp 提案——只能删 `Math.max(0,` 半个表达式且须先补整数校验（c923-11，2026-09-23，只读零 src 改动）
 - colony-daypipeline-phase-batch-design-20260923.md — colony R4：dayPipeline 阶段事件批界契约设计稿，先否证卷宗前提「DAY_PHASE_ORDER 21 阶段」为实测 22，并登记既有顺序守卫比卷宗所述多一层（c923-27，2026-09-23，只设计不实现、零代码改动；台账出处 colony-plan-ledger-20260922.md:110 R4）
