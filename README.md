@@ -75,7 +75,9 @@ npm run electron:build:win
 ## 验证与质量
 
 ```bash
-npm test             # 1409 条测试／133 文件（含故事全流程无头试玩、存档 v1→v9 迁移回归；计数随套件增长会过期，复跑本行命令现取）
+npm test             # 全量测试（含故事全流程无头试玩、存档 v1→v9 迁移回归）
+                     # 例数／文件数刻意不写字面计数：写死的数随套件增长必过期。
+                     # 现值现取——跑本行命令，读末行 `Test Files …`／`Tests …` 汇总（口径同 pre-commit）
 npm run type-check   # TypeScript 类型检查
 npm run verify       # type-check + 全部测试
 npm run pack-sprites # 重新打包精灵图
