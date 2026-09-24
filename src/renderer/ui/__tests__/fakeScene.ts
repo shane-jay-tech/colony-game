@@ -226,6 +226,9 @@ export function makeSceneClassMock(): SceneClassMock {
     cache: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sound: any;
+    // c924-13：BootScene 加载面（见构造器注释的共享件约束）。
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    load: any;
     constructor(cfg?: { key?: string }) {
       this.sys = { config: cfg ?? {}, settings: cfg ?? {} };
       this.scene = { start: sceneStart };
@@ -261,6 +264,54 @@ export function makeSceneClassMock(): SceneClassMock {
         play: vi.fn(),
         stop: vi.fn(),
       };
+      // c924-13（c923-13 设计稿 §5 档 B 前置 1）：**load facet**——BootScene.preload 的唯一可桩点。
+      // 存在理由：本类字段表原为 add/textures/cache/sound/events/scale/input/tweens/time/cameras/
+      //   registry/scene/sys，**唯独没有 load** ⇒ `new BootScene().preload()` 必在 BootScene.ts:34
+      //   `this.load.on('loaderror', ...)` 抛 TypeError（设计稿 A6 实测否证「套现有 mock 就能测」）。
+      // 语义：image/audio 记值到 imageCalls/audioCalls（供「校验抢先抛 ⇒ 加载项一个都不排」的行为断言）；
+      //   on 按事件名登记回调到 handlers，测试凭 `scene.load.handlers['loaderror']?.(file)` **手动触发**
+      //   （= 卷宗点名的「loaderror 触发面」）；once 另置一表，不与 on 混登，以免「注册恰 1 处」类计数断言失真。
+      // ⚠ 共享件约束：本件是 c919-01 立、c922-125/c923-02 两次收编的 builder 族**唯一定义处**，
+      //   现 24 件测试消费（`grep -rl fakeScene src --include=*.test.ts` 现值）。本次为**纯新增字段**，
+      //   既有方法表/返回值零改动 ⇒ 24 件消费者通过数须与改前逐文件一致（跳变表见 c924-13 result）。
+      const loadHandlers: Record<string, (...args: unknown[]) => void> = {};
+      const loadOnceHandlers: Record<string, (...args: unknown[]) => void> = {};
+      const loadImageCalls: Array<{ key: string; url: string | string[] }> = [];
+      const loadAudioCalls: Array<{ key: string; url: string | string[] }> = [];
+      const load = {
+        handlers: loadHandlers,
+        onceHandlers: loadOnceHandlers,
+        imageCalls: loadImageCalls,
+        audioCalls: loadAudioCalls,
+        on: vi.fn(),
+        once: vi.fn(),
+        image: vi.fn(),
+        audio: vi.fn(),
+        reset: vi.fn(),
+        start: vi.fn(),
+      };
+      load.on.mockImplementation((ev: string, cb: (...args: unknown[]) => void) => {
+        loadHandlers[ev] = cb;
+        return load;
+      });
+      load.once.mockImplementation((ev: string, cb: (...args: unknown[]) => void) => {
+        loadOnceHandlers[ev] = cb;
+        return load;
+      });
+      load.image.mockImplementation((key: string, url: string | string[]) => {
+        loadImageCalls.push({ key, url });
+        return load;
+      });
+      load.audio.mockImplementation((key: string, url: string | string[]) => {
+        loadAudioCalls.push({ key, url });
+        return load;
+      });
+      // reset/start 只给「可链式调用」的裸形状，**不发明语义**：Phaser 的 loader.reset() 会清队列，
+      // 但 BootScene.preload 自身既不调 start 也不调 reset（start 由 SceneManager.bootScene 代发），
+      // 故本桩对二者不断言计数——见 c924-13 result 完成标准 ① 的判别力说明。
+      load.reset.mockImplementation(() => load);
+      load.start.mockImplementation(() => load);
+      this.load = load;
       this.events = {
         once: vi.fn((evt: string, cb: (...args: unknown[]) => void, ctx?: unknown) => {
           shutdownHandlers.push({ evt, cb, ctx });
