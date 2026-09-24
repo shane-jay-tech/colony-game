@@ -78,4 +78,62 @@ describe('CodexPanel', () => {
     panel.destroy();
     expect(store.isPaused()).toBe(false);
   });
+
+  // c924-18（面板 handlers 真路径扩面批二）：下面两例**不碰 :69 那条只断 not.toThrow() 的老路**，
+  // 也不调生产码里自述为「测试 hook」的 selectTopic（CodexPanel.ts:223-224），改为触发面板
+  // 自己 zone.on('pointerup', …) 登记的回调本体（CodexPanel.ts:137/:148/:156）。
+  // zone 即 fakeScene.makeFakeZone（其 on 把回调记进 handlers，见 fakeScene.ts:76/:87）——本件零改夹具。
+  type HandlerHost = { handlers: Record<string, (...a: unknown[]) => void> };
+  const internals = (p: CodexPanel) =>
+    p as unknown as {
+      selected: number;
+      content: { text: string };
+      closeZone: HandlerHost;
+      overlayZone: HandlerHost;
+      tabs: Array<{ txt: { color: string }; zone: HandlerHost }>;
+    };
+  function clickOf(host: HandlerHost, ev: string): (...a: unknown[]) => void {
+    const h = host.handlers[ev];
+    expect(h, `面板未在该对象上登记 ${ev}（断线即红）`).toBeTypeOf('function');
+    return h!;
+  }
+
+  it('真路径：点主题条 zone 的 pointerup → selected 换、正文换、选中色互换（不经 selectTopic）', () => {
+    panel.open();
+    const box = internals(panel);
+    const activeColor = box.tabs[0]!.txt.color; // open()→layout() 后第 0 条是选中态
+    const inactiveColor = box.tabs[3]!.txt.color;
+    expect(activeColor).not.toBe(inactiveColor); // 前提：布局确实区分选中态，否则本例无判别力
+    const bodyBefore = box.content.text;
+    const click3 = clickOf(box.tabs[3]!.zone, 'pointerup');
+    expect(box.selected).toBe(0); // 动手前基线
+    click3();
+    expect(box.selected).toBe(3);
+    expect(box.content.text).not.toBe(bodyBefore);
+    expect(box.tabs[3]!.txt.color).toBe(activeColor);
+    expect(box.tabs[0]!.txt.color).toBe(inactiveColor);
+    const bodyAfter = box.content.text;
+    click3(); // 反向：重复点同一条 → 状态与文案都不再变
+    expect(box.selected).toBe(3);
+    expect(box.content.text).toBe(bodyAfter);
+  });
+
+  it('真路径：✕ 与遮罩两条 zone 的 pointerup 各自关面板并释放暂停；关闭态重放无副作用', () => {
+    const { closeZone, overlayZone } = internals(panel);
+    const clickClose = clickOf(closeZone, 'pointerup');
+    const clickOverlay = clickOf(overlayZone, 'pointerup');
+    panel.open();
+    expect(panel.isVisible()).toBe(true);
+    expect(store.isPaused()).toBe(true);
+    clickClose();
+    expect(panel.isVisible()).toBe(false);
+    expect(store.isPaused()).toBe(false);
+    clickClose(); // 反向：close() 早退，不得把面板再打开、也不得多还一次暂停
+    expect(panel.isVisible()).toBe(false);
+    expect(store.isPaused()).toBe(false);
+    panel.open();
+    clickOverlay();
+    expect(panel.isVisible()).toBe(false);
+    expect(store.isPaused()).toBe(false);
+  });
 });

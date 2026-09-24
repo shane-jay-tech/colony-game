@@ -95,4 +95,54 @@ describe('MegaProjectPanel', () => {
     expect(store.listenerCount(STATE_EVENTS.MEGA_PROJECT_STARTED)).toBe(before - 1);
     expect(store.isPaused()).toBe(false);
   });
+
+  // c924-18（面板 handlers 真路径扩面批二）：下面两例**不调 startByIndex 测试后门**（:268），
+  // 而是触发生产代码亲手经 zone.on('pointerup', …) 登记的那个回调本体（MegaProjectPanel.ts:86/:98/:127）。
+  // ⚠ 本件用的是文件内本地 fakeZone（:29-35）：它的 on 只 vi.fn().mockReturnThis()、不建 handlers 表
+  //   （与 fakeScene.makeFakeZone 不同型），故从 on.mock.calls 取回回调——取到的仍是面板自己的闭包。
+  type ZoneWithSpy = { on: { mock: { calls: Array<[string, (...a: unknown[]) => void]> } } };
+  const internals = (p: MegaProjectPanel) =>
+    p as unknown as { overlayZone: ZoneWithSpy; closeZone: ZoneWithSpy;
+      cards: Array<{ def: { id: string; name: string }; zone: ZoneWithSpy }> };
+  function clickOf(zone: ZoneWithSpy, ev: string): (...a: unknown[]) => void {
+    const hit = zone.on.mock.calls.find((c) => c[0] === ev);
+    expect(hit, `面板未在该 zone 上登记 ${ev}（断线即红）`).toBeTruthy();
+    expect(typeof hit![1]).toBe('function');
+    return hit![1];
+  }
+
+  it('真路径：点工程卡 zone 的 pointerup → 立项落账 + info toast；重放被面板自己挡住', () => {
+    const card = internals(panel).cards[2]!; // proj_royal_road（无前置，同 :75 老例的卡）
+    const click = clickOf(card.zone, 'pointerup');
+    panel.open();
+    const spy = vi.spyOn(store, 'startMegaProject');
+    const hasIt = () => store.getMegaProjects().some((p) => p.projectId === card.def.id);
+    expect(hasIt()).toBe(false); // 动手前基线
+    click();
+    expect(spy).toHaveBeenCalledWith(card.def.id);
+    expect(hasIt()).toBe(true);
+    expect(String(toast.show.mock.calls.at(-1)?.[0])).toContain('已兴');
+    const n = store.getMegaProjects().length;
+    click(); // 反向：同一 handler 重放不得再加条目
+    expect(store.getMegaProjects()).toHaveLength(n);
+    expect(String(toast.show.mock.calls.at(-1)?.[0])).toContain('已在兴建或已成');
+  });
+
+  it('真路径：✕ zone 与遮罩 zone 的 pointerup 各自关面板并释放时停（不经 close() 直调）', () => {
+    const { closeZone, overlayZone } = internals(panel);
+    const clickClose = clickOf(closeZone, 'pointerup');
+    const clickOverlay = clickOf(overlayZone, 'pointerup');
+    panel.open();
+    expect(panel.isVisible()).toBe(true);
+    expect(store.isPaused()).toBe(true);
+    clickClose();
+    expect(panel.isVisible()).toBe(false);
+    expect(store.isPaused()).toBe(false);
+    clickClose(); // 反向：已关再点 → close() 早退，不得复活面板
+    expect(panel.isVisible()).toBe(false);
+    panel.open();
+    clickOverlay();
+    expect(panel.isVisible()).toBe(false);
+    expect(store.isPaused()).toBe(false);
+  });
 });
