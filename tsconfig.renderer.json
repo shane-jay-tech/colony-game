@@ -3,7 +3,15 @@
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "outDir": "dist/renderer",
-    "tsBuildInfoFile": "D:/colony-game/.tsbuildinfo/renderer.tsbuildinfo",
+    // c924-15：本行原值是**仓库外**的绝对路径 "D:/colony-game/.tsbuildinfo/renderer.tsbuildinfo"
+    // （仓内真实根是 D:/code/colony-game）。它今天完全惰性——三份工程都没开 incremental/composite。
+    // 改前语义与两种归因（"另一台机器的布局残留" / "D 盘缓存根惯例的掉队者"）见
+    // docs/insights/colony-typecheck-mainpreload-design-20260924.md §5（c924-04）——该节把这三行
+    // 定为"方案 B（composite）的前置卫生项"，并建议目标写成仓内相对路径。
+    // 现按 c924-15 卷宗口径收进仓内 ./.tsbuildinfo/，命中的是 .gitignore:5 既有忽略面（无需新增规则）。
+    // ⚠ 别改回 D:/ 形态：本仓缓存根已在迁回仓内（electron.vite.config.ts:5 的 cacheDir 即仓内），
+    //   而 D 盘惯例在 src/main/index.ts:6-8 与 dev.bat/install.bat 里**仍然活着**，两者并存易被误读。
+    "tsBuildInfoFile": "./.tsbuildinfo/renderer.tsbuildinfo",
     "types": []
   },
   "include": ["src/renderer/**/*"]
