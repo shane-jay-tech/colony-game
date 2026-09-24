@@ -98,3 +98,126 @@ describe('c923-24 public/audio 体积哨兵（合计字节 ≤ 当次实测 ×1.
     expect(sfx.length).toBe(6);
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════
+// c924-22 扩面：dist 侧联动 + BGM/SFX 分桶上限（以上三例逐字未动，本行以下为纯新增）
+//
+// 补的两处缺口出自 `zcode-bridge/done/c923-24.result.md` 的自陈遗留：
+//  遗留①（本文件新增例 ④）：「哨兵只量 public/audio，未量 dist/renderer/audio
+//    （c922-14 实测两侧 md5 逐对相同 ⇒ 目前同源）。若打包链以后加了转码／拷贝差异，
+//    本件看不到。」
+//  遗留②（本文件新增例 ⑤）：「若要按类别分桶限额（BGM ≤ X、SFX ≤ Y），需另开单，
+//    本件③的 `uncategorized == []` 已为分桶预留口径。」
+//
+// 分桶基线为当次实测（2026-09-24，口径同文件头第 1 步：逐件 statSync 求和，按桶分堆）：
+//   9 件 BGM = 57,643,662 B ／ 6 件 SFX = 254,278 B ／ 合计 57,897,940 B
+//   ⇒ 两桶相加与 c923-24 的 `BASELINE_BYTES` **逐位吻合**，分桶没有另起口径。
+//
+// ⚠ 用例② 那条「整数式 != *1.1 浮点式」的断言**不可照抄到分桶上**：浮点抬 1 字节只在
+//   合计基数 57,897,940 上发生；两桶基数上实测整数式与浮点式**相等**
+//   （BGM 63,408,029 == 63,408,029、SFX 279,706 == 279,706），照抄即恒红。
+//   本例只钉「上限 == 基线 ×1.10 的整数式上整」这条规则本身。
+//
+// 与既有分工不重叠：`audioKeys.test.ts` 钉键↔磁盘存在性、`audioDirectorKeys.test.ts`
+// 钉 selectBgmKey 值域，两者都不看字节；本例只新增「dist 是否同源」与「单桶是否被放宽」。
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+
+/** 打包产物侧音频目录（`npm run build` 才有；缺目录时例 ④ 放行不判红）。 */
+const DIST_AUDIO_DIR = join(__dirname, '..', '..', '..', '..', 'dist', 'renderer', 'audio');
+
+/** BGM 桶当次实测基线（9 件 mp3）。上限走同一整数式规则，见例 ⑤。 */
+const BGM_BASELINE_BYTES = 57_643_662;
+const MAX_BGM_BYTES = 63_408_029; // = Math.ceil(57_643_662 × 1.10 整数式)；余量 5,764,367 B
+/** SFX 桶当次实测基线（6 件 wav，含 sfx_click/sfx_warn 那对硬链接各计一份）。 */
+const SFX_BASELINE_BYTES = 254_278;
+const MAX_SFX_BYTES = 279_706; // = Math.ceil(254_278 × 1.10 整数式)；余量 25,428 B
+
+const BGM_NAME_RE = /^bgm_.*\.mp3$/;
+const SFX_NAME_RE = /^sfx_.*\.wav$/;
+
+/** dist 侧 skip 守卫：**只**认「目录不存在」这一件事，参数化以便例内自证不是恒绿／恒跳。 */
+function distAudioMissingFor(dir: string): boolean {
+  return !existsSync(dir);
+}
+
+/** 整件 md5（与 c922-14 的 dist↔public 同源比对口径一致）。 */
+function md5OfFile(path: string): string {
+  return createHash('md5')
+    .update(readFileSync(path))
+    .digest('hex');
+}
+
+describe('c924-22 体积哨兵扩面：dist 侧同源联动 + BGM/SFX 分桶上限', () => {
+  it('④ dist 同源联动：dist/renderer/audio 与 public/audio md5 逐对相同（dist 缺目录则放行不红）', () => {
+    // ── skip 守卫自证（完成标准③）：守卫必须双向可信，否则「打包链偷偷转码」会被静默放过 ──
+    // 真在册目录必判「不缺」⇒ 守卫不是恒 true（恒 true 等于把整例做成空壳）；
+    // 假目录必判「缺」⇒ 守卫不是恒 false（恒 false 会让未打包的工作树当场红，且缺目录时无人知晓）。
+    expect(distAudioMissingFor(AUDIO_DIR)).toBe(false);
+    expect(distAudioMissingFor(join(__dirname, '..', '..', '..', '..', 'dist', 'renderer', 'c924-22-no-such-audio-dir'))).toBe(true);
+
+    if (distAudioMissingFor(DIST_AUDIO_DIR)) return; // 未 build 的工作树 ⇒ 缺目录分支：放行（口径选择，同 c923-24 遗留①）
+
+    const pub = fileEntries(AUDIO_DIR).map((f) => f.name).sort();
+    const dis = fileEntries(DIST_AUDIO_DIR).map((f) => f.name).sort();
+    // 先钉件名集合：件名不齐时 `toEqual` 的红名比逐件 md5 更可归因（少了谁、多了谁一眼可见）
+    expect(dis).toEqual(pub);
+    const drifted: { name: string; publicMd5: string; distMd5: string }[] = [];
+    for (const name of pub) {
+      const publicMd5 = md5OfFile(join(AUDIO_DIR, name));
+      const distMd5 = md5OfFile(join(DIST_AUDIO_DIR, name));
+      if (publicMd5 !== distMd5) drifted.push({ name, publicMd5, distMd5 });
+    }
+    // 逐对同源：非空即「打包链引入了转码／拷贝差异」，本仓从没测过这条路 ⇒ 红名要能指出是哪件
+    expect(drifted).toEqual([]);
+  });
+
+  it('⑤ 分桶上限：BGM／SFX 各桶合计 ≤ 各自基线 ×1.10（整数式），且无文件逃出两桶', () => {
+    // ── 规则同源（完成标准②）：上限必须等于「该桶基线 ×1.10 的整数式上整」，只手改数字即红 ──
+    expect(MAX_BGM_BYTES).toBe(Math.ceil((BGM_BASELINE_BYTES * 11) / 10));
+    expect(MAX_SFX_BYTES).toBe(Math.ceil((SFX_BASELINE_BYTES * 11) / 10));
+    // 分桶必须与 c923-24 的合计基线自洽：两桶就是那 15 件，不许另起一套口径
+    expect(BGM_BASELINE_BYTES + SFX_BASELINE_BYTES).toBe(BASELINE_BYTES);
+    // 沿用②的防篡改护栏：上限既不能被做成恒红（== 基线），也不能被做成恒绿（天文数字）
+    for (const [max, base] of [
+      [MAX_BGM_BYTES, BGM_BASELINE_BYTES],
+      [MAX_SFX_BYTES, SFX_BASELINE_BYTES],
+    ] as const) {
+      expect(max).toBeGreaterThan(base);
+      expect(max - base).toBeGreaterThanOrEqual(Math.floor(base / 10));
+    }
+
+    // ── 实测面：按桶求和后各自过门 ──
+    const files = fileEntries(AUDIO_DIR);
+    const bgm = files.filter((f) => BGM_NAME_RE.test(f.name));
+    const sfx = files.filter((f) => SFX_NAME_RE.test(f.name));
+    // uncategorized 判空沿用③，但在这里它是**分桶门的成立前提**：逃出两桶的文件不受任何
+    // 单桶上限约束（仍受例①的合计门），必须显式暴露而不是让桶悄悄少装一件。
+    expect(
+      files
+        .filter((f) => !BGM_NAME_RE.test(f.name) && !SFX_NAME_RE.test(f.name))
+        .map((f) => f.name),
+    ).toEqual([]);
+    expect(bgm.length).toBe(9);
+    expect(sfx.length).toBe(6);
+
+    const bgmBytes = bgm.reduce((a, f) => a + f.size, 0);
+    const sfxBytes = sfx.reduce((a, f) => a + f.size, 0);
+    // 桶基线本身也必须当场对得上盘（钉桩数字与磁盘同源，同用例①的单向判据方向）
+    expect(bgmBytes, `BGM 桶当次实测 ${bgmBytes} B 与基线 ${BGM_BASELINE_BYTES} B 不同源（增删／换档要按文件头四步走）`).toBe(
+      BGM_BASELINE_BYTES,
+    );
+    expect(sfxBytes, `SFX 桶当次实测 ${sfxBytes} B 与基线 ${SFX_BASELINE_BYTES} B 不同源`).toBe(SFX_BASELINE_BYTES);
+    expect(
+      bgmBytes,
+      `BGM 桶 ${bgmBytes.toLocaleString('en-US')} B 超过单桶上限 ${MAX_BGM_BYTES.toLocaleString('en-US')} B`
+        + '（合计门没拦到、只有分桶能拦的「单曲变长」形态）',
+    ).toBeLessThanOrEqual(MAX_BGM_BYTES);
+    expect(
+      sfxBytes,
+      `SFX 桶 ${sfxBytes.toLocaleString('en-US')} B 超过单桶上限 ${MAX_SFX_BYTES.toLocaleString('en-US')} B`,
+    ).toBeLessThanOrEqual(MAX_SFX_BYTES);
+    // 两桶合计必须回到例①③ 的合计量纲：同一批文件既不能被数两次，也不能漏一件
+    expect(bgmBytes + sfxBytes).toBe(totalBytes(AUDIO_DIR));
+  });
+});
