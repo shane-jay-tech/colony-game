@@ -254,4 +254,46 @@ describe('PolicyTreePanel', () => {
     expect(store.isPaused()).toBe(false);
     expect(treePanelOpenFlag(scene)).toBe(false);
   });
+
+  it('真实路径：点朝令卡片的 pointerup → status.text 随 DECREE_ADOPTED 从「首阶」翻成进度态，重复点不二落账', () => {
+    panel.open();
+    // 先走真实 tab 入口（layout→refresh→refreshDecrees 写过基线），否则 policy tab 下卡片状态文案根本不被刷新
+    tabZoneOf(panel, 'tabDecreeZone').handlers.pointerup!();
+    expect(panel.getCurrentTab()).toBe('decree');
+
+    const cards = cardsOf(panel);
+    expect(cards).toHaveLength(2);
+    const card = cards[0]!;
+    const other = cards[1]!;
+    // 覆盖面自证：handler 确由生产代码登记在**这张卡**的 zone 上（PolicyTreePanel.ts buildDecreeCards 的
+    // zone.on('pointerup', () => this.handleDecreeClick(def))），且按 def.id 锁定枚数，不靠下标猜
+    expect(card.def.id).toBe('decree_a');
+    expect(typeof card.zone.handlers.pointerup).toBe('function');
+    // 动手前基线读数：未颁行 → 首阶文案（DECREE_FREE 的 stage0.cost 为空 ⇒ formatCost 出「免费」）
+    expect(store.getActiveDecrees()).toHaveLength(0);
+    expect(card.status.text).toBe('首阶 免费 · 5日');
+    expect(other.def.id).toBe('decree_b');
+    expect(other.status.text).toContain('首阶');
+
+    const adoptSpy = vi.spyOn(store, 'adoptDecree');
+    card.zone.handlers.pointerup!(); // ← 真实 handler，不经 clickDecreeByIndex
+
+    // adoptDecree → DECREE_ADOPTED → onDecreeChanged → refresh → refreshDecrees 自己把该卡翻成进度态
+    expect(adoptSpy).toHaveBeenCalledTimes(1);
+    expect(store.getActiveDecrees()).toHaveLength(1);
+    expect(card.status.text).toBe('第1阶 · 0/5日 (0%)');
+    expect(card.status.text).not.toContain('首阶');
+    expect(other.status.text).toContain('首阶'); // 闭包按 def 取卡：只翻被点的那张，邻卡不受牵连
+    expect(toast.show).not.toHaveBeenCalled();
+
+    // 反向自证：同枚再点一次 → 面板先用 getActiveDecrees 挡住 ⇒ adoptDecree 不被调第二次、文案不再漂
+    card.zone.handlers.pointerup!();
+    expect(adoptSpy).toHaveBeenCalledTimes(1);
+    expect(store.getActiveDecrees()).toHaveLength(1);
+    expect(store.getActiveDecrees()[0]!.id).toBe('decree_a');
+    expect(store.getActiveDecrees()[0]!.currentStage).toBe(0);
+    expect(store.getActiveDecrees()[0]!.daysElapsed).toBe(0);
+    expect(card.status.text).toBe('第1阶 · 0/5日 (0%)');
+    expect(String(toast.show.mock.calls.at(-1)?.[0])).toContain('已在推进');
+  });
 });
