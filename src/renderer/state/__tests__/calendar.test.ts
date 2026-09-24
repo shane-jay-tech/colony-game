@@ -80,7 +80,8 @@ describe('c922-12 dayToCalendar 边界钉桩', () => {
   it('⑤ NaN 现状钉桩（记录缺陷，不是认可）', () => {
     // Math.max(0, NaN) === NaN，返回值里三个字段全 NaN；
     // 签名上的 `as 0 | 1 | 2 | 3` 只是断言，编译期不会拦。
-    // 上游若把存档脏值直接喂进来（saveLoad 侧另有 dayClamp 兜底），这里没有任何守卫。
+    // 上游把脏 day 喂进来时这里仍无任何守卫（订正来源 c923-11 §7，逐字照抄后半句）：
+    // saveLoad 侧 `MAX_SAVE_CURRENT_DAY` 只保证有限非负且**不保证整数**；tick 侧 `Math.min` 只截上界。
     const c = dayToCalendar(Number.NaN);
     expect(Number.isNaN(c.year)).toBe(true);
     expect(Number.isNaN(c.season)).toBe(true);
