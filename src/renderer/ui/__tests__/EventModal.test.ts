@@ -305,4 +305,28 @@ describe('EventModal', () => {
     expect(modal.getButtonCount()).toBe(0);
     expect(store.isPaused()).toBe(false);
   });
+
+  // ---- c924-03：displayHeight 布局输入的哨兵（补 c923-02 登记的失明面，判据按磁盘实况收窄）----
+  // 上游建议「layout 后的 container y／面板高度随 displayHeight 变化」**两处都不可用**：
+  //   panelH 未夹值 = 20+24+16+24+16+88+20+24 = 232 < PANEL_MIN_HEIGHT 280 ⇒ 被 :277 夹回 280，
+  //   panelY 恒 260、container 也不位移（子件走绝对坐标）——displayHeight 的影响被夹掉了。
+  // 未被夹的下游量只有 :315/:319 两行（正文 y 累加 titleH、倒计时 y 再累加 bodyH；:311 标题 y 只当基线用），
+  // 故哨兵钉这三处＋一条 toggle 反向对照。
+  // 判别力自证见 result：把 :39 的 makeFakeTextSized(24) 改 18 ⇒ 后两条期望值各减 6/12，断言当场红。
+  it('布局哨兵：title/body/倒计时的 y 逐层累加 displayHeight（夹具 24→其它值即红）', () => {
+    triggerEvent(store, modal, EVT_CHOICE.id); // EVENT_TRIGGERED → handleTriggered → layout()（EventModal.ts:153）
+    const t = modal as unknown as {
+      titleText: ReturnType<typeof makeFakeTextSized>;
+      bodyText: ReturnType<typeof makeFakeTextSized>;
+      countdownText: ReturnType<typeof makeFakeTextSized>;
+      toggleText: ReturnType<typeof makeFakeTextSized>;
+    };
+    // panelX=443=floor((1366-480)/2)、panelY=260=floor((800-280)/2)、padding=20、sectionGap=16、imgBlock=0
+    // 反向对照放**最前**：vitest 在本例首个失败处即中止，排在前面才能在变异态下被执行到，
+    // 从而实测"不含 displayHeight 的坐标不动"（toggle 走右上角常量：443+480-64+28=887、260+12+11=283）。
+    expect(t.toggleText.setPosition).toHaveBeenLastCalledWith(887, 283);
+    expect(t.titleText.setPosition).toHaveBeenLastCalledWith(463, 280);
+    expect(t.bodyText.setPosition).toHaveBeenLastCalledWith(463, 320); // 280 + titleH(24) + 16
+    expect(t.countdownText.setPosition).toHaveBeenLastCalledWith(463, 348); // 320 + bodyH(24) + 4
+  });
 });

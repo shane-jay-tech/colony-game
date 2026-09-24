@@ -149,4 +149,27 @@ describe('TutorialModal', () => {
     store.releasePause('event');
     expect(store.isPaused()).toBe(false);
   });
+
+  // ---- c924-03：displayHeight 布局输入的哨兵（补 c923-02 登记的失明面，判据按磁盘实况收窄）----
+  // 上游建议「layout 后的 container y／面板高度随 displayHeight 变化」**在本模态根本不成立**：
+  // PANEL_HEIGHT 是常量 380（TutorialModal.ts:25），panelY 恒 210，displayHeight 进不去高度算式。
+  // 真正吃 displayHeight 的是 :213/:218 的 introY/stepsY 累加，故哨兵钉那两行＋一条**反向对照**
+  // （footerText 走 PANEL_HEIGHT 常量，与 displayHeight 无关）——变异夹具时前者红、后者不动，
+  // 证明断言盯的是 displayHeight 而不是"所有坐标都在动"。
+  it('布局哨兵：intro/steps 的 y 累加 displayHeight，footer 不随其变（夹具 22→其它值即红）', () => {
+    modal = new TutorialModal(scene, store); // 默认 tutorialStepId=tut_welcome → openModal → layout()（:128）
+    const t = modal as unknown as {
+      titleText: ReturnType<typeof makeFakeTextSized>;
+      introText: ReturnType<typeof makeFakeTextSized>;
+      stepsText: ReturnType<typeof makeFakeTextSized>;
+      footerText: ReturnType<typeof makeFakeTextSized>;
+    };
+    // panelX=423=floor((1366-520)/2)、panelY=210=floor((800-380)/2)、padding=24；夹具 displayHeight=22
+    // 反向对照放**最前**（理由：vitest 首个失败即中止本例，排前面才能在变异态下被执行到）——
+    // btnY=210+380-24-44=522、footer=btnY-22=500，算式全程不含 displayHeight。
+    expect(t.footerText.setPosition).toHaveBeenLastCalledWith(447, 500);
+    expect(t.titleText.setPosition).toHaveBeenLastCalledWith(447, 234);
+    expect(t.introText.setPosition).toHaveBeenLastCalledWith(447, 268); // 234 + titleH(22) + 12
+    expect(t.stepsText.setPosition).toHaveBeenLastCalledWith(447, 306); // 268 + introH(22) + 16
+  });
 });
