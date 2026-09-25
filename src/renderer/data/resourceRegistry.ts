@@ -116,11 +116,18 @@ export function addBags(a: ResourceBag, b: ResourceBag): ResourceBag {
   return out;
 }
 
-/** 检查 bag 是否能支付 cost。负数 cost 视为非法定义，按"付不起"处理（见 buildingRegistry 启动校验）。 */
+/**
+ * 检查 bag 是否能支付 cost。负数 cost 视为非法定义，按"付不起"处理（见 buildingRegistry 启动校验）。
+ *
+ * c925-6c4b：非有限值（NaN / ±Infinity）同按"付不起"处理。
+ * 旧写法 `required < 0` 与 `required > 0 && bag < required` 两关都挡不住 NaN
+ * （NaN 参与任何 `<` 比较恒为 false）⇒ 一格 NaN 造价会**静默放行**，
+ * 随后 placeBuilding 的 `current - amount` 把库存冲成 NaN。此处只收紧判据、不改任何平衡数值。
+ */
 export function canAfford(bag: ResourceBag, cost: ResourceCost): boolean {
   for (const id of RESOURCE_IDS) {
     const required = cost[id] ?? 0;
-    if (required < 0) return false;
+    if (!Number.isFinite(required) || required < 0) return false;
     if (required > 0 && (bag[id] ?? 0) < required) return false;
   }
   return true;

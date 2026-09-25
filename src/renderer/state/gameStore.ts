@@ -402,8 +402,10 @@ export class GameStore implements IStateEventEmitter {
   private endgameWavesSurvived = 0;
   /** P2 瞬态：当前三幕时间轴幕 id（由 currentDay 推导；幕切换时发 banner，不持久化） */
   private lastActId: string = 'act_barbarians';
-  /** A-6 瞬态：史官谏言追踪（不持久化，重载后从 0 开始累积） */
-  private historianGrainNegDays = 0;
+  /** A-6 瞬态：史官谏言追踪（不持久化，重载后从 0 开始累积）。
+   *  c925-db58：删去原 historianGrainNegDays——它以「存粮 < 0」为累加条件，而存粮经
+   *  setResourceClamped 恒 ≥0，故该计数器恒为 0（死源），且读档归零后与存档不同源。
+   *  史官缺粮谏言现直接读持久字段 state.grainNegativeDays（见 runHistorianTick）。 */
   private historianIdleDays = 0;
   private historianGradeAscended = false;
 
@@ -643,7 +645,15 @@ export class GameStore implements IStateEventEmitter {
     return Math.round(GameStore.RESOURCE_CAP_BASE * mul);
   }
 
+  /**
+   * c925-6c4b：NaN 整笔拒绝（保持原值），不把 NaN 写进库存。
+   * 旧式 `Math.min(cap, Math.max(0, Math.floor(NaN)))` 逐层透传 NaN ⇒ 顶栏从此恒显 NaN，
+   * 且 `NaN >= 造价` 恒 false 会让玩家永久买不起该资源。
+   * 溢出（±Infinity）**不走此闸**：Math.max/min 已把它稳定钳到 0 / 上限，属既有正确行为，
+   * 由 priceBoundaryClamp.test.ts 的溢出例钉住（收窄口径见 result A2）。
+   */
   private setResourceClamped(id: ResourceId, value: number): void {
+    if (Number.isNaN(value)) return;
     this.state.resources[id] = Math.min(this.getResourceCap(id), Math.max(0, Math.floor(value)));
   }
 
@@ -669,6 +679,9 @@ export class GameStore implements IStateEventEmitter {
   }
 
   addResource(id: ResourceId, amount: number, reason?: string): void {
+    // c925-6c4b：NaN 增量连库存带事件一起拒绝——只挡库存不挡事件会把 NaN 的 deltas
+    // 推给 HUD（顶栏 / ProductionPanel）。±Infinity 不在此拦，交由 setResourceClamped 钳到 0 / 上限。
+    if (Number.isNaN(amount)) return;
     const current = this.state.resources[id] ?? 0;
     this.setResourceClamped(id, current + amount);
     const deltas: Partial<Record<ResourceId, number>> = { [id]: amount };
@@ -2209,8 +2222,10 @@ export class GameStore implements IStateEventEmitter {
   }
 
   private runHistorianTick(): void {
-    const grain = this.state.resources.grain ?? 0;
-    this.historianGrainNegDays = grain < 0 ? this.historianGrainNegDays + 1 : 0;
+    // c925-db58：缺粮天数取**存档明文字段**，不再用运行时计数器。
+    // 旧写法 `this.historianGrainNegDays = (resources.grain < 0) ? +1 : 0` 恒为 0——
+    // 存粮经 setResourceClamped 已 clamp≥0，`grain < 0` 永假 ⇒ hist_02_grain_low（"粮已见底"）
+    // 在真实跑图里根本发不出；且该计数器不持久化、replaceState 读档后归零，与存档不同源。
     this.historianIdleDays++;
 
     const cal = dayToCalendar(this.state.currentDay);
@@ -2218,7 +2233,7 @@ export class GameStore implements IStateEventEmitter {
     const ctx: HistorianContext = {
       currentDay: this.state.currentDay,
       isFirstDay: this.state.currentDay === 1,
-      grainNegativeDays: this.historianGrainNegDays,
+      grainNegativeDays: this.state.grainNegativeDays,
       gold: this.state.resources.gold ?? 0,
       hasGoldCostBuilding: this.state.buildings.some(b => b.status === 'constructing'),
       policyPanelUnlocked: this.state.grade >= 1 && this.state.policies.every(p => !p.adopted),
@@ -2896,7 +2911,6 @@ export class GameStore implements IStateEventEmitter {
     this.pauseHolders.clear();
     this.storyTransitionPending = false;
     this.breathingState = createBreathingState();
-    this.historianGrainNegDays = 0;
     this.historianIdleDays = 0;
     this.historianGradeAscended = false;
     this.emitter.emit(STATE_EVENTS.STATE_REPLACED, undefined);
