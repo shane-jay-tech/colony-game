@@ -549,9 +549,7 @@ export function deserialize(blob: unknown): GameState {
     generals: Array.isArray(s.generals)
       ? s.generals.map(g => ({ id: String(g.id), loyalty: Math.max(0, Math.min(100, finiteNum(g.loyalty, 80))), deployed: !!g.deployed }))
       : [],
-    activeExpeditions: Array.isArray(s.activeExpeditions)
-      ? s.activeExpeditions.map(e => ({ ...e, config: { ...e.config, units: { ...e.config.units } } }))
-      : [],
+    activeExpeditions: deserializeActiveExpeditions(s.activeExpeditions),
     defenseAlerts: Array.isArray(s.defenseAlerts) ? s.defenseAlerts.map(a => ({ ...a })) : [],
   };
   return gameState;
@@ -652,6 +650,45 @@ function deserializeMegaProjects(raw: unknown): MegaProjectProgress[] {
       currentPhase: typeof o['currentPhase'] === 'number' ? Math.max(0, Math.floor(o['currentPhase'] as number)) : 0,
       daysRemaining: typeof o['daysRemaining'] === 'number' ? Math.max(0, Math.floor(o['daysRemaining'] as number)) : 0,
       completed: o['completed'] === true,
+    });
+  }
+  return out;
+}
+
+/**
+ * 20260925-120418-82c6：出征记录 shape 校验。
+ * 旧实现 `s.activeExpeditions.map(e => ({ ...e, config: { ...e.config, units: { ...e.config.units } } }))`
+ * 在坏档（元素缺 config / config 缺 units / 元素非对象）上抛**裸 TypeError**
+ * （`Cannot read properties of undefined (reading 'units')`），绕开 020c 立起来的
+ * SaveLoadError 统一通道——面板只会显示一句与存档无关的栈内话术，玩家无从定位是哪个槽哪条记录。
+ * 口径：只补「拒载 + 下标定位」，合法档的**逐条深拷贝**语义（读入状态与 blob 不共享嵌套引用）一字未改。
+ */
+function deserializeActiveExpeditions(raw: unknown): ActiveExpedition[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    throw new SaveLoadError('activeExpeditions must be an array');
+  }
+  const out: ActiveExpedition[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const e = raw[i];
+    if (typeof e !== 'object' || e === null || Array.isArray(e)) {
+      throw new SaveLoadError(`activeExpeditions[${i}] is not an object`);
+    }
+    const rec = e as Record<string, unknown>;
+    const cfg = rec['config'];
+    if (typeof cfg !== 'object' || cfg === null || Array.isArray(cfg)) {
+      throw new SaveLoadError(`activeExpeditions[${i}].config is missing or not an object`);
+    }
+    const units = (cfg as Record<string, unknown>)['units'];
+    if (typeof units !== 'object' || units === null || Array.isArray(units)) {
+      throw new SaveLoadError(`activeExpeditions[${i}].config.units is missing or not an object`);
+    }
+    out.push({
+      ...(e as ActiveExpedition),
+      config: {
+        ...(cfg as ActiveExpedition['config']),
+        units: { ...(units as ActiveExpedition['config']['units']) },
+      },
     });
   }
   return out;
