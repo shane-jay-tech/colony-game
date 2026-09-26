@@ -99,6 +99,7 @@ npm run postprocess-png # AI 素材 PNG 后处理
 
 ## 文档
 
+- `docs/CHANGELOG.md`：变更志（按功能/修复/兼容性/已知限制四类，每条带证据提交与测试件）
 - `docs/release-notes-v0.10.0.md`：v0.10.0 发行说明
 - `docs/design/00_上手须知_START_HERE.md`：接手开发速览
 - `docs/design/GAME_DESIGN_LIFECYCLE.md`：完整游戏设计
