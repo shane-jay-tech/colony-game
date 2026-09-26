@@ -22,6 +22,8 @@ function validV9(overrides: Record<string, unknown> = {}): Record<string, unknow
       policies: [],
       activeModifiers: [],
       activeDecrees: [],
+      // r5 B2：eventHistory 是载荷字段（缺它＝拒载）⇒ 最小合法档必须带上
+      eventHistory: [],
       storyFlags: {},
       ...overrides,
     },

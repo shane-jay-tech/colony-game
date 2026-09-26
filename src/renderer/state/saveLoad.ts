@@ -403,6 +403,20 @@ export function deserialize(blob: unknown): GameState {
   }
   const s = data.state;
 
+  // r5 B2（2026-09-27 用户裁决）：**载荷性字段缺失 = 拒载**，不再静默回填。
+  // 旧行为（本文件 :413 回填 12345 ／ :453 回填 []）会让回放静默换轨——实测评测：
+  // 删掉 rngSeed 后续跑事件流与真值不同（replaySnapshotContent.test.ts C2 组三条）。
+  // 只对**当版**存档判缺；低版存档先走 runMigrations（迁移链负责补默认），不在此拦。
+  if (schemaVersion === SAVE_SCHEMA_VERSION) {
+    const missingLoadBearing = (['rngSeed', 'eventHistory'] as const).filter((k) => s[k] === undefined);
+    if (missingLoadBearing.length > 0) {
+      throw new SaveLoadError(
+        `Save missing load-bearing field(s): ${missingLoadBearing.join(', ')} ` +
+          '(refusing to load: silent backfill would switch the replay track)',
+      );
+    }
+  }
+
   // clamp speed to the literal union 0|1|2|3; a corrupted save shouldn't be able to
   // smuggle in 99 or -1 and crash downstream code that assumes the union.
   const rawSpeed = s.speed;

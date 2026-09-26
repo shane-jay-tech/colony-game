@@ -301,7 +301,9 @@ function minimalBlob(): SaveBlob {
   return {
     schemaVersion: SAVE_SCHEMA_VERSION,
     savedAt: 1700000000000,
-    state: { currentDay: 30, rngSeed: 777, resources: { grain: 10 }, buildings: [] },
+    // r5 B2：eventHistory 是载荷字段（缺它＝拒载）⇒ 本组"最小合法档"必须带上它，
+    // 否则 C1 的形状反例会被缺字段闸先拦下，测不到目标判据（下面 C2 组专门测"删掉它"）。
+    state: { currentDay: 30, rngSeed: 777, resources: { grain: 10 }, buildings: [], eventHistory: [] },
   };
 }
 
@@ -347,7 +349,7 @@ function tileBlob(n: number): SaveBlob[] {
   return Array.from({ length: n }, () => ({ terrain, buildable: true, walkable: true }));
 }
 
-describe('C2 缺字段不拒绝（不成立的那一面，登记待裁）：seed / 事件账本 静默回填且会改写回放轨迹', () => {
+describe('C2 缺失字段的处置（r5 B2 裁决已落地）：载荷字段拒载，UI 字段仍回填默认', () => {
   /**
    * 手法：跑 PRE 天拿真快照 → 从**盘上字节**里删掉一个字段 → 读档续跑 → 与"未删字段"的真值流比。
    * 三个结局分开钉：
@@ -395,18 +397,18 @@ describe('C2 缺字段不拒绝（不成立的那一面，登记待裁）：seed
     return { restoredValue, diverged: streamKey(rows) !== streamKey(truthRows), throws };
   }
 
-  it('删 rngSeed ⇒ 不拒绝，回填 12345，且续跑事件流与真值不同（🔴 待裁：静默换轨）', () => {
+  it('删 rngSeed ⇒ **拒载**（r5 B2：载荷字段缺失不再静默回填、不静默换轨）', () => {
     const r = replayAfterDeleting('rngSeed');
-    expect(r.throws).toBe(null);
-    expect(r.restoredValue).toBe(12345);
-    expect(r.diverged).toBe(true);
+    expect(r.throws).toMatch(/missing load-bearing field/);
+    expect(r.throws).toContain('rngSeed');
+    expect(r.restoredValue).toBeUndefined();
   });
 
-  it('删 eventHistory ⇒ 不拒绝，回填 []，且续跑事件流与真值不同（🔴 待裁：防重复账本丢失可见）', () => {
+  it('删 eventHistory ⇒ **拒载**（r5 B2：防重复账本丢失，不许当空账本放行）', () => {
     const r = replayAfterDeleting('eventHistory');
-    expect(r.throws).toBe(null);
-    expect(r.restoredValue).toEqual([]);
-    expect(r.diverged).toBe(true);
+    expect(r.throws).toMatch(/missing load-bearing field/);
+    expect(r.throws).toContain('eventHistory');
+    expect(r.restoredValue).toBeUndefined();
   });
 
   it('反向对照：删 panelCollapsed ⇒ 不拒绝、回填默认、事件流不变（证明上面两条差异归因于字段载荷性）', () => {

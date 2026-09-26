@@ -128,7 +128,9 @@ describe('② 库存与消耗的边界（纯函数层无闸，真路径有闸）
     const st = deserialize(JSON.parse(JSON.stringify({
       schemaVersion: SAVE_SCHEMA_VERSION,
       savedAt: 1,
-      state: { resources: { grain: -5000, wood: -0.5 }, currentDay: 5, rngSeed: 3, buildings: [] },
+      // r5 B2：eventHistory 是载荷字段（缺它＝拒载）⇒ 本夹具补上它，
+      // 让这条 🔴 钉子继续钉"负数库存不被资源闸拦下"这一面，而不是被缺字段闸先拦。
+      state: { resources: { grain: -5000, wood: -0.5 }, currentDay: 5, rngSeed: 3, buildings: [], eventHistory: [] },
     })));
     expect(st.resources['grain']).toBe(-5000);
     expect(st.resources['wood']).toBe(-0.5);
