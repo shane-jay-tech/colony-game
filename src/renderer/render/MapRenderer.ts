@@ -78,7 +78,7 @@ export class MapRenderer {
   private buildingImages: Phaser.GameObjects.Image[] = [];
   /** W4 散布层：树/石等绝对坐标精灵，一次性烘焙，随 recenter 平移（与建筑精灵同机制）。 */
   private scatterImages: Phaser.GameObjects.Image[] = [];
-  /** 地形贴图层（TileSprite + 类型遮罩）：把 plain.png 等无缝纹理贴到对应地形 tile。
+  /** 地形贴图层（TileSprite + 类型遮罩）：把 plain.webp 等无缝纹理贴到对应地形 tile。
    *  不用当年出畸变的 RenderTexture，改 TileSprite+GeometryMask。每种地形一层。 */
   private terrainTexLayers: { sprite: Phaser.GameObjects.TileSprite; maskGfx: Phaser.GameObjects.Graphics }[] = [];
   /** 平行数组：上次每个 image 的 textureKey，用于跳过未变 setTexture（避免重测纹理） */
@@ -523,7 +523,7 @@ export class MapRenderer {
   }
 
   /**
-   * 地形贴图层：把无缝纹理(terrain_<t>.png)贴到对应地形 tile 上。
+   * 地形贴图层：把无缝纹理(terrain_<t>.webp)贴到对应地形 tile 上。
    * 用 TileSprite(平铺纹理)+ 类型 GeometryMask(裁成该地形的菱形群)——避开当年出畸变的 RenderTexture。
    * TileSprite 超尺寸覆盖整图、由遮罩裁形；深度 -9（纯色地形 -10 之上、节点/建筑/散布之下）。
    * 一次性烘焙；随 recenter 平移。缺纹理则跳过（该地形保留纯色）。
