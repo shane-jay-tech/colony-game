@@ -23,7 +23,10 @@ type FakeZone = ReturnType<typeof makeFakeZone>;
 // 原容器可见性 setter 的本地覆写亦删：共享 makeFakeContainer 已把该赋值记进 .visible
 // （fakeScene.ts:95），本文件 isVisible() 断言走的是同一字段——覆写属重复建设（c922-125 遗留3）。
 
-function makeFakeScene(scale = { width: 1366, height: 800 }) {
+// c927-74：第二形参 `textSize` 可选且默认 24 ⇒ 既有调用（beforeEach 单参）零翻转；
+// 存在理由见文末「被夹分支看守」两例——panelH 的夹值分支要换**更大的正文高度**才看得到，
+// 单一常量夹具（24）永远停在被 PANEL_MIN_HEIGHT 夹住的那一段。
+function makeFakeScene(scale = { width: 1366, height: 800 }, textSize = 24) {
   const containers: ReturnType<typeof makeFakeContainer>[] = [];
   const zones: FakeZone[] = [];
   const texts: ReturnType<typeof makeFakeTextSized>[] = [];
@@ -36,7 +39,7 @@ function makeFakeScene(scale = { width: 1366, height: 800 }) {
       }),
       graphics: vi.fn(makeFakeGraphics),
       text: vi.fn(() => {
-        const t = makeFakeTextSized(24);
+        const t = makeFakeTextSized(textSize);
         texts.push(t); return t;
       }),
       zone: vi.fn(() => {
@@ -103,6 +106,11 @@ const bodyTextOf = (m: EventModal): { text: string } =>
   (m as unknown as { bodyText: { text: string } }).bodyText;
 const toggleLabelOf = (m: EventModal): { text: string } =>
   (m as unknown as { toggleText: { text: string } }).toggleText;
+/** c927-74：面板背景是 panelH 唯一的落笔处（EventModal.ts:292 fillRect / :296 内框 strokeRect）。
+ *  只声明本批断言要读的两枚 vi.fn，避免 Record<string, unknown> 在 expect 上失型。 */
+type FakePanelGfx = { fillRect: ReturnType<typeof vi.fn>; strokeRect: ReturnType<typeof vi.fn> };
+const panelBgOf = (m: EventModal): FakePanelGfx =>
+  (m as unknown as { panelBg: FakePanelGfx }).panelBg;
 const eventHistoryOf = (s: GameStore): string[] =>
   (s as unknown as { state: { eventHistory: string[] } }).state.eventHistory;
 
@@ -328,5 +336,73 @@ describe('EventModal', () => {
     expect(t.titleText.setPosition).toHaveBeenLastCalledWith(463, 280);
     expect(t.bodyText.setPosition).toHaveBeenLastCalledWith(463, 320); // 280 + titleH(24) + 16
     expect(t.countdownText.setPosition).toHaveBeenLastCalledWith(463, 348); // 320 + bodyH(24) + 4
+  });
+
+  // ---- c927-74：PANEL_MIN/MAX 被夹分支看守（收 c924-03 遗留1，生产码零改动）----
+  // c924-03 只收了「未被夹的下游累加」，因为它那枚 24 正文夹具下 panelH_raw=232 恒被 :277 夹回
+  // PANEL_MIN_HEIGHT(280) ⇒ panelY 恒 260、面板几何对 displayHeight 完全失明 ⇒
+  // 上游原判据「面板高度随 displayHeight 变」当时不可断。此处按遗留建议**加第二/第三枚夹具**（大正文）
+  // 把 panelH_raw 推到 280 之上，让 :277 的两侧夹值各成一条可断分支：
+  //   下限之上（raw ∈ (280,520]）⇒ panelH/panelY **随** displayHeight 变；
+  //   上限（raw > 520）⇒ panelH **封顶 520**、面板几何对 displayHeight 再次失明（子件不受夹，见例2 注）。
+  // 现行为公式（无插画 ⇒ imgBlock=0；EVT_CHOICE 两枚选项 ⇒ buttonsH=2*40+8=88）：
+  //   panelH_raw = 20 + 0 + N + 16 + N + 16 + 88 + 20 + 24 = 2N + 184   （EventModal.ts:276）
+  //   panelY = floor((800 - panelH)/2)、panelX = floor((1366-480)/2) = 443      （:279-280）
+
+  /** 另起一套 scene/store/modal 并触发事件（describe 级 beforeEach 那套恒为 24 正文，见 :26 工厂注释）。 */
+  function modalWithTextSize(textSize: number) {
+    const sc = makeFakeScene({ width: 1366, height: 800 }, textSize);
+    const st = makeStore([EVT_CHOICE, EVT_NOTIFY]);
+    const mo = new EventModal(sc, st);
+    triggerEvent(st, mo, EVT_CHOICE.id);
+    return {
+      mo,
+      gfx: panelBgOf(mo),
+      t: mo as unknown as {
+        titleText: ReturnType<typeof makeFakeTextSized>;
+        bodyText: ReturnType<typeof makeFakeTextSized>;
+        countdownText: ReturnType<typeof makeFakeTextSized>;
+        toggleText: ReturnType<typeof makeFakeTextSized>;
+      },
+      btns: buttonsOf(mo),
+    };
+  }
+
+  it('被夹分支看守（下限之上）：正文加高使 panelH_raw 越过 280 后面板几何随 displayHeight 变（N=100／150 两夹具，24 夹具同例作反向对照）', () => {
+    triggerEvent(store, modal, EVT_CHOICE.id); // describe 级 24 夹具：raw=232 ⇒ 被下限夹回 280
+    const a = modalWithTextSize(100); // raw=384 ∈ (280,520] ⇒ 未被夹 ⇒ panelH=384、panelY=208
+    const b = modalWithTextSize(150); // raw=484 ⇒ panelH=484、panelY=158
+
+    // 反向对照置前：两枚大夹具之间高度差 **恰等于** 正文差 2*(150-100)=100（displayHeight 进 panelH 两次）
+    expect(a.gfx.fillRect).toHaveBeenLastCalledWith(443, 208, 480, 384);
+    expect(b.gfx.fillRect).toHaveBeenLastCalledWith(443, 158, 480, 484);
+    // 而被夹段（24 夹具）恒 280／panelY 恒 260 ⇒ 同一段代码的两侧分支不可能互换
+    expect(panelBgOf(modal).fillRect).toHaveBeenLastCalledWith(443, 260, 480, 280);
+
+    // panelY 参与的子件坐标逐层钉住（变异自证见 result：动 :276 的 countdown 预留 ⇒ 只本例红）
+    expect(a.t.titleText.setPosition).toHaveBeenLastCalledWith(463, 228); // 208 + padding(20)
+    expect(a.t.bodyText.setPosition).toHaveBeenLastCalledWith(463, 344); // 228 + titleH(100) + gap(16)
+    expect(a.t.countdownText.setPosition).toHaveBeenLastCalledWith(463, 448); // 344 + bodyH(100) + 4
+    expect(a.t.toggleText.setPosition).toHaveBeenLastCalledWith(887, 231); // 右上角：443+480-64+28、208+12+11
+    expect(a.btns[0]!.zone.setPosition).toHaveBeenLastCalledWith(463, 484); // 208+384-20-88（底部按钮区随 panelH）
+    expect(b.t.titleText.setPosition).toHaveBeenLastCalledWith(463, 178); // 158 + 20
+    expect(b.btns[0]!.zone.setPosition).toHaveBeenLastCalledWith(463, 534); // 158+484-20-88
+  });
+
+  it('被夹分支看守（上限封顶）：raw>520 时面板几何对 displayHeight 再次失明（N=200／300 两夹具面板矩形全等），子件坐标仍按未夹 raw 累加＝现行为溢出', () => {
+    const c = modalWithTextSize(200); // raw=584 ⇒ min(520,·) ⇒ panelH=520、panelY=140
+    const d = modalWithTextSize(300); // raw=784 ⇒ 同样封顶 520、panelY=140
+
+    // 夹住的是**面板**：两枚相差 100 正文高度的夹具，面板矩形与内框逐字全等 ⇒ 上限分支对 displayHeight 失明
+    expect(c.gfx.fillRect).toHaveBeenLastCalledWith(443, 140, 480, 520);
+    expect(d.gfx.fillRect).toHaveBeenLastCalledWith(443, 140, 480, 520);
+    expect(c.gfx.strokeRect).toHaveBeenLastCalledWith(447, 144, 472, 512); // 内框 :296（最后一次 strokeRect）
+    expect(d.gfx.strokeRect).toHaveBeenLastCalledWith(447, 144, 472, 512);
+    // 但子件没被夹：仍按 raw 的 titleH/bodyH 累加 ⇒ N=300 时倒计时 y=780 已越过面板底 660
+    // ⇒ 这是**现行为**（钉死它，不是判它对）：日后有人给子件加夹或改成滚动区，本例必红，需显式改判据。
+    expect(c.t.bodyText.setPosition).toHaveBeenLastCalledWith(463, 376); // 140+20 + 200 + 16
+    expect(c.t.countdownText.setPosition).toHaveBeenLastCalledWith(463, 580); // 376 + 200 + 4
+    expect(d.t.bodyText.setPosition).toHaveBeenLastCalledWith(463, 476); // 160 + 300 + 16
+    expect(d.t.countdownText.setPosition).toHaveBeenLastCalledWith(463, 780); // 476 + 300 + 4
   });
 });
