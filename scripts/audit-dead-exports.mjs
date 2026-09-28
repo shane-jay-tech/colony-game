@@ -53,8 +53,21 @@ if (testFiles.some((p) => !p.includes('__tests__'))) {
 const EXPORT_RE = /^export\s+(?:const|function|class|let)\s+([A-Za-z_$][\w$]*)/gm;
 const entries = [];
 
+// c927-64 案 B（诊断见 docs/insights/colony-de-slowtail-diagnosis-20260924.md §4）：文件内容记忆化。
+// 热点是无缓存重复读盘——同一文件被重读约「值导出数」遍（readFileSync 占单轮 96.9%）。
+// 只加一层 path→内容 缓存，读法与编码（utf8）不变 ⇒ 判定逻辑与计数口径零改动。
+const contentCache = new Map();
+function readCached(p) {
+  let txt = contentCache.get(p);
+  if (txt === undefined) {
+    txt = fs.readFileSync(p, 'utf8');
+    contentCache.set(p, txt);
+  }
+  return txt;
+}
+
 for (const file of files) {
-  const src = fs.readFileSync(file, 'utf8');
+  const src = readCached(file);
   EXPORT_RE.lastIndex = 0;
   let m;
   while ((m = EXPORT_RE.exec(src)) !== null) {
@@ -65,10 +78,10 @@ for (const file of files) {
     let testHits = 0;
     for (const other of files) {
       if (other === file) continue;
-      nonTestHits += (fs.readFileSync(other, 'utf8').match(wordRe) || []).length;
+      nonTestHits += (readCached(other).match(wordRe) || []).length;
     }
     for (const t of testFiles) {
-      const txt = fs.readFileSync(t, 'utf8');
+      const txt = readCached(t);
       testHits += (txt.match(wordRe) || []).length;
     }
     const ownOccurrences = (src.match(wordRe) || []).length;

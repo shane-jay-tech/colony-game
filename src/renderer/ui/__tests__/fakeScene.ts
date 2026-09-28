@@ -44,10 +44,24 @@ export function makeFakeText() {
  * 收编时若把它们压成默认值就是改夹具语义，故用本工厂显式声明，实现仍只有 makeFakeText 一份。
  * ⚠ 本工厂首参是**数字**，不可当 Phaser `add.text(x, y, str)` 的位置参直传
  * （`text: vi.fn(() => makeFakeTextSized(24))` 才是正确接法）。
+ * c927-65（主班 2026-09-28 对 c923-13 在册裁决给的「允许扩面」口径）：**新增第二形参 `size?`（可选）**。
+ *   存在理由：FactionDemandModal.ts:139-142 把 **`titleText.height` / `bodyText.height` 当活布局输入**
+ *   （`panelH = 24 + titleH + 14 + bodyH + 20 + btnH + 24` → `py` → `setPosition`/`fillRect` 实参），
+ *   而该文件本地 `fakeText` 是 `width: 120 / height: 20`（`FactionDemandModal.test.ts:16`），
+ *   共享件默认是 `width: 100 / height: 18`（`:30`）⇒ 直接换 import 同样是改夹具语义。
+ *   首参只覆盖 displayHeight，故按 c927-51 产出档 §2.2 的最小形状补 `size?`：
+ *   **纯可选参**，既有两消费者（EventModal/TutorialModal）不传 ⇒ 零翻转；回滚＝删掉这个可选形参与两行赋值。
+ *   ⚠ 本班只落共享件腿：`FactionDemandModal.test.ts` 本体**未改**（班令：不改别人的测试），
+ *     其收编留待按本形状另笔执行（同笔提交面见 c927-65 result 的「必须同笔」清单）。
  */
-export function makeFakeTextSized(displayHeight: number) {
+export function makeFakeTextSized(
+  displayHeight: number,
+  size?: { width?: number; height?: number },
+) {
   const t = makeFakeText();
   t.displayHeight = displayHeight;
+  if (size?.width !== undefined) t.width = size.width;
+  if (size?.height !== undefined) t.height = size.height;
   return t;
 }
 
