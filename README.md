@@ -80,8 +80,6 @@ npm test             # 全量测试（含故事全流程无头试玩、存档 v1
                      # 现值现取——跑本行命令，读末行 `Test Files …`／`Tests …` 汇总（口径同 pre-commit）
 npm run type-check   # TypeScript 类型检查
 npm run verify       # type-check + 全部测试
-npm run pack-sprites # 重新打包精灵图
-npm run postprocess-png # AI 素材 PNG 后处理
 ```
 
 开发纪律：

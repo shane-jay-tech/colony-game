@@ -12,8 +12,6 @@
     "electron:build": "node scripts/gen-icon.mjs && node scripts/patch-7za-wrapper.mjs && electron-vite build && electron-builder",
     "electron:build:win": "node scripts/gen-icon.mjs && node scripts/patch-7za-wrapper.mjs && electron-vite build && electron-builder --win",
     "gen-icon": "node scripts/gen-icon.mjs",
-    "pack-sprites": "node scripts/pack-sprites.mjs",
-    "postprocess-png": "node scripts/postprocess-ai-png.mjs",
     "type-check": "tsc -p tsconfig.renderer.json --noEmit",
     "test": "vitest run",
     "verify": "npm run type-check && npm run test"
