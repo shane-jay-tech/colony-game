@@ -389,7 +389,7 @@ describe('EventModal', () => {
     expect(b.btns[0]!.zone.setPosition).toHaveBeenLastCalledWith(463, 534); // 158+484-20-88
   });
 
-  it('被夹分支看守（上限封顶）：raw>520 时面板几何对 displayHeight 再次失明（N=200／300 两夹具面板矩形全等），子件坐标仍按未夹 raw 累加＝现行为溢出', () => {
+  it('被夹分支看守（上限封顶）：raw>520 时面板几何对 displayHeight 失明（N=200／300 面板矩形全等）——c930-14 起子件跟夹：countdown 落在面板内（bodyH 按剩余预算收口）', () => {
     const c = modalWithTextSize(200); // raw=584 ⇒ min(520,·) ⇒ panelH=520、panelY=140
     const d = modalWithTextSize(300); // raw=784 ⇒ 同样封顶 520、panelY=140
 
@@ -398,11 +398,11 @@ describe('EventModal', () => {
     expect(d.gfx.fillRect).toHaveBeenLastCalledWith(443, 140, 480, 520);
     expect(c.gfx.strokeRect).toHaveBeenLastCalledWith(447, 144, 472, 512); // 内框 :296（最后一次 strokeRect）
     expect(d.gfx.strokeRect).toHaveBeenLastCalledWith(447, 144, 472, 512);
-    // 但子件没被夹：仍按 raw 的 titleH/bodyH 累加 ⇒ N=300 时倒计时 y=780 已越过面板底 660
-    // ⇒ 这是**现行为**（钉死它，不是判它对）：日后有人给子件加夹或改成滚动区，本例必红，需显式改判据。
-    expect(c.t.bodyText.setPosition).toHaveBeenLastCalledWith(463, 376); // 140+20 + 200 + 16
-    expect(c.t.countdownText.setPosition).toHaveBeenLastCalledWith(463, 580); // 376 + 200 + 4
+    // c930-14 案①（子件跟着夹）：bodyH 按夹后剩余预算收口 ⇒ countdown 不再越面板底（旧钉 580/780 均越 660）
+    //   预算＝520−(20+titleH+16+16+88+20+24)：N=200 ⇒ bodyHEff=136、N=300 ⇒ 36；bodyText 只随 titleH（不夹）原位
+    expect(c.t.bodyText.setPosition).toHaveBeenLastCalledWith(463, 376); // 140+20 + 200 + 16（titleH 未夹，原位）
+    expect(c.t.countdownText.setPosition).toHaveBeenLastCalledWith(463, 516); // 376 + bodyHEff(136) + 4
     expect(d.t.bodyText.setPosition).toHaveBeenLastCalledWith(463, 476); // 160 + 300 + 16
-    expect(d.t.countdownText.setPosition).toHaveBeenLastCalledWith(463, 780); // 476 + 300 + 4
+    expect(d.t.countdownText.setPosition).toHaveBeenLastCalledWith(463, 516); // 476 + bodyHEff(36) + 4
   });
 });

@@ -275,6 +275,10 @@ export class EventModal {
     const imgBlock = illusH > 0 ? illusH + sectionGap : 0;
     let panelH = padding + imgBlock + titleH + sectionGap + bodyH + sectionGap + buttonsH + padding + 24; // 24 留给 countdown
     panelH = Math.min(PANEL_MAX_HEIGHT + imgBlock, Math.max(PANEL_MIN_HEIGHT, panelH));
+    // c930-14（案① 子件跟着夹）：面板被夹时 bodyH 同步夹进剩余预算，countdown 等子件堆叠跟夹后几何走，
+    // 不再按未夹 raw 累加越出面板底（超长正文的可视截断/滚动属案②另议；floor=0 保证子件恒在面板内）。
+    const bodyBudget = panelH - (padding + imgBlock + titleH + sectionGap + sectionGap + buttonsH + padding + 24);
+    const bodyHEff = Math.min(bodyH, Math.max(bodyBudget, 0));
 
     const panelX = Math.floor((sceneW - PANEL_WIDTH) / 2);
     const panelY = Math.floor((sceneH - panelH) / 2);
@@ -316,7 +320,7 @@ export class EventModal {
     this.bodyText.setColor('#2B2118');
 
     // 倒计时（紧贴 body 下方）
-    this.countdownText.setPosition(panelX + padding, panelY + padding + imgBlock + titleH + sectionGap + bodyH + 4);
+    this.countdownText.setPosition(panelX + padding, panelY + padding + imgBlock + titleH + sectionGap + bodyHEff + 4);
     this.countdownText.setColor('#6D635B');
 
     // toggle 按钮（右上角）
