@@ -311,3 +311,17 @@ describe('c930-17 真路径五面接线', () => {
     expect(rows[0]!.nameLabel.setColor).not.toHaveBeenCalledWith('#6D635B');
   });
 });
+
+// ---- c930-18 几何字段真值（不覆写 layout，真实构造链）----
+describe('c930-18 几何字段真值', () => {
+  it('demolishRect/rowsAreaRect 真实取值（推导：w=UI.buildPanelWidth 256、top=48+40+8=96、x=8、h=800−96−8=696）', () => {
+    const scene = makeBuildPanelScene() as Record<string, any>;
+    const store = makeStore();
+    const buildMode = makeBuildModeStub();
+    const panel = new BuildPanel(scene as never, store, buildMode as never) as any;
+    // demolishRect = { x+8, top+40, w−16, 26 } = { 16, 136, 240, 26 }
+    expect((panel as unknown as { demolishRect: unknown }).demolishRect).toEqual({ x: 16, y: 136, w: 240, h: 26 });
+    // rowsAreaRect = { x+8, top+72, w−16, h−80 } = { 16, 168, 240, 616 }
+    expect((panel as unknown as { rowsAreaRect: unknown }).rowsAreaRect).toEqual({ x: 16, y: 168, w: 240, h: 616 });
+  });
+});
