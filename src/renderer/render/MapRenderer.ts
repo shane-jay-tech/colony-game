@@ -468,6 +468,7 @@ export class MapRenderer {
   private ensureAnimTextures(): void {
     const make = (this.scene as unknown as { make?: { graphics?: Function } }).make;
     if (!make?.graphics) return;
+    if (!this.scene.textures || typeof this.scene.textures.exists !== 'function') return; // c930-05: 贴图面缺席回退，不构造期抛
     if (!this.scene.textures.exists(SMOKE_TEX_KEY)) {
       const g = make.graphics({ x: 0, y: 0 }, false) as Phaser.GameObjects.Graphics;
       g.fillStyle(0x666666, 0.6);
@@ -1131,6 +1132,7 @@ export class MapRenderer {
     const make = (this.scene as unknown as { make?: { graphics?: Function } }).make;
     if (!addParticles || !make?.graphics) return;
     const texKey = '__snow_flake__';
+    if (!this.scene.textures || typeof this.scene.textures.exists !== 'function') return; // c930-05: 同源守卫
     if (!this.scene.textures.exists(texKey)) {
       const g = make.graphics({ x: 0, y: 0 }, false) as Phaser.GameObjects.Graphics;
       g.fillStyle(MASK_FILL_WHITE, 0.8);
