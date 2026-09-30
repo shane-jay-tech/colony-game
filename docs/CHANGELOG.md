@@ -74,7 +74,7 @@
 | L8 | P1 六行仍未合入（对照表＋合入稿草稿已出，只读，处置交人工） | `32eec44`（09-25，c924-34）→ `docs/insights/colony-p1-premerge-verify-20260924.md` |
 | L9 | **日历到 `MAX_SAVE_CURRENT_DAY` 上界后日管线照跑**（现状已被测试钉住，不＝认可） | `2deb7bf` → `src/renderer/state/__tests__/pauseResumeTimeAdvance.test.ts`（④ 组，件内注释已标在册缺陷） |
 | L10 | 硬编码文案与单位仍在多处（审计案卷已出，未逐条改） | `17b8498`（09-25）→ `docs/insights/colony-hardcoded-copy-units-audit-20260925.md` |
-| L11 | 麻田／锡矿**仍无自有立绘**：现走同族复用贴图，`NO_OWN_ART` 集合仍在（`data/artManifest.ts:28`），`required:false` 并登记在待补素材清单。⚠ 措辞漂移点名：`docs/release-notes-v0.10.0.md` 仍写"暂用占位图"，与现况（复用同族图）不符 | `e4548ed`（09-17）→ 源直读；文案面属产品裁量，本志未改 |
+| L11 | 麻田／锡矿**仍无自有立绘**：现走同族复用贴图，`NO_OWN_ART` 集合仍在（`data/artManifest.ts:28`），`required:false` 并登记在待补素材清单。（该点名已于 `c927-14` 落地：README 与发行说明两条待办均已订正为"同族复用贴图"） | `e4548ed`（09-17）→ 源直读；文案面属产品裁量，本志未改 |
 | L12 | SFX 硬链接方案实测**省的空间≈0**，真问题是连带改写风险 ⇒ 不再当瘦身抓手 | `455b337`（09-24，c924-23）→ `docs/insights/colony-sfx-hardlink-plan-20260924.md` |
 | L13 | **键盘可达性缺口（本窗口新登记）**：进游戏前两屏（择途／立国）与四张模态的"选择·确认"**只有指针口**，全仓键盘绑定仅 `ESC/SPACE/ONE/TWO/THREE` 五键 ⇒「核心流程无需鼠标完成」不成立；且暂停遮罩 depth 900 **低于** HUD/面板 1000–2400，注释却自称"面板之上" ⇒ 暂停提示被面板遮挡 | 本班单 `20260925-120433-4686`（09-25 20:3x）→ 新增钉桩件 `src/renderer/scenes/__tests__/keyboardFlowFocusOrder.test.ts`（14 例，其中 ③⑤ 两组钉的是缺陷现状）；键位方案与遮罩语义落待人工裁决，**未改码** |
 | L14 | 试玩校准欠账：8h 沙盒曲线与国格节奏数值待真人试玩（红线：执行班不改平衡数值） | `docs/release-notes-v0.10.0.md`「已知待办」＋ `docs/design/PLAYTEST_CHECKLIST.md` |
