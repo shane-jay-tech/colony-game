@@ -144,11 +144,11 @@ function urlOnDisk(url: string): boolean {
 const LOAD_SOURCES: Array<{ site: string; items: Array<{ key: string; url: string }> }> = [
   { site: 'building: getBootLoadList(building)', items: getBootLoadList('building') },
   { site: 'terrain: TERRAIN_ART 直取 asset.path', items: TERRAIN_ART.map(a => ({ key: a.key, url: a.path })) },
-  { site: 'scatter: 硬编码模板 art/scatter/<id>.webp', items: ALL_SCATTER_IDS.map(id => ({ key: `scatter_${id}`, url: `art/scatter/${id}.webp` })) },
+  { site: 'scatter: 硬编码模板 art/scatter/<id>.webp', items: ALL_SCATTER_IDS.map(id => ({ key: `scatter_${id}`, url: scatterArtUrl(id) })) },
   { site: 'general: getBootLoadList(general)', items: getBootLoadList('general') },
   { site: 'event: 硬编码模板 art/events/<name>.webp', items: EVENT_ART.map(a => ({
     key: a.key,
-    url: `art/events/${a.key.startsWith('evt_art_') ? a.key.slice('evt_art_'.length) : a.key}.webp`,
+    url: eventArtUrl(a.key.startsWith('evt_art_') ? a.key.slice('evt_art_'.length) : a.key),
   })) },
 ];
 

@@ -3,7 +3,7 @@ import { validateStaticData } from '@/data';
 import { REGISTRY_KEYS, registryGet } from '../ui/registry';
 import { ALL_BGM_KEYS, SFX_KEYS } from '../state/audioDirector';
 import { ALL_SCATTER_IDS as SCATTER_IDS } from '../data/scatterConfig';
-import { EVENT_ART, TERRAIN_ART, getBootLoadList } from '../data/artManifest';
+import { EVENT_ART, TERRAIN_ART, getBootLoadList, scatterArtUrl, eventArtUrl } from '../data/artManifest';
 
 /**
  * BootScene：
@@ -56,7 +56,7 @@ export class BootScene extends Phaser.Scene {
     // c921-02：散布 9 图已整批转码为 .webp（原 png 已按授权删除，回滚件在 D:/attic/colony-art-backup-20260920/）——此处的硬编码路径同步改指，
     // 属「manifest 之外的第二事实源」，改扩展名时必须与本行一起改（c921-01 报告第四节已登记）。
     for (const id of SCATTER_IDS) {
-      this.load.image(`scatter_${id}`, `art/scatter/${id}.webp`);
+      this.load.image(`scatter_${id}`, scatterArtUrl(id));
     }
     // 2026-06-19：将领立绘（军务面板）+ 事件插画（朝议弹窗/结局）。缺图静默 → 回退文字。
     // h912-11 批次一：将领加载清单改由 artManifest.GENERAL_ART 派生（键=portrait_${id}，
@@ -68,7 +68,7 @@ export class BootScene extends Phaser.Scene {
     // c921-02：URL 模板同步改指 .webp（与 manifest 的 path 同扩展名；原 png 已按授权删除，回滚件在 D:/attic/colony-art-backup-20260920/）
     for (const asset of EVENT_ART) {
       const name = asset.key.startsWith('evt_art_') ? asset.key.slice('evt_art_'.length) : asset.key;
-      this.load.image(asset.key, `art/events/${name}.webp`);
+      this.load.image(asset.key, eventArtUrl(name));
     }
 
     // Phase4 音频：试加载 BGM + 音效。同 sprite——缺文件 loaderror 静默，

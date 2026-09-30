@@ -67,6 +67,16 @@ export const GENERAL_ART: ArtAssetDef[] = [
 // c921-01 方案 A：10 型事件插画改指实存文件（原为不存在的 assets/events/*.webp）；
 // c921-02 整批转码后同提交统一为 public/ 下落盘的 .webp，required 保持 true（实存且被
 // BootScene.ts 的 EVENT_ART 循环消费）。
+/** c930-20：贴图 URL 模板单源——BootScene preload 与 art-coverage-reconcile／bootLoadList 测试共用，
+ *  消「两处独立复刻」的根因（c922-04 遗留 2／c927-53 遗留）。改路径形态只动这里。 */
+export function scatterArtUrl(id: string): string {
+  return `art/scatter/${id}.webp`;
+}
+
+export function eventArtUrl(name: string): string {
+  return `art/events/${name}.webp`;
+}
+
 export const EVENT_ART: ArtAssetDef[] = [
   { key: 'evt_art_unification', path: 'art/events/unification.webp', category: 'event', required: true },
   { key: 'evt_art_coronation', path: 'art/events/coronation.webp', category: 'event', required: true },

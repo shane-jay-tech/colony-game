@@ -32,7 +32,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { ART_MANIFEST, EVENT_ART, TERRAIN_ART, getBootLoadList } from '../src/renderer/data/artManifest';
+import { ART_MANIFEST, EVENT_ART, TERRAIN_ART, eventArtUrl, getBootLoadList, scatterArtUrl } from '../src/renderer/data/artManifest';
 import { ALL_SCATTER_IDS } from '../src/renderer/data/scatterConfig';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -47,11 +47,11 @@ const manifestKeys = new Set(manifest.map((a) => a.key));
 const LOAD_SOURCES: Array<{ site: string; items: Array<{ key: string; url: string }> }> = [
   { site: 'building: getBootLoadList(building)', items: getBootLoadList('building') },
   { site: 'terrain: TERRAIN_ART 直取 asset.path', items: TERRAIN_ART.map((a) => ({ key: a.key, url: a.path })) },
-  { site: 'scatter: 硬编码模板 art/scatter/<id>.webp', items: ALL_SCATTER_IDS.map((id) => ({ key: `scatter_${id}`, url: `art/scatter/${id}.webp` })) },
+  { site: 'scatter: 硬编码模板 art/scatter/<id>.webp', items: ALL_SCATTER_IDS.map((id) => ({ key: `scatter_${id}`, url: scatterArtUrl(id) })) },
   { site: 'general: getBootLoadList(general)', items: getBootLoadList('general') },
   { site: 'event: 硬编码模板 art/events/<name>.webp', items: EVENT_ART.map((a) => ({
     key: a.key,
-    url: `art/events/${a.key.startsWith('evt_art_') ? a.key.slice('evt_art_'.length) : a.key}.webp`,
+    url: eventArtUrl(a.key.startsWith('evt_art_') ? a.key.slice('evt_art_'.length) : a.key),
   })) },
 ];
 
