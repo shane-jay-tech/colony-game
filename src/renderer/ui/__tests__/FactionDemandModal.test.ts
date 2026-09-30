@@ -8,40 +8,22 @@ import { GameStore, STATE_EVENTS } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import { FactionDemandModal } from '../FactionDemandModal';
 import { FACTION_DEMANDS } from '../../data/factions';
+import { makeFakeGraphics, makeFakeTextSized, makeFakeZone } from './fakeScene';
 
-function fakeText() {
-  const t = {
-    setOrigin: vi.fn().mockReturnThis(), setColor: vi.fn().mockReturnThis(), setText: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(), setFontSize: vi.fn().mockReturnThis(),
-    destroy: vi.fn(), width: 120, height: 20,
-  };
-  return t;
-}
-function fakeGfx() {
-  return {
-    clear: vi.fn().mockReturnThis(), fillStyle: vi.fn().mockReturnThis(), fillRect: vi.fn().mockReturnThis(),
-    lineStyle: vi.fn().mockReturnThis(), strokeRect: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(),
-    setScrollFactor: vi.fn().mockReturnThis(), setDepth: vi.fn().mockReturnThis(), destroy: vi.fn(),
-  };
-}
-function fakeZone() {
-  const z = {
-    setOrigin: vi.fn().mockReturnThis(), setInteractive: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(), setSize: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(), destroy: vi.fn(),
-  };
-  return z;
-}
-function fakeContainer() {
-  return {
-    setScrollFactor: vi.fn().mockReturnThis(), setDepth: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(),
-    add: vi.fn(), destroy: vi.fn(),
-  };
-}
 function fakeScene() {
   return {
     scale: { width: 1366, height: 800 },
-    add: { container: vi.fn(fakeContainer), graphics: vi.fn(fakeGfx), text: vi.fn(fakeText), zone: vi.fn(fakeZone) },
+    add: {
+      container: vi.fn(() => ({
+        setScrollFactor: vi.fn().mockReturnThis(), setDepth: vi.fn().mockReturnThis(),
+        setVisible: vi.fn().mockReturnThis(), add: vi.fn(), destroy: vi.fn(),
+      })),
+      graphics: vi.fn(() => makeFakeGraphics()),
+      // c930-13：本模态布局只直读 .height（FactionDemandModal.ts:138-139），不读 displayHeight
+      // ⇒ 首参取 20（与旧本地 fakeText 的 height 同值），size 对齐旧 {width:120, height:20}。
+      text: vi.fn(() => makeFakeTextSized(20, { width: 120, height: 20 })),
+      zone: vi.fn(() => makeFakeZone()),
+    },
   } as never;
 }
 
