@@ -85,6 +85,12 @@ describe('主进程 save-game 校验消息带槽位/上限上下文（静态源�
     expect(body).not.toContain("throw new Error('save data exceeds 10 MB cap')");
   });
 
+  it('c930-11：load-game／save-meta 的 invalid slot 消息同形（全文件无裸 throw 残留）', () => {
+    expect(mainSrc).not.toContain("throw new Error('invalid slot')");
+    expect(mainSrc).toContain('invalid slot for load-game');
+    expect(mainSrc).toContain('invalid slot for save-meta');
+  });
+
   it('IPC 拒绝（模拟 10MB 超限）在渲染侧按「消息可匹配」口径处理，且不是 SaveLoadError', async () => {
     installApi(
       vi.fn().mockRejectedValue(

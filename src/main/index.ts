@@ -170,7 +170,7 @@ ipcMain.handle('save-game', async (_event, slot: unknown, json: unknown): Promis
 });
 
 ipcMain.handle('load-game', async (_event, slot: unknown): Promise<string | null> => {
-  if (typeof slot !== 'string' || !VALID_SLOT_RE.test(slot)) throw new Error('invalid slot');
+  if (typeof slot !== 'string' || !VALID_SLOT_RE.test(slot)) throw new Error(`invalid slot for load-game (typeof ${typeof slot}; must match [a-z0-9_-]{1,32})`);
   const fp = join(app.getPath('userData'), 'saves', `${slot}.json`);
   if (!existsSync(fp)) return null;
   return await readFile(fp, 'utf-8');
@@ -184,7 +184,7 @@ ipcMain.handle('list-saves', async (): Promise<string[]> => {
 });
 
 ipcMain.handle('save-meta', async (_event, slot: unknown): Promise<{ slot: string; savedAt: number; currentDay: number | null } | null> => {
-  if (typeof slot !== 'string' || !VALID_SLOT_RE.test(slot)) throw new Error('invalid slot');
+  if (typeof slot !== 'string' || !VALID_SLOT_RE.test(slot)) throw new Error(`invalid slot for save-meta (typeof ${typeof slot}; must match [a-z0-9_-]{1,32})`);
   const fp = join(app.getPath('userData'), 'saves', `${slot}.json`);
   if (!existsSync(fp)) return null;
   let mtimeMs = 0;
