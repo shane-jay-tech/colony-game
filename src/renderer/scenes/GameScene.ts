@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { findUnlabeledTargets } from '../state/modifierDescriber';
 import { GameStore, STATE_EVENTS } from '../state/gameStore';
 import { REGISTRY_KEYS, registryGet, registrySet } from '../ui/registry';
 import type { GameStateEventMap } from '../state/stateEvents';
@@ -166,6 +167,11 @@ export class GameScene extends Phaser.Scene {
     // 关键修复(2026-06-02)：Phaser 不自动调 scene.shutdown()——必须手动绑 SHUTDOWN 事件，
     // 否则 scene 重启/停止后 store 监听 + scale 'resize' 监听全部残留泄漏。
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
+    // K-2（c930-07）：启动期校验 modifier target 标签全集非空（防新增 target 漏翻译；不挡启动）
+    const unlabeled = findUnlabeledTargets();
+    if (unlabeled.length > 0) {
+      console.error(`[GameScene] unlabeled modifier targets: ${unlabeled.join(', ')}`);
+    }
     const store = registryGet(this.registry, REGISTRY_KEYS.store);
     const buildMode = registryGet(this.registry, REGISTRY_KEYS.buildMode);
     if (!store || !buildMode) {
