@@ -6,6 +6,7 @@ import type { ResourceId } from '../data/resourceRegistry';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
 import { dayToCalendar } from '../state/calendar';
+import { RESOURCE_LABEL } from './courtFormat';
 import { actFor } from '../data/actTimeline';
 
 const SEASON_CN: readonly string[] = ['春', '夏', '秋', '冬'];
@@ -22,20 +23,6 @@ const SEASON_CN: readonly string[] = ['春', '夏', '秋', '冬'];
  *
  * 事件订阅 + 清理：HUD.destroy() 由 UIScene.shutdown 调用，会 off 所有事件 + 销毁子对象。
  */
-
-const RESOURCE_LABEL: Record<ResourceId, string> = {
-  grain: '粮',
-  wood: '木',
-  stone: '石',
-  gold: '钱',
-  people: '民',
-  cloth: '布',
-  bronze: '铜',
-  rite: '礼',
-  hemp: '麻',
-  tin: '锡',
-  influence: '望',
-};
 
 const RESOURCE_COLOR: Record<ResourceId, number> = {
   grain: COLORS.GOLD,
@@ -619,7 +606,7 @@ export class HUD {
     this.moraleText.setText(`心 ${morale}`);
     this.moraleText.setColor(morale <= 25 ? '#B71C1C' : '#4A7C59');
     const ult = this.store.getUltimatum();
-    const ultText = ult.active ? ` ⏳${ult.daysLeft}日` : '';
+    const ultText = ult.active ? ` ⏳${ult.daysLeft} 日` : '';
     this.wrathText.setText(`怨 ${wrath}${wrath >= 70 ? '！' : ''}${ultText}`);
     this.wrathText.setColor('#B71C1C');
   }

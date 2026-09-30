@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { BuildingInstance, BuildingDef } from '../data/schema';
 import type { ResourceId } from '../data/resourceRegistry';
 import { getBuildingDef } from '../data/buildingRegistry';
+import { RESOURCE_LABEL as RES_LABEL } from './courtFormat';
 import { GameStore, STATE_EVENTS } from '../state/gameStore';
 import { computeAdjacencyMul } from '../state/productionSystem';
 import { COLORS, COLORS_HEX, FONTS } from './palette';
@@ -31,20 +32,6 @@ const BUTTON_H = 36;
 const ROW_GAP = 8;
 const DEPTH = 1100; // 高于 panel(900)、低于 EventModal(1500)/Toast(2000)
 
-/** 资源中文名（与 HUD 同一份；本地保留以避免循环 import） */
-const RES_LABEL: Record<ResourceId, string> = {
-  grain: '粮',
-  wood: '木',
-  stone: '石',
-  gold: '钱',
-  cloth: '布',
-  bronze: '铜',
-  rite: '礼器',
-  people: '民',
-  hemp: '麻',
-  tin: '锡',
-  influence: '名望',
-};
 
 /** v1.0 #4：阶段名 fallback——若 def.tierName 缺，回退到「茅屋/瓦房/殿宇」三档 */
 const TIER_FALLBACK: Record<number, string> = { 1: '茅屋', 2: '瓦房', 3: '殿宇' };

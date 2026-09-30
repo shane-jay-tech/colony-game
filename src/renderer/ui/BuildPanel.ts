@@ -2,6 +2,7 @@ import { MASK_FILL_WHITE } from '../../shared/visualConstants';
 import Phaser from 'phaser';
 import { COLORS, COLORS_HEX, FONTS, UI } from './palette';
 import { REGISTRY_KEYS, registryGet } from './registry';
+import { RESOURCE_LABEL } from './courtFormat';
 import type { GameStore } from '../state/gameStore';
 import { STATE_EVENTS } from '../state/gameStore';
 import type { BuildMode } from '../state/buildMode';
@@ -279,18 +280,12 @@ export class BuildPanel {
       lines.push(`工期：${def.constructionTime} 日`);
     }
     if (def.output.length > 0) {
-      const labelMap: Record<string, string> = {
-        grain: '粮', wood: '木', stone: '石', gold: '钱', people: '民',
-        cloth: '布', bronze: '铜', rite: '礼',
-      };
+      const labelMap = RESOURCE_LABEL;
       const out = def.output.map((o) => `${labelMap[o.resource] ?? o.resource}+${o.perDay}/日`).join('、');
       lines.push(`产出：${out}`);
     }
     if (def.upkeep && Object.keys(def.upkeep).length > 0) {
-      const labelMap: Record<string, string> = {
-        grain: '粮', wood: '木', stone: '石', gold: '钱', people: '民',
-        cloth: '布', bronze: '铜', rite: '礼',
-      };
+      const labelMap = RESOURCE_LABEL;
       const up = Object.entries(def.upkeep)
         .filter(([, v]) => v && v > 0)
         .map(([k, v]) => `${labelMap[k] ?? k}${v}/日`).join('、');
@@ -345,10 +340,7 @@ export class BuildPanel {
 
   private formatCost(def: BuildingDef): string {
     const parts: string[] = [];
-    const labelMap: Record<string, string> = {
-      grain: '粮', wood: '木', stone: '石', gold: '钱',
-      cloth: '布', bronze: '铜', rite: '礼',
-    };
+    const labelMap = RESOURCE_LABEL;
     for (const [k, v] of Object.entries(def.cost)) {
       if (k === 'people') continue; // 民不消耗，下面单独显示"占劳"
       if (v && v > 0) parts.push(`${labelMap[k] ?? k}${v}`);
