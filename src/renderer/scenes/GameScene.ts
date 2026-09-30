@@ -153,9 +153,10 @@ export class GameScene extends Phaser.Scene {
   private escHandler = (): void => { this.buildMode?.cancel(); this.buildingPopover?.hide(); };
   // A-9：速度快捷键
   private spaceHandler = (): void => { this.store?.setPaused(!this.store.isPaused()); };
-  private speedKeyHandler1 = (): void => { this.store?.setPaused(false); this.store?.setSpeed(1); };
-  private speedKeyHandler2 = (): void => { this.store?.setPaused(false); this.store?.setSpeed(2); };
-  private speedKeyHandler3 = (): void => { this.store?.setPaused(false); this.store?.setSpeed(3); };
+  // c930-02: 模态软暂停持有中（pauseHolders>0）时数字键不得串扰速度档（s927-07 遗留 2）
+  private speedKeyHandler1 = (): void => { if (this.store?.hasPauseHolders()) return; this.store?.setPaused(false); this.store?.setSpeed(1); };
+  private speedKeyHandler2 = (): void => { if (this.store?.hasPauseHolders()) return; this.store?.setPaused(false); this.store?.setSpeed(2); };
+  private speedKeyHandler3 = (): void => { if (this.store?.hasPauseHolders()) return; this.store?.setPaused(false); this.store?.setSpeed(3); };
 
   constructor() {
     super({ key: 'GameScene' });

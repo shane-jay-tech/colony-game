@@ -462,6 +462,9 @@ export class GameStore implements IStateEventEmitter {
   getSpeed(): 0 | 1 | 2 | 3 { return this.state.speed; }
   // Slice G：含模态 holder 的有效暂停态；timeSystem / HUD 都读这一份
   isPaused(): boolean { return this.state.paused || this.pauseHolders.size > 0; }
+
+  /** 模态等系统的软暂停持有引用数 >0（区别于用户 space 暂停；c930-02 键盘守卫读取口）。 */
+  hasPauseHolders(): boolean { return this.pauseHolders.size > 0; }
   /** 仅用于诊断 / 测试：玩家手动暂停标志（不含模态 holder） */
   getUserPaused(): boolean { return this.state.paused; }
   getCurrentDay(): number { return this.state.currentDay; }
