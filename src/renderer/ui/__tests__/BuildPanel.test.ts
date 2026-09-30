@@ -217,3 +217,22 @@ describe('BuildPanel 夹具批一（c927-75）：真构造与真登记', () => {
     expect(panel.demolishZone.setVisible).toHaveBeenLastCalledWith(true);
   });
 });
+
+// ---- c930-16 立绘面收口（本地可控 textures，共享件零改动）----
+describe('c930-16 立绘面收口（本地可控 textures）', () => {
+  it('行缩略图分支：textures.exists 翻真后 buildRows 产出非 null thumb（原恒缺席时恒 null）', () => {
+    const scene = makeBuildPanelScene();
+    const store = makeStore();
+    const buildMode = makeBuildModeStub();
+    const panel = new BuildPanel(scene as never, store, buildMode as never) as Panel;
+    const rowsOf = () => (panel as unknown as { rows: Array<{ thumb: unknown }> }).rows;
+    expect(rowsOf().length).toBeGreaterThan(0);
+    expect(rowsOf().every((r) => r.thumb === null)).toBe(true); // 现状：立绘面缺席 ⇒ thumb 恒 null
+    (scene as unknown as Record<string, unknown>).textures = {
+      exists: vi.fn(() => true),
+      get: vi.fn(() => ({ getSourceImage: () => ({ width: 32, height: 32 }) })),
+    };
+    (panel as unknown as { buildRows(): void }).buildRows(); // 翻真后重建行 ⇒ 走 :251 缩略图分支
+    expect(rowsOf().some((r) => r.thumb !== null)).toBe(true);
+  });
+});

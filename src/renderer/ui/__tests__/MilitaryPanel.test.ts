@@ -169,3 +169,28 @@ describe('MilitaryPanel 夹具批一（c927-75）：真构造与真路径开关'
     expect(store.isPaused()).toBe(false);
   });
 });
+
+// ---- c930-16 立绘面收口（本地可控 textures，共享件零改动）----
+describe('c930-16 立绘面收口（本地可控 textures）', () => {
+  it('将领画廊分支：textures.exists=true ⇒ portrait 走 add.image+setScale（非缺图回退 graphics）', () => {
+    const { scene, store, panel, internals } = makeRig();
+    (scene as unknown as Record<string, unknown>).textures = {
+      exists: vi.fn((k: string) => k.startsWith('portrait_')),
+      get: vi.fn(() => ({ getSourceImage: () => ({ width: 64, height: 96 }) })),
+    };
+    const addAny = (scene as unknown as { add: Record<string, ReturnType<typeof vi.fn>> }).add;
+    addAny.image = vi.fn(() => {
+      const im: Record<string, unknown> = {};
+      for (const meth of ['setOrigin', 'setScale', 'setVisible', 'setDepth', 'setPosition', 'destroy']) {
+        im[meth] = vi.fn().mockReturnThis();
+      }
+      im.setScale = vi.fn().mockReturnThis();
+      return im;
+    });
+    store.recruitGeneral('gen_pei_shao');
+    panel.open(); // refresh 有 isOpen 闸（:147），先开门再刷
+    internals.refresh(); // 画廊环吃 getGenerals()＝裴绍 ⇒ 走 portrait 分支
+    const extras = internals.extras as Array<Record<string, unknown>>;
+    expect(extras.some((x) => typeof x.setScale === 'function')).toBe(true); // 立绘 image 入列
+  });
+});
