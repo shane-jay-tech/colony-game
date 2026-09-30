@@ -22,7 +22,7 @@ export interface TerrainScatter {
 
 /** 五型地形的散布表。river 不用 slots（仅在与非水相邻的边缘 tile 放芦苇，见 RIVER_EDGE）。 */
 export const SCATTER_BY_TERRAIN: Record<string, TerrainScatter> = {
-  // 注：地形已上真实纹理(plain/forest/... .png 自带草石细节)，故大幅调低"小草/灌木"散布，
+  // 注：地形已上真实纹理(plain/forest/... .webp 自带草石细节)，故大幅调低"小草/灌木"散布，
   // 只保留树(林地)、大石(丘陵/山岳)这类有意义的立体地标，避免"草叠草"杂乱。
   forest: {
     slots: [
