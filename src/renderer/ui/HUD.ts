@@ -522,6 +522,8 @@ export class HUD {
   }
 
   private onSpeedButton(speed: 0 | 1 | 2 | 3): void {
+    // c930-04: 模态软暂停持有中，速度钮不响应——原缺陷：解不开软暂停、却把玩家口 paused 清掉（1/2/3 还改档）
+    if (this.store.hasPauseHolders()) return;
     if (speed === 0) {
       this.store.setPaused(!this.store.isPaused());
     } else {

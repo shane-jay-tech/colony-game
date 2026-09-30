@@ -57,4 +57,25 @@ describe('HUD', () => {
     // 构造成功即代表徽章/令牌文本对象装配完成（构造内 setText 空串占位）。
     expect(hud).toBeDefined();
   });
+  // c930-04：模态软暂停持有中，速度钮不响应（不解玩家口、不改档）
+  it('onSpeedButton 在模态持有暂停时整体不响应', () => {
+    store.requestPause('EventModal');
+    const pausedBefore = store.isPaused();
+    const speedBefore = store.getSpeed();
+    const btn = hud as unknown as { onSpeedButton: (s: 0 | 1 | 2 | 3) => void };
+    btn.onSpeedButton(0);   // 原缺陷：此处会清掉玩家口 paused
+    btn.onSpeedButton(2);   // 原缺陷：此处会改档
+    expect(store.hasPauseHolders()).toBe(true);
+    expect(store.isPaused()).toBe(pausedBefore);
+    expect(store.getSpeed()).toBe(speedBefore);
+  });
+
+  it('onSpeedButton 非模态照旧：0=暂停往返、2=恢复并定档', () => {
+    const btn = hud as unknown as { onSpeedButton: (s: 0 | 1 | 2 | 3) => void };
+    btn.onSpeedButton(0);
+    expect(store.isPaused()).toBe(true);
+    btn.onSpeedButton(2);
+    expect(store.isPaused()).toBe(false);
+    expect(store.getSpeed()).toBe(2);
+  });
 });
