@@ -143,3 +143,30 @@ describe('020c：当版档顶层损坏走 SaveLoadError 通道（低版档 state
     expect(() => deserialize({ schemaVersion: 9 })).toThrow(/missing state field/);
   });
 });
+
+// ---- c930-24 覆盖缺口补齐（c927-44 遗留：currentDay 边界/负值/NaN、speed 下界 0）----
+describe('c930-24 currentDay 边界与 speed 下界补口', () => {
+  it('currentDay=3600（上界）可载入且值原样透传', () => {
+    const gs = deserialize(validV9({ currentDay: 3600 }));
+    expect(gs.currentDay).toBe(3600);
+  });
+
+  it('currentDay=3601（越上界 1）拒载且消息含 allowed 0..3600', () => {
+    expect(() => deserialize(validV9({ currentDay: 3601 }))).toThrow(SaveLoadError);
+    expect(() => deserialize(validV9({ currentDay: 3601 }))).toThrow(/out of range/);
+    expect(() => deserialize(validV9({ currentDay: 3601 }))).toThrow(/allowed 0\.\.3600/);
+  });
+
+  it('currentDay 负值拒载（下界 0 在册）', () => {
+    expect(() => deserialize(validV9({ currentDay: -5 }))).toThrow(/out of range/);
+  });
+
+  it('currentDay=NaN 拒载（Number.isFinite 门）', () => {
+    expect(() => deserialize(validV9({ currentDay: NaN }))).toThrow(/out of range/);
+  });
+
+  it('speed=0（合法下界成员）原样载入不回落', () => {
+    const gs = deserialize(validV9({ speed: 0 }));
+    expect(gs.speed).toBe(0);
+  });
+});
