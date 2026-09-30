@@ -405,4 +405,34 @@ describe('EventModal', () => {
     expect(d.t.bodyText.setPosition).toHaveBeenLastCalledWith(463, 476); // 160 + 300 + 16
     expect(d.t.countdownText.setPosition).toHaveBeenLastCalledWith(463, 516); // 476 + bodyHEff(36) + 4
   });
+
+  it('c930-15：有插画时上限抬到 520+imgBlock（texture 在场 ⇒ 686；子件跟夹同 c930-14）', () => {
+    // 本地实例扩面（共享 fakeScene.ts 零改动——31 消费件同笔约束）：textures.exists 可控 + add.image 替身
+    const sc = makeFakeScene({ width: 1366, height: 800 }, 300) as never as {
+      add: Record<string, unknown>;
+    };
+    (sc as unknown as { textures: unknown }).textures = { exists: vi.fn(() => true) };
+    sc.add = {
+      ...sc.add,
+      image: vi.fn(() => ({
+        setTexture: vi.fn().mockReturnThis(), setDisplaySize: vi.fn().mockReturnThis(),
+        setPosition: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(),
+        setOrigin: vi.fn().mockReturnThis(), destroy: vi.fn(),
+      })),
+    } as never;
+    const EVT_ILLUS: CourtEvent = { ...EVT_CHOICE, id: 'evt_test_illus', illustrationKey: 'c930_15_illu' };
+    const st = makeStore([EVT_ILLUS, EVT_NOTIFY]);
+    const mo = new EventModal(sc as never, st);
+    triggerEvent(st, mo, EVT_ILLUS.id);
+    const gfx = panelBgOf(mo);
+    // 有插画 ⇒ imgBlock=150+16=166，raw=950 ⇒ 上限 520+166=686（而非 520）；panelY=(800−686)/2=57
+    expect(gfx.fillRect).toHaveBeenLastCalledWith(443, 57, 480, 686);
+    // 子件跟夹（c930-14）：bodyBudget=686−650=36 ⇒ bodyHEff=36 ⇒ countdown 599 落面板内（底 743）
+    const t = mo as unknown as {
+      bodyText: { setPosition: ReturnType<typeof vi.fn> };
+      countdownText: { setPosition: ReturnType<typeof vi.fn> };
+    };
+    expect(t.bodyText.setPosition).toHaveBeenLastCalledWith(463, 559); // 57+20+166+300+16
+    expect(t.countdownText.setPosition).toHaveBeenLastCalledWith(463, 599); // 559 + bodyHEff(36) + 4
+  });
 });
