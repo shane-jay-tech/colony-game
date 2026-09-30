@@ -236,3 +236,78 @@ describe('c930-16 立绘面收口（本地可控 textures）', () => {
     expect(rowsOf().some((r) => r.thumb !== null)).toBe(true);
   });
 });
+
+// ---- c930-17 真路径五面接线 ----
+describe('c930-17 真路径五面接线', () => {
+  function makeReal(): { scene: Record<string, any>; store: GameStore; buildMode: ReturnType<typeof makeBuildModeStub>; panel: any } {
+    const scene = makeBuildPanelScene() as Record<string, any>;
+    const store = makeStore();
+    const buildMode = makeBuildModeStub();
+    const panel = new BuildPanel(scene as never, store, buildMode as never) as any;
+    return { scene, store, buildMode, panel };
+  }
+
+  it('面1 拆除区 pointerdown：首点 enterDemolish、isDemolish 翻真后同区再点 cancel', () => {
+    const { scene, buildMode, panel } = makeReal();
+    const zone = (panel as unknown as { demolishZone: { handlers: Record<string, () => void> } }).demolishZone;
+    buildMode.isDemolish.mockReturnValue(false);
+    zone.handlers['pointerdown']();
+    expect(buildMode.enterDemolish).toHaveBeenCalledTimes(1);
+    buildMode.isDemolish.mockReturnValue(true);
+    zone.handlers['pointerdown']();
+    expect(buildMode.cancel).toHaveBeenCalledTimes(1);
+    void scene;
+  });
+
+  it('面2 行 zone 点击与 hover：pointerdown 选中、pointerover 记 hoveredDef/tooltip 文、pointerout 清 hovered', () => {
+    const { panel } = makeReal();
+    const rows = (panel as unknown as { rows: Array<{ def: any; zone: { handlers: Record<string, () => void> } }> }).rows;
+    const row = rows[0]!;
+    row.zone.handlers['pointerdown']();
+    expect((panel as unknown as { buildMode: { select: ReturnType<typeof vi.fn> } }).buildMode.select).toHaveBeenCalledWith(row.def);
+    row.zone.handlers['pointerover']();
+    expect((panel as unknown as { hoveredDef: unknown }).hoveredDef).toBe(row.def);
+    expect((panel as unknown as { tooltipNameText: { setText: ReturnType<typeof vi.fn> } }).tooltipNameText.setText).toHaveBeenCalled();
+    row.zone.handlers['pointerout']();
+    expect((panel as unknown as { hoveredDef: unknown }).hoveredDef).toBeNull();
+  });
+
+  it('面3 beginExpandFade：行 alpha 先拉 0，tween 链 180ms Cubic.easeOut 收 alpha→1', () => {
+    const { scene, panel } = makeReal();
+    const rows = (panel as unknown as { rows: Array<{ bg: { setAlpha: ReturnType<typeof vi.fn> }; nameLabel: { setAlpha: ReturnType<typeof vi.fn> }; costLabel: { setAlpha: ReturnType<typeof vi.fn> } }> }).rows;
+    (panel as unknown as { beginExpandFade(): void }).beginExpandFade();
+    expect(rows[0]!.bg.setAlpha).toHaveBeenLastCalledWith(0);
+    expect(rows[0]!.nameLabel.setAlpha).toHaveBeenLastCalledWith(0);
+    const tweensAdd = (scene.tweens as unknown as { add: ReturnType<typeof vi.fn> }).add;
+    expect(tweensAdd).toHaveBeenCalledTimes(1);
+    const cfg = tweensAdd.mock.calls[0]![0] as { alpha: number; duration: number; ease: string };
+    expect(cfg.alpha).toBe(1);
+    expect(cfg.duration).toBe(180);
+    expect(cfg.ease).toBe('Cubic.easeOut');
+  });
+
+  it('面4 destroy：store 六路 off＋scene input wheel off 逐路计数', () => {
+    const { scene, store, panel } = makeReal();
+    const offSpy = vi.spyOn(store, 'off');
+    const inputOffSpy = vi.spyOn((scene as unknown as { input: { off: ReturnType<typeof vi.fn> } }).input, 'off');
+    panel.destroy();
+    const events = offSpy.mock.calls.map((c) => c[0]);
+    expect(events).toEqual([
+      'state:resourcesChanged', 'state:buildingCompleted', 'state:policyAdopted', 'state:buildingRemoved', 'state:replaced', 'state:panelCollapsedChanged',
+    ]);
+    expect(inputOffSpy).toHaveBeenCalledWith('wheel', expect.any(Function), panel);
+  });
+
+  it('面5 refreshAffordance：grade_locked 灰显（ASH 填充＋灰字）、ok 口径走可建着色', () => {
+    const { panel } = makeReal();
+    const rows = (panel as unknown as { rows: Array<{ def: any; bg: { clear: ReturnType<typeof vi.fn>; fillStyle: ReturnType<typeof vi.fn> }; nameLabel: { setColor: ReturnType<typeof vi.fn> } }> }).rows;
+    const unlock = vi.spyOn(panel.store, 'getBuildingUnlockInfo').mockReturnValue({ state: 'grade_locked', needGrade: 2 } as never);
+    (panel as unknown as { refreshAffordance(): void }).refreshAffordance();
+    expect(rows[0]!.bg.fillStyle).toHaveBeenCalledWith(expect.anything(), 0.4);
+    expect(rows[0]!.nameLabel.setColor).toHaveBeenCalledWith('#6D635B');
+    rows.forEach((r) => r.nameLabel.setColor.mockClear());
+    unlock.mockReturnValue({ state: 'ok' } as never);
+    (panel as unknown as { refreshAffordance(): void }).refreshAffordance();
+    expect(rows[0]!.nameLabel.setColor).not.toHaveBeenCalledWith('#6D635B');
+  });
+});
