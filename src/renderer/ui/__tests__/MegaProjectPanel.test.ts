@@ -7,42 +7,17 @@ import { EventEmitter } from 'eventemitter3';
 import { GameStore, STATE_EVENTS } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import { MegaProjectPanel } from '../MegaProjectPanel';
+import { makeFakeContainer, makeFakeGraphics, makeFakeTextSized, makeFakeZone } from './fakeScene';
 
-function fakeText() {
-  const t = {
-    setOrigin: vi.fn().mockReturnThis(), setColor: vi.fn().mockReturnThis(), setText: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(), setFontSize: vi.fn().mockReturnThis(),
-    destroy: vi.fn(), width: 80, height: 18,
-  };
-  return t;
-}
-function fakeGfx() {
-  return {
-    clear: vi.fn().mockReturnThis(), fillStyle: vi.fn().mockReturnThis(), fillRect: vi.fn().mockReturnThis(),
-    lineStyle: vi.fn().mockReturnThis(), strokeRect: vi.fn().mockReturnThis(), beginPath: vi.fn().mockReturnThis(),
-    moveTo: vi.fn().mockReturnThis(), lineTo: vi.fn().mockReturnThis(), strokePath: vi.fn().mockReturnThis(),
-    fillCircle: vi.fn().mockReturnThis(), strokeCircle: vi.fn().mockReturnThis(), lineBetween: vi.fn().mockReturnThis(),
-    setVisible: vi.fn().mockReturnThis(), setScrollFactor: vi.fn().mockReturnThis(), setDepth: vi.fn().mockReturnThis(),
-    destroy: vi.fn(),
-  };
-}
-function fakeZone() {
-  return {
-    setOrigin: vi.fn().mockReturnThis(), setInteractive: vi.fn().mockReturnThis(),
-    setPosition: vi.fn().mockReturnThis(), setSize: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(),
-    on: vi.fn().mockReturnThis(), destroy: vi.fn(),
-  };
-}
-function fakeContainer() {
-  return {
-    setScrollFactor: vi.fn().mockReturnThis(), setDepth: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(),
-    add: vi.fn(), destroy: vi.fn(),
-  };
-}
 function fakeScene(toast?: { show: ReturnType<typeof vi.fn> }) {
   return {
     scale: { width: 1366, height: 800 },
-    add: { container: vi.fn(fakeContainer), graphics: vi.fn(fakeGfx), text: vi.fn(fakeText), zone: vi.fn(fakeZone) },
+    add: {
+      container: vi.fn(() => makeFakeContainer()),
+      graphics: vi.fn(() => makeFakeGraphics()),
+      text: vi.fn(() => makeFakeTextSized(18, { width: 80, height: 18 })),
+      zone: vi.fn(() => makeFakeZone()),
+    },
     registry: { get: vi.fn((k: string) => (k === 'toast' ? toast : undefined)) },
   } as never;
 }
