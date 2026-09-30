@@ -186,3 +186,16 @@ describe('filterEventsByState', () => {
     expect(filtered.length).toBe(pool.length);
   });
 });
+
+
+// ─── c930-25 相邻面：防连击与状态节奏（采样闸本身，非一次只挂一个）───
+describe('c930-25 eventTempo 防连击与状态节奏', () => {
+  it('8 日防连击一票否决（rng 拉满也不采样）', () => {
+    expect(shouldSampleEvent(7, 'tense', 0.99)).toEqual({ shouldSample: false, reason: 'anti_combo' });
+  });
+
+  it('状态节奏窗口：tense@[15,25] 30 日必 met；peaceful@[35,50] 30 日必 waiting', () => {
+    expect(shouldSampleEvent(30, 'tense', 0)).toEqual({ shouldSample: true, reason: 'interval_met' });
+    expect(shouldSampleEvent(30, 'peaceful', 0)).toEqual({ shouldSample: false, reason: 'waiting' });
+  });
+});

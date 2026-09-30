@@ -533,3 +533,67 @@ afterEach(() => {
   // 兜底：本件所有 vi.spyOn 都在各自 try/finally 里复原；这里再清一遍，防跨文件泄漏
   vi.restoreAllMocks();
 });
+
+
+// ─── c930-25 公平性相邻面：conversion 入队门槛＋runEventTick story/relic 分支 ───
+describe('c930-25 conversionQueue 入队门槛', () => {
+  function freshStore(): GameStore {
+    return new GameStore(makeEmitter(), { worldMap: plainMap() }, { policies: [], decrees: [] });
+  }
+  function seedBuilding(s: GameStore, status: string): void {
+    (s as unknown as { state: { buildings: Array<Record<string, unknown>> } }).state.buildings.push({
+      defId: 'bld_academy', position: { x: 3, y: 3 }, status, tier: 1, constructionProgress: 100, modifiers: [],
+    });
+  }
+
+  it('非 working 建筑拒入队（CONVERSION_REQUIRES 需 working；queue 不动）', () => {
+    const s = freshStore();
+    seedBuilding(s, 'constructing');
+    expect(s.startConversion('farmer', 'worker', 1)).toBe(false);
+    expect(s.getConversionQueue().length).toBe(0);
+  });
+
+  it('无闲劳力拒入队（canAffordClass：farmer idle=0 < count）', () => {
+    const s = freshStore();
+    seedBuilding(s, 'working');
+    (s as unknown as { state: { populationClasses: Record<string, number> } }).state.populationClasses.farmer = 0;
+    expect(s.startConversion('farmer', 'worker', 1)).toBe(false);
+    expect(s.getConversionQueue().length).toBe(0);
+  });
+});
+
+describe('c930-25 runEventTick story/relic 分支', () => {
+  const storyEvt = {
+    id: 'story_c93025_1', tags: ['故事'],
+    triggers: [{ condition: 'story_chapter == 1' }],
+    contexts: [{ condition: 'default', title: 't', desc: 'd', descPlain: 'p' }],
+    choices: [{ text: 'a', textPlain: 'a', effects: [], removeEffects: [] }],
+  };
+  const normalEvt = {
+    id: 'evt_c93025_normal', tags: ['正'],
+    triggers: [{ condition: 'random', value: 0 }], // 永不通过 ⇒ 采样池空 ⇒ relic 兜底
+    contexts: [{ condition: 'default', title: 't', desc: 'd', descPlain: 'p' }],
+    choices: [{ text: 'a', textPlain: 'a', effects: [], removeEffects: [] }],
+  };
+  function forceWindow(s: GameStore): void {
+    (s as unknown as { state: { currentDay: number } }).state.currentDay = 60;
+    (s as unknown as { state: { lastEventDay: number } }).state.lastEventDay = 0;
+  }
+
+  it('story 分支：chapter≥1 且未触发完 ⇒ 剧情事件越过 25-50 节奏无挂起即触发', () => {
+    const s = new GameStore(makeEmitter(), { worldMap: plainMap() }, { events: [storyEvt] } as never);
+    forceWindow(s);
+    (s as unknown as { state: { storyFlags: unknown } }).state.storyFlags = { chapter: 1, ending: null, storyEventsTriggered: [] };
+    (s as unknown as { runEventTick(): void }).runEventTick();
+    expect((s as unknown as { state: { pendingEventId: string | null } }).state.pendingEventId).toBe('story_c93025_1');
+  });
+
+  it('relic 兜底：采样池穷尽（唯一候选永不通过）⇒ 挂 relic_{id}_s{stage}', () => {
+    const s = new GameStore(makeEmitter(), { worldMap: plainMap() }, { events: [normalEvt] } as never);
+    forceWindow(s);
+    (s as unknown as { runEventTick(): void }).runEventTick();
+    const pid = (s as unknown as { state: { pendingEventId: string | null } }).state.pendingEventId;
+    expect(pid).toBeTruthy();
+    expect(pid!.startsWith('relic_')).toBe(true);
+  });
+});
