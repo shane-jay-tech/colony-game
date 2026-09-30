@@ -671,9 +671,10 @@ export class MapRenderer {
     let imgIdx = 0;   // 建筑精灵池索引：仅"有原画"的建筑占槽（与 sigil 池解耦，避免有图/无图交错时错位）
 
     const textures = this.scene.textures;
+    let skippedUnknown1 = 0; const unknownDefIds1 = new Set<string>(); // c930-08 案②：skip 可观测
     for (const b of buildings) {
       const def = getBuildingDef(b.defId);
-      if (!def) continue;
+      if (!def) { skippedUnknown1++; unknownDefIds1.add(b.defId); continue; }
       const wT = def.size.width;
       const hT = def.size.height;
       // 等距：footprint 块的四个角（格点投影）→ 菱形；水平中心 cx、最低点 frontY、等距宽 isoW
@@ -774,6 +775,7 @@ export class MapRenderer {
       t.setVisible(!hasSprite);
       sigilIdx++;
     }
+    if (skippedUnknown1 > 0) console.error(`[MapRenderer] ${skippedUnknown1} building(s) skipped, unknown defId: [${[...unknownDefIds1].join(", ")}]`); // c930-08 案②
     // 池只增不减会泄漏（DeepSeek 二审 memory）：截断多余槽位
     while (this.sigilTexts.length > sigilIdx) {
       this.sigilTexts.pop()?.destroy();
@@ -1051,12 +1053,13 @@ export class MapRenderer {
     if (!addParticles) return;
 
     let totalParticles = 0;
+    let skippedUnknown2 = 0; const unknownDefIds2 = new Set<string>(); // c930-08 案②：skip 可观测
     for (const b of buildings) {
       if (b.status !== 'working') continue;
       if (totalParticles >= 200) break;
 
       const def = getBuildingDef(b.defId);
-      if (!def) continue;
+      if (!def) { skippedUnknown2++; unknownDefIds2.add(b.defId); continue; }
       const wT = def.size.width;
       const hT = def.size.height;
       const topV = this.isoVert(b.position.x, b.position.y);
@@ -1095,6 +1098,7 @@ export class MapRenderer {
         totalParticles += 10;
       }
     }
+    if (skippedUnknown2 > 0) console.error(`[MapRenderer] ${skippedUnknown2} building(s) skipped, unknown defId: [${[...unknownDefIds2].join(", ")}]`); // c930-08 案②
   }
 
   // ─── A-3：季节色调 ─────────────────────────────────────────────
