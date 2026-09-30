@@ -30,15 +30,15 @@ function validV9(overrides: Record<string, unknown> = {}): Record<string, unknow
   };
 }
 
-describe('a) 版本链边界：v1 最小档逐级迁移到 v9', () => {
-  it('v1 最小输入可迁移并被反序列化，缺省字段落到安全默认', () => {
+describe('a) 版本链边界：v1 档经迁移链后可载入（只验终态）', () => {
+  it('v1 最小档可载入：resources 落空对象兜轨、speed 原样透传（不断言默认值内容）', () => {
     const blob = { schemaVersion: 1, state: { speed: 2, rngSeed: 7 } };
     const gs = deserialize(blob);
     expect(gs.resources).toBeDefined();
     expect(gs.speed).toBe(2);
   });
 
-  it('v1→v9 迁移注入 populationClasses（migration 1 的行为）', () => {
+  it('v1 档载入后 populationClasses 非空（迁移注入与反序列化兜底任一路径都满足 ⇒ 不点名 migration 1）', () => {
     const blob = {
       schemaVersion: 1,
       state: { resources: { people: 12 } },
@@ -48,7 +48,7 @@ describe('a) 版本链边界：v1 最小档逐级迁移到 v9', () => {
     expect(gs.populationClasses).toBeDefined();
   });
 
-  it('当前版本 roundtrip：serialize → deserialize 关键字段保真', () => {
+  it('v9 档 deserialize→serialize 单向：产物 schemaVersion=9 且 rngSeed/currentDay 透传（未回读，非 roundtrip）', () => {
     const blob = validV9({ currentDay: 5, rngSeed: 7 });
     const gs = deserialize(blob);
     const again = serialize(gs);
@@ -59,11 +59,11 @@ describe('a) 版本链边界：v1 最小档逐级迁移到 v9', () => {
 });
 
 describe('b) 损坏与类型错乱对抗', () => {
-  it('截断 JSON 字符串被拒（不是对象）', () => {
+  it('字符串入参被入口非对象门拒（parse 通道归 loadFromSlot，其钉桩在 saveLoadIo.test.ts:27）', () => {
     expect(() => deserialize('{"schemaVersion":9,"state":{"resou')).toThrow(SaveLoadError);
   });
 
-  it('数组冒充对象被拒（缺 schemaVersion）', () => {
+  it('数组入参被拒（现状经缺 schemaVersion 通道；本例只钉错误类不钉消息）', () => {
     expect(() => deserialize([1, 2, 3])).toThrow(SaveLoadError);
   });
 
@@ -79,7 +79,7 @@ describe('b) 损坏与类型错乱对抗', () => {
     expect(() => deserialize(blob)).toThrow(/schemaVersion must be a number/);
   });
 
-  it('speed 越界（99 / -1 / "2"）被 clamp 回默认 1', () => {
+  it('speed 不属于 0|1|2|3（99/-1/字符串2）时整体回落默认 1（非边界 clamp；0 为合法值本例未覆盖）', () => {
     expect(deserialize(validV9({ speed: 99 })).speed).toBe(1);
     expect(deserialize(validV9({ speed: -1 })).speed).toBe(1);
     expect(deserialize(validV9({ speed: '2' })).speed).toBe(1);
@@ -102,7 +102,7 @@ describe('b) 损坏与类型错乱对抗', () => {
     expect(() => deserialize(validV9({ resources: 'oops' }))).toThrow(SaveLoadError);
   });
 
-  it('currentDay 超上界（>3600）：拒载 SaveLoadError（c919-04 TODO① 落地翻桩）', () => {
+  it('currentDay 极大值拒载（走 >3600 分支；边界值与下界另组，本例不含）', () => {
     // 超大值流入 UI 与事件判定是攻击面；MAX_SAVE_CURRENT_DAY=3600（HORIZON_DAYS=720 的 5 倍护栏）。
     expect(() => deserialize(validV9({ currentDay: Number.MAX_SAFE_INTEGER + 1 }))).toThrow(SaveLoadError);
   });
@@ -121,8 +121,8 @@ describe('c) 未来版本档', () => {
   });
 });
 
-describe('d) 迁移幂等', () => {
-  it('同一旧档迁移两次结果深比较一致', () => {
+describe('d) 反序列化决定论', () => {
+  it('v1 档两次独立深拷贝反序列化结果逐字符一致（决定论钉桩，不覆盖同一对象复用与迁移幂等）', () => {
     const blob = { schemaVersion: 1, state: { speed: 2, rngSeed: 7, resources: { people: 12 } } };
     const a = deserialize(JSON.parse(JSON.stringify(blob)));
     const b = deserialize(JSON.parse(JSON.stringify(blob)));
@@ -132,14 +132,14 @@ describe('d) 迁移幂等', () => {
 
 // ---------------- 020c：异常语义统一 SaveLoadError（两处收口回归） ----------------
 
-describe('020c：SaveLoadError 通道统一', () => {
-  it('截断档（非法 JSON 字符串）→ SaveLoadError 而非裸 SyntaxError', () => {
+describe('020c：当版档顶层损坏走 SaveLoadError 通道（低版档 state:null 走原生 TypeError，另册钉桩）', () => {
+  it('字符串入参（截断样式样本）走同一非对象通道；而非裸 SyntaxError 属 loadFromSlot，钉桩在 saveLoadIo.test.ts:27 与 fullLifecycleLayerTriage:419-420', () => {
     // deserialize 入口层面的表征：截断 JSON 在 parse 阶段即失败，
     // deserialize 收到非对象输入时走同一条 SaveLoadError 通道。
     expect(() => deserialize('{ "schemaVersion": 9, "state": { "spe')).toThrow(SaveLoadError);
   });
 
-  it('缺 state 的档 → SaveLoadError 且信息明确（不再是裸 TypeError）', () => {
+  it('当版（v9）档缺 state：报错消息含 missing state field（类断言见 :94；低版档仍走原生 TypeError，见 saveLoad.test.ts:678）', () => {
     expect(() => deserialize({ schemaVersion: 9 })).toThrow(/missing state field/);
   });
 });

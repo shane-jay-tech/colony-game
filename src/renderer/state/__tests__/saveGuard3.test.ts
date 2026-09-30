@@ -43,7 +43,7 @@ function v7Blob(overrides: Record<string, unknown> = {}): Record<string, unknown
 // ---------- #4 损坏防御：非对象/截断输入 ----------
 
 describe('#4 顶层非对象输入一律 SaveLoadError', () => {
-  it('截断 JSON 字符串被入口拒绝（不裸抛 SyntaxError）', () => {
+  it('截断 JSON 字符串被入口拒绝（不裸抛 SyntaxError；入口非对象门）', () => {
     // serialize 产物截断后是 string；deserialize 只收对象——现状在入口即拒。
     // 磁盘路径的损坏档已于 saveLoadIo.test.ts 钉住（020c 已收敛为 SaveLoadError）。
     const truncated = '{"schemaVersion":9,"state":{"rngSeed":7,"speed":2,"resou';
@@ -73,7 +73,7 @@ describe('#5 顶层缺 state / state 为 null', () => {
 // ---------- #3 回归保险：迁移缺失 ----------
 
 describe('#3 无迁移路径', () => {
-  it('浮点 schemaVersion 5.5 报 No migration path 且含原始版本号', () => {
+  it('v4 链完好 ＋ 浮点 schemaVersion 报 No migration path', () => {
     expect(() => deserialize(v4Blob({} as Record<string, unknown>))).not.toThrow();
     const float = { schemaVersion: 5.5, state: { rngSeed: 1, speed: 1 } };
     expect(() => deserialize(float)).toThrow(/No migration path from schema version 5\.5/);

@@ -95,7 +95,7 @@ describe('worldMap 深校验对抗', () => {
     expect(() => deserialize(v)).toThrow(/buildable must be boolean/);
   });
 
-  it('worldMap 缺失时按 rngSeed 确定性重建（不抛错）', () => {
+  it('worldMap 在场时两次解析逐字符一致（再生路径由 saveLoad.test.ts:149 legacy save without worldMap regenerates from rngSeed 守）', () => {
     const a = deserialize(validV9());
     const b = deserialize(validV9());
     expect(JSON.stringify(a.worldMap)).toBe(JSON.stringify(b.worldMap));
