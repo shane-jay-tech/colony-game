@@ -90,7 +90,8 @@ function createWindow(): void {
   const sendCleanSize = (cause: string): void => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     const [w, h] = mainWindow.getContentSize();
-    if (w > 0 && h > 0) mainWindow.webContents.send('window-resized', { w, h, cause });
+    if (w === undefined || h === undefined || w <= 0 || h <= 0) return; // c930-10: TS18048 收口（元素可能缺位）
+    mainWindow.webContents.send('window-resized', { w, h, cause });
   };
   mainWindow.on('maximize', () => sendCleanSize('maximize'));
   mainWindow.on('unmaximize', () => sendCleanSize('unmaximize'));

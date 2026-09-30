@@ -288,7 +288,7 @@ export class BuildPanel {
       const labelMap = RESOURCE_LABEL;
       const up = Object.entries(def.upkeep)
         .filter(([, v]) => v && v > 0)
-        .map(([k, v]) => `${labelMap[k] ?? k}${v}/日`).join('、');
+        .map(([k, v]) => `${labelMap[k as keyof typeof labelMap] ?? k}${v}/日`).join('、');
       if (up) lines.push(`维护：${up}`);
     }
     this.tooltipDescText.setText(lines.join('\n'));
@@ -343,7 +343,7 @@ export class BuildPanel {
     const labelMap = RESOURCE_LABEL;
     for (const [k, v] of Object.entries(def.cost)) {
       if (k === 'people') continue; // 民不消耗，下面单独显示"占劳"
-      if (v && v > 0) parts.push(`${labelMap[k] ?? k}${v}`);
+      if (v && v > 0) parts.push(`${labelMap[k as keyof typeof labelMap] ?? k}${v}`);
     }
     const laborN = def.cost.people ?? 0;
     if (laborN > 0) parts.push(`占劳${laborN}`); // 占用劳力（借用，非消耗）

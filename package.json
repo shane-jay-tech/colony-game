@@ -12,7 +12,7 @@
     "electron:build": "node scripts/gen-icon.mjs && node scripts/patch-7za-wrapper.mjs && electron-vite build && electron-builder",
     "electron:build:win": "node scripts/gen-icon.mjs && node scripts/patch-7za-wrapper.mjs && electron-vite build && electron-builder --win",
     "gen-icon": "node scripts/gen-icon.mjs",
-    "type-check": "tsc -p tsconfig.renderer.json --noEmit",
+    "type-check": "tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.main.json --noEmit",
     "test": "vitest run",
     "verify": "npm run type-check && npm run test"
   },
