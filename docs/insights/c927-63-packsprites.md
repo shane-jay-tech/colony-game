@@ -221,3 +221,5 @@ $ grep -rn "README" --include='*.test.ts' src scripts → 零命中（无"README
 4. **闭包 15.3 MiB／109 包是 09-22 读数**，本波未复算 ⇒ 日间真要收这个成本时先重取现值。
 5. `public/atlas/` 空目录（未跟踪、`git check-ignore` rc=1 无规则覆盖）是否随案 B `rmdir`：属可选清理，git 侧不进 diff，本班零删除动作。
 6. **`c923-13` 的 fakeScene 裁决已作废**（三个方法早在 `986db17`）——本单不涉该域，按横幅要求登记：本班**未据此扩面**。
+
+> 补注（c1001-03，2026-10-03）：腿 A 落地态见 docs/insights/c930-29-texpacker-precheck.md——本体 git rm、依赖卸载、README 案乙、START_HERE 删行改指已同笔落地。

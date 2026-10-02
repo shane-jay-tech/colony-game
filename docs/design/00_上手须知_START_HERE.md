@@ -121,8 +121,7 @@ npm run electron:build:win   # 打包 Windows 桌面 exe → dist-out/win-unpack
 | electron:build | 打包安装器（先生成图标+补 7za wrapper） |
 | electron:build:win | 同上，Windows 目标 |
 | gen-icon | 生成应用图标 |
-| pack-sprites | 打包精灵图 |
-| postprocess-png | AI 生成 PNG 后处理 |
+| postprocess 处理（无固定命令，见 scripts/postprocess-ai-png.mjs） | AI 生成 PNG 后处理 |
 | type-check | 渲染层 TypeScript 类型检查 |
 | test | vitest 全量单测（1227 用例） |
 | verify | type-check + test 一起跑（提交前门禁） |

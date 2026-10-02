@@ -7,7 +7,7 @@
 - TypeScript + Phaser 3.70 渲染与游戏逻辑
 - Electron 28 + electron-vite 桌面打包
 - vitest 测试与 tsc 类型检查
-- free-tex-packer 精灵图打包、脚本化图标与素材后处理
+- 脚本化图标与素材后处理
 - `.npmrc` 已配置国内镜像，依赖安装默认走 npmmirror
 
 构建产物、依赖和本地缓存均被 Git 忽略；`dist-out/` 只用于本地发布。
