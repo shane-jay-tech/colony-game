@@ -161,6 +161,9 @@ export interface FakeSceneLike {
 
 export function makeFakeScene(opts: FakeSceneOpts = {}): FakeSceneLike {
   const keyboardOn = vi.fn();
+  // c1002-04：texts 收集面（SaveLoadPanel 收编所需）——add.text 每建一记一，消费者凭
+  // scene.texts 断言「面板渲染了哪些文本」。纯超集新增：既有消费者零触碰（不读该字段）。
+  const texts: ReturnType<typeof makeFakeText>[] = [];
   const scene: FakeSceneLike = {
     scale: { width: 1366, height: 800 },
     add: {
@@ -171,6 +174,7 @@ export function makeFakeScene(opts: FakeSceneOpts = {}): FakeSceneLike {
     },
     input: { on: vi.fn(), off: vi.fn(), keyboard: opts.keyboard ? { on: keyboardOn, off: vi.fn() } : undefined },
     registry: { get: vi.fn(), set: vi.fn() },
+    texts,
     __keyboardOn: keyboardOn,
   } as unknown as FakeSceneLike;
   // Phaser Text 语义：构造第三参即初始文本——记入 .text 供断言（如 BuildingPopover hint 行）。
@@ -180,6 +184,7 @@ export function makeFakeScene(opts: FakeSceneOpts = {}): FakeSceneLike {
   addObj.text = vi.fn((x: number, y: number, init?: string) => {
     const t = origText(x, y, init) as unknown as { text: string };
     if (typeof init === 'string') t.text = init;
+    texts.push(t as never);
     return t;
   });
   if (opts.cameras) scene.cameras = { main: { width: 1366, height: 800, scrollX: 0, scrollY: 0 } };

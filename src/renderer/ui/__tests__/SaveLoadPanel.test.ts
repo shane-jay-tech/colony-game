@@ -9,7 +9,7 @@ import { GameStore, type IEventEmitter } from '../../state/gameStore';
 import { serialize } from '../../state/saveLoad';
 import type { WorldMap } from '../../data/mapSchema';
 import { SaveLoadPanel, formatSavedAt } from '../SaveLoadPanel';
-import { makeFakeText, makeFakeGraphics, makeFakeZone, makeFakeContainer } from './fakeScene';
+import { makeFakeScene, makeFakeText, makeFakeGraphics, makeFakeZone, makeFakeContainer } from './fakeScene';
 
 // c921-02 批 2：本地 FakeText/FakeGraphics builder 收编到 ./fakeScene（批一 3 文件同管道）。
 // c922-02 批 3：本地 FakeZone/FakeContainer 及其 interface 一并收编——共享件是本地件的方法超集
@@ -22,35 +22,9 @@ type FakeGraphics = ReturnType<typeof makeFakeGraphics>;
 type FakeZone = ReturnType<typeof makeFakeZone>;
 type FakeContainer = ReturnType<typeof makeFakeContainer>;
 
-interface FakeScene {
-  scale: { width: number; height: number };
-  add: {
-    container(): FakeContainer;
-    graphics(): FakeGraphics;
-    text(): FakeText;
-    zone(): FakeZone;
-  };
-  registry: {
-    get: ReturnType<typeof vi.fn>;
-    set: ReturnType<typeof vi.fn>;
-  };
-  texts: FakeText[];
-}
-
-function makeFakeScene(): FakeScene {
-  const texts: FakeText[] = [];
-  return {
-    scale: { width: 1366, height: 800 },
-    add: {
-      container: makeFakeContainer,
-      graphics: makeFakeGraphics,
-      text: (initial?: string) => { const t = makeFakeText(); if (initial !== undefined) t.text = initial; texts.push(t); return t; },
-      zone: makeFakeZone,
-    },
-    registry: { get: vi.fn(), set: vi.fn() },
-    texts,
-  };
-}
+// c1002-04（c930-13 遗留收尾）：本地 FakeScene/makeFakeScene 收编到 ./fakeScene——
+// 共享件经本批扩 texts 收集面（超集）后与本地面同形；类型用 ReturnType 派生。
+type FakeScene = ReturnType<typeof makeFakeScene> & { texts: FakeText[] };
 
 function allPlainMap(): WorldMap {
   const tiles = [];
