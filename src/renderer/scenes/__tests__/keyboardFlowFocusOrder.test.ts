@@ -19,6 +19,10 @@
  *
  * ⚠ 本班零生产码改动、零平衡数值改动。③⑤ 两组钉的是**在册缺口的现状**（首两屏只能鼠标、暂停遮罩被面板压住），
  *    不是"认可"它——缺口清单与最小改法写进 result「遗留问题」；键位方案属产品裁决面，执行手不代拍。
+ *
+ * 📌 c1001-01（2026-10-03，重落 c927-07）：三入口键盘实现重落盘 ⇒ ①③ 两组改钉（原「14 处/导航键 0 命中/
+ *    两屏键盘 0 处/四模态只有指针口」钉的缺口现状已失效）；改法逐条照 c927-07 遗留节可批形状执行，
+ *    唯一表 21 条、字面串总量 32（c927-07 普查读数原样复现）。配对棘轮语义移交 keyboardThreeEntries.test.ts。
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -117,7 +121,7 @@ function bareGameScene(): KeyboardHandlers {
 }
 
 describe('① 键盘面普查：卷宗六个名词在盘上的真实落点', () => {
-  it('renderer 生产源的键盘绑定共 14 处（7 绑定 + 7 解绑），键名全集只有 ESC/SPACE/ONE/TWO/THREE', () => {
+  it('renderer 生产源的键盘绑定共 32 处（21 键名唯一面：ESC/SPACE/ONE…NINE/UP/DOWN/ENTER）', () => {
     const got = keydownBindings().map(b => `${b.file}#${b.ev}`);
     const unique = [...new Set(got)].sort();
     expect(unique).toEqual([
@@ -126,24 +130,48 @@ describe('① 键盘面普查：卷宗六个名词在盘上的真实落点', () 
       'scenes/GameScene.ts#SPACE',
       'scenes/GameScene.ts#THREE',
       'scenes/GameScene.ts#TWO',
+      'scenes/IntroScene.ts#ENTER',
+      'scenes/ModeSelectScene.ts#DOWN',
+      'scenes/ModeSelectScene.ts#ENTER',
+      'scenes/ModeSelectScene.ts#UP',
       'ui/BuildingPopover.ts#ESC',
+      'ui/EventModal.ts#EIGHT',
+      'ui/EventModal.ts#ENTER',
+      'ui/EventModal.ts#FIVE',
+      'ui/EventModal.ts#FOUR',
+      'ui/EventModal.ts#NINE',
+      'ui/EventModal.ts#ONE',
+      'ui/EventModal.ts#SEVEN',
+      'ui/EventModal.ts#SIX',
+      'ui/EventModal.ts#THREE',
+      'ui/EventModal.ts#TWO',
       'ui/PolicyTreePanel.ts#ESC',
     ]);
-    // 棘轮：绑定总数与解绑总数必须相等（漏 off 即监听残留 ⇒ 一次按键多触发）
-    expect(got.length).toBe(14);
+    // 字面串总量棘轮（c1001-01 重落 c927-07 后 14→32）：⚠ 32 不是「on/off 配对数」——
+    // EventModal 的数字键 off 侧走运行值变量（h.ev）无字面串，ModeSelectScene/IntroScene 的
+    // off 侧才是 1:1 字面串。真正的配对棘轮由 keyboardThreeEntries.test.ts 行为钉承责
+    // （shutdown/关闭路径三例逐键断言 off 与 on 同函数）。
+    expect(got.length).toBe(32);
   });
 
-  it('「焦点顺序」确不存在：导航/确认/切焦键名在全部绑定里 0 命中', () => {
+  it('导航/确认键已入世（UP/DOWN/ENTER 三入口在世）；TAB 等切焦键与未接键名仍 0 命中', () => {
     const keys = keydownBindings().map(b => b.ev);
-    for (const nav of ['ENTER', 'NUMPAD_ENTER', 'TAB', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'A', 'B']) {
-      expect(keys).not.toContain(nav);
+    for (const nav of ['ENTER', 'UP', 'DOWN']) {
+      expect(keys, nav).toContain(nav);
+    }
+    for (const absent of ['NUMPAD_ENTER', 'TAB', 'LEFT', 'RIGHT', 'A', 'B']) {
+      expect(keys, absent).not.toContain(absent);
     }
   });
 
-  it('DOM 焦点面同样为空：src 与 public 无 tabindex / focus() / activeElement / autofocus', () => {
+  it('DOM 焦点面（排除键盘三入口后）为空：src 与 public 无 tabindex / focus() / activeElement / autofocus', () => {
     const files = [...tsFiles(resolve(REPO_ROOT, 'src'), true), ...webFiles(join(REPO_ROOT, 'public'))]
-      // 唯一允许含这些字面串的文件＝本件（普查代码自身）
-      .filter(f => !f.endsWith('keyboardFlowFocusOrder.test.ts'));
+      // 允许含这些字面串的文件＝本件（普查代码自身）＋键盘三入口两件
+      // （c1001-01 重落 c927-07：IntroScene 的 autofocus/显式 focus 是键盘入口的行为本体；
+      //   keyboardThreeEntries.test.ts 的字面串是其测试自身）
+      .filter(f => !f.endsWith('keyboardFlowFocusOrder.test.ts'))
+      .filter(f => !f.endsWith('IntroScene.ts'))
+      .filter(f => !f.endsWith('keyboardThreeEntries.test.ts'));
     const needles = ['tabindex', 'activeelement', '.focus(', 'autofocus'];
     const hits: string[] = [];
     for (const f of files) {
@@ -188,18 +216,18 @@ describe('② 取消（ESC）：三处注册、解绑成对，且无"焦点栈"�
   });
 });
 
-describe('③ 在册缺口现状（钉缺陷，不是认可）：菜单与模态确认只能鼠标', () => {
-  it('两个"菜单"屏（择途 / 立国）里键盘 0 处、指针交互若干处', () => {
+describe('③ 键盘缺口收口面（c1001-01 重落 c927-07 后）：两屏键盘在世、剩余三模态仍只有指针口', () => {
+  it('两个"菜单"屏（择途 / 立国）键盘在世且指针交互未删（键盘口与鼠标口并存）', () => {
     for (const rel of ['src/renderer/scenes/ModeSelectScene.ts', 'src/renderer/scenes/IntroScene.ts']) {
       const src = read(rel);
-      expect(src.includes('keyboard'), rel).toBe(false);
+      expect(src.includes('keyboard'), rel).toBe(true);
       expect(src, rel).toMatch(/pointer(down|up|over|out)/);
     }
   });
 
-  it('事件/危机/宗族/教程四张模态都只有指针口，"确认"没有键盘口', () => {
+  it('危机/宗族/教程三张模态仍只有指针口（EventModal 已收键盘口并移出本缺口清单）', () => {
     const bound = new Set(keydownBindings().map(b => b.file));
-    for (const rel of ['ui/EventModal.ts', 'ui/CrisisModal.ts', 'ui/FactionDemandModal.ts', 'ui/TutorialModal.ts']) {
+    for (const rel of ['ui/CrisisModal.ts', 'ui/FactionDemandModal.ts', 'ui/TutorialModal.ts']) {
       expect(bound.has(rel), rel).toBe(false);
       expect(read(`src/renderer/${rel}`), rel).toMatch(/pointer(down|up)/);
     }

@@ -1,5 +1,11 @@
 # c927-07 · 键盘无鼠标完成核心流程：三入口最小实现（走查表与交付说明）
 
+> 📌 **重落登记（c1001-01，2026-10-03）**：本档描述的实现曾被 `97fef2b`（9/28）回退（tmp/handover 留档现已被清），
+> 现按 c927-07 材料逐字重落盘（ModeSelectScene/IntroScene/EventModal 三生产件＋keyboardThreeEntries.test.ts 19 例＋
+> keyboardFlowFocusOrder 现状钉 5 处改钉同笔）。普查读数 32 处／21 键名与本档 §2 下方 c927-07 记录**原样复现**。
+> §2 表内「落点行号」仍是 9/28 工作树版的行号，对现盘已漂，引用时按 HEAD 现取，勿沿用。
+> 本登记为 append-only 注记，正文零改写。
+
 - 班：`qoder-executor-20260928-0255-colony52`（波次 42 · 代码写位）
 - 卷宗：`zcode-bridge/inbox/c927-07.task.md`（现随结果件移至 `done/`）
 - 上游裁决来源：`zcode-bridge/done/20260925-120433-4686.result.md` 遗留问题 1（「最小可派实现」）

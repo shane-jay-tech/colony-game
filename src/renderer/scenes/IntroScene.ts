@@ -182,6 +182,8 @@ export class IntroScene extends Phaser.Scene {
 
   private inputListener: (() => void) | null = null;
   private layoutTimer: number | null = null;
+  /** 键盘确认（c1001-01 重落 c927-07）：守卫同源——邦名非法或未选身份时按 ENTER 不推进。 */
+  private keyboardEnterHandler = (): void => this.tryStart();
 
   constructor() {
     super({ key: 'IntroScene' });
@@ -234,9 +236,9 @@ export class IntroScene extends Phaser.Scene {
       color: COLORS_HEX.PAPER_DIM,
     } as Phaser.Types.GameObjects.Text.TextStyle);
 
-    // DOM 输入框
+    // DOM 输入框（c1001-01 重落 c927-07：补 autofocus＋进屏显式聚焦，键盘用户免点输入框）
     const inputHTML =
-      `<input type="text" maxlength="3" placeholder="自取邦名" ` +
+      `<input type="text" maxlength="3" placeholder="自取邦名" autofocus ` +
       `style="width:316px;height:44px;font-size:24px;text-align:center;` +
       `background:${COLORS_HEX.BG_INK};color:${COLORS_HEX.PAPER};` +
       `border:2px solid ${COLORS_HEX.GOLD};outline:none;` +
@@ -252,6 +254,13 @@ export class IntroScene extends Phaser.Scene {
       this.refreshAllVisuals();
     };
     inputEl.addEventListener('input', this.inputListener);
+    // DOMElement 是运行中注入的节点，Chromium 的 autofocus 只对首次解析的 HTML 生效
+    // ⇒ 显式 focus 才是真落点；测试 fake 的 node 无该方法，先验再调（node 环境零受影响）。
+    if (typeof inputEl.focus === 'function') inputEl.focus();
+
+    // 键盘入口（c1001-01 重落 c927-07）：ENTER＝与「立 邦」pointerdown 同一 tryStart；
+    // Phaser 键盘挂 window（本仓未配 inputKeyboardEventTarget），打字途中按 ENTER 仍可达＝期望行为。
+    this.input.keyboard?.on('keydown-ENTER', this.keyboardEnterHandler);
 
     // 6 候选按钮
     this.currentCandidates = this.sampleCandidates();
@@ -576,6 +585,7 @@ export class IntroScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    this.input.keyboard?.off('keydown-ENTER', this.keyboardEnterHandler); // 与绑定 1:1
     this.scale.off('resize', this.scheduleLayout);
     if (this.layoutTimer !== null) { window.clearTimeout(this.layoutTimer); this.layoutTimer = null; }
     if (this.inputListener && this.countryInputDom?.node) {

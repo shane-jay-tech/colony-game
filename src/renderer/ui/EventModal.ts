@@ -25,6 +25,15 @@ const PANEL_WIDTH = 480;
 const PANEL_MIN_HEIGHT = 280;
 const PANEL_MAX_HEIGHT = 520;
 
+/**
+ * 数字键 1..9 的事件名表（c1001-01 重落 c927-07）。字面串表便于普查正则对账；
+ * 在册事件最大选项数＝4 ⇒ 9 格有余，真出现 >9 枚时多出的格子保持只有鼠标口、不抛错。
+ */
+const CHOICE_KEY_EVENTS = [
+  'keydown-ONE', 'keydown-TWO', 'keydown-THREE', 'keydown-FOUR', 'keydown-FIVE',
+  'keydown-SIX', 'keydown-SEVEN', 'keydown-EIGHT', 'keydown-NINE',
+] as const;
+
 interface ChoiceButton {
   bg: Phaser.GameObjects.Graphics;
   text: Phaser.GameObjects.Text;
@@ -48,6 +57,12 @@ export class EventModal {
   private buttons: ChoiceButton[] = [];
   /** 2026-06-19：事件插画（有 illustrationKey 且纹理存在时显示在标题上方）。 */
   private illustration: Phaser.GameObjects.Image | null = null;
+
+  // 键盘口（c1001-01 重落 c927-07）：数字键只「选中」不结算（两步式防误触），ENTER 才落 handleChoice；
+  // 未按过数字键时 ENTER 什么都不做（不默认结掉第 0 格）。
+  private keyboardChoiceIdx: number | null = null;
+  private choiceKeyHandlers: Array<{ ev: string; fn: () => void }> = [];
+  private enterKeyHandler: { ev: string; fn: () => void } | null = null;
 
   private currentEvent: CourtEvent | null = null;
   private activeContext: CourtEventContext | null = null; // Phase3：按状态选中的文本变体（OQ-S3）
@@ -150,6 +165,7 @@ export class EventModal {
     // 用 refcount API：玩家手动暂停态不被覆盖；多模态嵌套时不会互踩
     this.acquirePause();
     this.rebuildButtons();
+    this.bindChoiceKeys(); // 绑在 rebuildButtons() 之后＝模态可见期间才挂着
     this.layout();
     this.container.setVisible(true);
   }
@@ -206,7 +222,52 @@ export class EventModal {
     this.store.resolveEvent(idx);
   }
 
+  // ── 键盘口（c1001-01 重落 c927-07）──────────────────────────────────
+
+  /** 数字键选中：改 keyboardChoiceIdx 并走既有 layout() 重绘高亮（GOLD 实色），不直接结算。 */
+  private selectChoiceByKeyboard(i: number): void {
+    this.keyboardChoiceIdx = i;
+    this.layout();
+  }
+
+  /** ENTER 确认：没按过数字键时什么都不做（不默认结掉第 0 格）。 */
+  private confirmKeyboardChoice(): void {
+    if (this.keyboardChoiceIdx === null) return;
+    this.handleChoice(this.keyboardChoiceIdx);
+  }
+
+  /** 绑定 N＝实有按钮数（上限 9）＋ENTER；每次开模态重置光标。 */
+  private bindChoiceKeys(): void {
+    const kb = this.scene.input?.keyboard;
+    if (!kb) return;
+    this.keyboardChoiceIdx = null;
+    const n = Math.min(this.buttons.length, CHOICE_KEY_EVENTS.length);
+    for (let i = 0; i < n; i++) {
+      const ev = CHOICE_KEY_EVENTS[i]!;
+      const fn = () => this.selectChoiceByKeyboard(i);
+      kb.on(ev, fn);
+      this.choiceKeyHandlers.push({ ev, fn });
+    }
+    const enterFn = () => this.confirmKeyboardChoice();
+    const enterEv: string = 'keydown-ENTER'; // 字面串只此一处，off 侧走变量（普查口径＝on 侧 10 处）
+    kb.on(enterEv, enterFn);
+    this.enterKeyHandler = { ev: enterEv, fn: enterFn };
+  }
+
+  /** 解绑在 clearButtons() 内 ⇒ 结清 / 换档（STATE_REPLACED）/ destroy 三条关闭路径全覆盖。 */
+  private unbindChoiceKeys(): void {
+    const kb = this.scene.input?.keyboard;
+    if (!kb) return;
+    for (const h of this.choiceKeyHandlers) kb.off(h.ev, h.fn);
+    this.choiceKeyHandlers = [];
+    if (this.enterKeyHandler) {
+      kb.off(this.enterKeyHandler.ev, this.enterKeyHandler.fn);
+      this.enterKeyHandler = null;
+    }
+  }
+
   private clearButtons(): void {
+    this.unbindChoiceKeys(); // 关闭路径（结清/换档/destroy）统一解绑键盘口
     for (const b of this.buttons) {
       b.bg.destroy();
       b.text.destroy();
@@ -342,9 +403,11 @@ export class EventModal {
       const w = PANEL_WIDTH - padding * 2;
       b.zone.setPosition(x, cy).setSize(w, 40);
       b.bg.clear();
-      b.bg.fillStyle(COLORS.WOOD, 0.92);
+      // 键盘光标选中枚 GOLD 实色高亮（复用既有色值，随 layout() 重绘；c1001-01 重落 c927-07）
+      const kbSelected = this.keyboardChoiceIdx === b.idx;
+      b.bg.fillStyle(kbSelected ? COLORS.GOLD : COLORS.WOOD, 0.92);
       b.bg.fillRect(x, cy, w, 40);
-      b.bg.lineStyle(1, COLORS.GOLD_DIM, 1);
+      b.bg.lineStyle(1, kbSelected ? COLORS.GOLD : COLORS.GOLD_DIM, 1);
       b.bg.strokeRect(x, cy, w, 40);
       b.text.setPosition(x + w / 2, cy + 20);
       cy += 40 + 8;

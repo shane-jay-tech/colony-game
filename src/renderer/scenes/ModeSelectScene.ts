@@ -43,6 +43,8 @@ export class ModeSelectScene extends Phaser.Scene {
   private sandboxCard!: ModeCard;
   private storyCard!: ModeCard;
   private layoutTimer: number | null = null;
+  /** 键盘光标（c1001-01 重落 c927-07）：null＝未选（此时按 ENTER 落第一张＝沙盒）。 */
+  private keyboardCursor: 'sandbox' | 'story' | null = null;
 
   constructor() {
     super({ key: 'ModeSelectScene' });
@@ -121,6 +123,7 @@ export class ModeSelectScene extends Phaser.Scene {
 
     this.layout();
     this.scale.on('resize', this.scheduleLayout);
+    this.bindKeyboard();
   }
 
   private makeCard(
@@ -198,6 +201,42 @@ export class ModeSelectScene extends Phaser.Scene {
     this.scene.start('IntroScene');
   }
 
+  // ── 键盘入口（c1001-01 重落 c927-07）：UP/DOWN 移光标＋ENTER 确认，与鼠标口共用同一选择函数 ──
+
+  private keyboardCursorUp = (): void => this.moveKeyboardCursor('sandbox');
+  private keyboardCursorDown = (): void => this.moveKeyboardCursor('story');
+
+  /** 复用卡片既有 hovered 态的 paintCard 重画高亮，不新增绘制分支；两卡高亮互斥。 */
+  private moveKeyboardCursor(target: 'sandbox' | 'story'): void {
+    this.keyboardCursor = target;
+    this.sandboxCard.hovered = target === 'sandbox';
+    this.storyCard.hovered = target === 'story';
+    this.paintCard(this.sandboxCard);
+    this.paintCard(this.storyCard);
+  }
+
+  /** 光标为 null（进屏未动）时落第一张＝沙盒；确认走既有 chooseSandbox/chooseStory（与点卡片同一函数）。 */
+  private keyboardConfirm = (): void => {
+    if (this.keyboardCursor === 'story') this.chooseStory();
+    else this.chooseSandbox();
+  };
+
+  private bindKeyboard(): void {
+    const kb = this.input.keyboard;
+    if (!kb) return;
+    kb.on('keydown-UP', this.keyboardCursorUp);
+    kb.on('keydown-DOWN', this.keyboardCursorDown);
+    kb.on('keydown-ENTER', this.keyboardConfirm);
+  }
+
+  private unbindKeyboard(): void {
+    const kb = this.input.keyboard;
+    if (!kb) return;
+    kb.off('keydown-UP', this.keyboardCursorUp);
+    kb.off('keydown-DOWN', this.keyboardCursorDown);
+    kb.off('keydown-ENTER', this.keyboardConfirm);
+  }
+
   private layout(): void {
     const W = this.scale.width;
     const H = this.scale.height;
@@ -240,6 +279,7 @@ export class ModeSelectScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    this.unbindKeyboard(); // 键盘三键 1:1 解绑（本仓「焦点丢失」真形态＝漏 off）
     this.scale.off('resize', this.scheduleLayout);
     if (this.layoutTimer !== null) { window.clearTimeout(this.layoutTimer); this.layoutTimer = null; }
   }
