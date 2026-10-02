@@ -32,17 +32,12 @@ export const TARGET_LABEL: Record<ModifierTargetKey, string> = {
   country_diplomacy_weight: '邦交分量',
   // 建筑级
   building_construction_speed: '营建速度',
-  building_construction_cost: '营建耗费',
-  building_efficiency: '建筑效率',
-  building_upkeep: '建筑维护',
   // 民心 / 阶层
   population_happiness: '民众安乐',
   population_class_growth_shi: '士人增长',
   population_class_growth_nong: '农人增长',
-  population_class_growth_gong: '工匠增长',
   // 朝议概率
   event_positive_probability: '吉事概率',
-  event_negative_probability: '灾祸概率',
   // 其它
   country_renown: '周邦声望',
   building_output_area: '区域产出加成',

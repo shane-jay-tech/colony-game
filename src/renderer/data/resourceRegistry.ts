@@ -77,19 +77,14 @@ export const MODIFIER_TARGETS = [
 
   // 建筑级
   'building_construction_speed',
-  'building_construction_cost',
-  'building_efficiency',
-  'building_upkeep',
 
   // 民心 / 阶层
   'population_happiness',
   'population_class_growth_shi', // 士阶层
   'population_class_growth_nong', // 农阶层
-  'population_class_growth_gong', // 工阶层
 
   // 朝议触发概率调整
   'event_positive_probability',
-  'event_negative_probability',
 
   // J-3 v0.8：周邦认同度（立信路径核心 metric；烽燧/驿道/石碑场/扶弱事件累积）
   'country_renown',

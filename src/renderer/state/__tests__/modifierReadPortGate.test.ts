@@ -36,20 +36,15 @@ const AGGREGATOR_FILE = join(SRC_ROOT, 'state', 'modifierAggregator.ts');
 const READER_FNS = ['aggregateModifiers', 'applyModifiers', 'getAddDelta', 'getMulFactor'] as const;
 
 /**
- * 存量无读取口键的显式白名单（12 枚，实测口径见普查档 4.2 表）。
+ * 存量无读取口键的显式白名单（7 枚，实测口径见普查档 4.2 表；c1001-02 摘牌 5 枚退役）。
  * ⚠ 语义＝**待人工定数值语义后接线**（案 A 未授权；本文件不接线、不改任何数值）。
  * 任一键真被接上读取口，③ 号用例即红 ⇒ 同笔把该键从本表删掉（防登记表腐烂）。
  */
 const NO_READER_WHITELIST: readonly string[] = [
-  'building_construction_cost', // 数据 0 行：名已注册、数未填、线未接
-  'building_efficiency', // 同上
-  'building_upkeep', // 同上（建筑维护结算走 consumptionTargetFor 的 grain 专用路径，不读此键）
   'building_output_area', // J-3 v0.8 后加键，未接运行时
   'country_diplomacy_weight', // 数据肥（四表 36 行）＝已上架效果静默失效，待人工定数值语义
   'country_research_speed', // 数据肥（16 行），同上
-  'event_negative_probability', // 数据 0 行；所在机制整条不存在
   'event_positive_probability', // 数据 5 行＝静默失效，待人工定数值语义
-  'population_class_growth_gong', // 数据 0 行
   'population_class_growth_nong', // 数据 3 行
   'population_class_growth_shi', // 数据 4 行
   'population_happiness', // 数据 3 行
@@ -244,8 +239,8 @@ describe('c924-09 修饰符「上架即校验有读取口」门禁（案 B：零
     ).toEqual([]);
   });
 
-  it('③ 白名单自锁：12 例外键必须确实无读取口，且并集覆盖全表', () => {
-    expect(WHITELIST.length, '白名单条数').toBe(12);
+  it('③ 白名单自锁：7 例外键必须确实无读取口，且并集覆盖全表', () => {
+    expect(WHITELIST.length, '白名单条数').toBe(7);
     for (const k of WHITELIST) expect(isKey(k), `白名单键 ${k} 应存在于注册表`).toBe(true);
     // 任一例外键被接线 ⇒ 本用例红 ⇒ 同笔把它从白名单删掉（登记表不得腐烂）
     expect(IN_BOTH, '白名单键却已有读取口（应接线后摘牌）').toEqual([]);
@@ -263,8 +258,8 @@ describe('c924-09 修饰符「上架即校验有读取口」门禁（案 B：零
     expect([...PRODUCED_KEYS.values()].flat().length, 'target 生产位解析出的键数').toBe(8);
   });
 
-  it('⑤ 计数钉子：注册表 27 键 ＝ 15 有读取口 ＋ 12 白名单例外', () => {
-    expect(REGISTRY.length, 'MODIFIER_TARGETS 键数（改动须同笔交代门禁）').toBe(27);
+  it('⑤ 计数钉子：注册表 22 键 ＝ 15 有读取口 ＋ 7 白名单例外（c1001-02 五键退役）', () => {
+    expect(REGISTRY.length, 'MODIFIER_TARGETS 键数（改动须同笔交代门禁）').toBe(22);
     expect(SORTED_READ.length, '有读取口键数').toBe(15);
     expect(NOT_IN_EITHER.length, '既无读取口又未登记的键数').toBe(0);
   });

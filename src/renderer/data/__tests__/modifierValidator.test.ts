@@ -35,7 +35,7 @@ function goodEffect(value: number = 1): ModifierEffect {
 }
 
 function effectOf(op: 'add' | 'mul'): ModifierEffect {
-  return { target: 'building_efficiency', op, value: 0.1 };
+  return { target: 'building_construction_speed', op, value: 0.1 }; // c1001-02：原夹具键已退役，换在役建筑级键
 }
 
 function badInstance(patch: unknown): ModifierInstance {

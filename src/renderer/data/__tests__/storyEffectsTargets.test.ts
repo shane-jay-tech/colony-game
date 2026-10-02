@@ -268,10 +268,8 @@ describe('c922-128 钉子二：四表 effects.target 键名全量注册（只判
       'population_happiness',
     ]);
     const unconsumed = registry.filter((t) => !union.includes(t)).sort();
-    expect(unconsumed).toEqual([
-      'building_construction_cost', 'building_efficiency', 'building_upkeep', 'event_negative_probability',
-      'population_class_growth_gong',
-    ]);
+    // c1001-02：五个无读取口键（曾列此 5 行）经主班拍板退役，注册表删行后四表并集与注册表全等
+    expect(unconsumed).toEqual([]);
     // 钉的是"22 个都在注册表里"，不是"注册表只有这 22 个"
     for (const t of union) expect(registry).toContain(t);
   });
