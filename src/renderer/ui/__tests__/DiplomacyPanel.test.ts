@@ -96,6 +96,62 @@ describe('DiplomacyPanel', () => {
     expect(warinessBand(100).text).toBe('同仇敌忾');
   });
 
+  // ── c1002-06（c923-21 遗留接线第二批）：真路径用例——不经测试后门，触发生产代码亲手
+  // zone.on('pointerdown', …) 登记的回调本体（DiplomacyPanel.ts:184/:194/:204）。
+  // 本件 zone 是 c924-02 刻意保留的内联字面量（on 只 vi.fn().mockReturnThis()、不建 handlers 表），
+  // 故从 on.mock.calls 取回回调——取到的仍是面板自己的闭包（c924-18 MegaProjectPanel 同款手法）。
+  type ZoneWithSpy = { on: { mock: { calls: Array<[string, (...a: unknown[]) => void]> } } };
+  const eventStub = () => ({ stopPropagation: vi.fn() }) as never;
+  function pointerDownZones(): Array<{ zone: ZoneWithSpy; invoke: () => void }> {
+    const zoneFn = ((scene as unknown as { add: { zone: { mock: { results: Array<{ value: ZoneWithSpy }> } } } }).add.zone);
+    return zoneFn.mock.results
+      .map((r) => r.value)
+      .filter((z) => z && z.on.mock.calls.some((c) => c[0] === 'pointerdown'))
+      .map((zone) => ({ zone, invoke: () => (zone.on.mock.calls.find((c) => c[0] === 'pointerdown')![1] as (p: unknown, x: number, y: number, e: never) => void)(null, 0, 0, eventStub()) }));
+  }
+
+  it('c1002-06 真路径：三行动作 zone 的 pointerdown → trade/envoy/war 各自接到 store（阵容 4 国=12 卡区+遮罩/关闭）', () => {
+    store.startNewGameNpcs(7);
+    panel.open();
+    const npcIds = store.getNpcCountries().map((s) => s.id);
+    expect(npcIds.length).toBeGreaterThan(0);
+    const zones = pointerDownZones();
+    // 遮罩 + 关闭钮 + 每国 3 区
+    expect(zones.length).toBe(2 + npcIds.length * 3);
+    const tradeSpy = vi.spyOn(store, 'tradeWithNpc');
+    const envoySpy = vi.spyOn(store, 'sendEnvoyTo');
+    const warSpy = vi.spyOn(store, 'declareWarOn');
+    for (const { invoke } of zones) invoke();
+    // 每国的三区恰好各接线一次；实参=本国 id（闭包捕获 def.id）
+    expect(tradeSpy.mock.calls.map((c) => c[0]).sort()).toEqual([...npcIds].sort());
+    expect(envoySpy.mock.calls.map((c) => c[0]).sort()).toEqual([...npcIds].sort());
+    expect(warSpy.mock.calls.map((c) => c[0]).sort()).toEqual([...npcIds].sort());
+  });
+
+  it('c1002-06 真路径：出使区 pointerdown → 真实状态变化（lastEnvoyDay/stance 落账，非仅 spy）', () => {
+    store.startNewGameNpcs(7);
+    const inner = store as unknown as { state: { currentDay: number; resources: Record<string, number>; npcCountries: Array<{ id: string; lastEnvoyDay: number; stance: number }> } };
+    inner.state.currentDay = 10;
+    inner.state.resources.gold = 500;
+    inner.state.resources.cloth = 50;
+    panel.open();
+    const npcIds = store.getNpcCountries().map((s) => s.id);
+    const zones = pointerDownZones().slice(2); // 跳过遮罩/关闭钮，余下=每国 3 区
+    // 找到第一张卡的出使区：逐区 invoke 到 sendEnvoyTo 命中本国为止
+    const envoySpy = vi.spyOn(store, 'sendEnvoyTo');
+    let targetNpcId: string | null = null;
+    for (const { invoke } of zones) {
+      invoke();
+      if (envoySpy.mock.calls.length > 0) {
+        targetNpcId = envoySpy.mock.calls[0]![0] as string;
+        break;
+      }
+    }
+    expect(targetNpcId).toBeTruthy();
+    const npcState = inner.state.npcCountries.find((s) => s.id === targetNpcId)!;
+    expect(npcState.lastEnvoyDay).toBe(10); // 出使冷却日已落账＝store 真实状态变化
+  });
+
   it('c919-05 ≥70 强档合纵两态渲染：≥70 副标题现「同仇敌忾」，<70 不出现', () => {
     const inner = store as unknown as { state: { worldWariness: number; lastWarinessReason: string | null } };
     const subText = () => ((panel as unknown as { subtitleText: { text: string } }).subtitleText.text);

@@ -49,7 +49,7 @@ describe('SaveLoadPanel', () => {
   let toastMock: { show: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
-    scene = makeFakeScene();
+    scene = makeFakeScene() as unknown as FakeScene; // 共享件返回类型 FakeSceneLike 的超集断言（texts 运行时在位）
     store = makeStore();
     saveGameMock = vi.fn().mockResolvedValue(true);
     loadGameMock = vi.fn().mockResolvedValue(null);
