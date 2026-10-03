@@ -77,6 +77,13 @@ function makeStore(): GameStore {
     { policies: [POL_FREE, POL_NEEDS_PREREQ, POL_EXPENSIVE], decrees: [DECREE_FREE, DECREE_EXPENSIVE] });
 }
 
+/** c1002-11②：自定义朝令集的 store（停滞态夹具用；其余与 makeStore 同构）。 */
+function makeStoreWithDecrees(decrees: RoyalDecree[]): GameStore {
+  const ee = new EventEmitter() as unknown as IEventEmitter;
+  return new GameStore(ee, { worldMap: allPlainMap() },
+    { policies: [POL_FREE, POL_NEEDS_PREREQ, POL_EXPENSIVE], decrees });
+}
+
 // ---- c923-21：真实点击路径的取数口 ----------------------------------------
 // 卷宗锚点（c922-125 遗留）：本文件此前所有「点节点/点卡片」都走 panel.clickPolicyByIndex()/
 // clickDecreeByIndex() 这两条**测试后门直调**，共享 fakeScene.makeFakeZone 的 handlers 登记面
@@ -295,5 +302,82 @@ describe('PolicyTreePanel', () => {
     expect(store.getActiveDecrees()[0]!.daysElapsed).toBe(0);
     expect(card.status.text).toBe('第1阶 · 0/5日 (0%)');
     expect(String(toast.show.mock.calls.at(-1)?.[0])).toContain('已在推进');
+  });
+
+  // ---- c1002-11（c924-19 遗留三类形态补齐）----------------------------------
+
+  it('c1002-11① 现状守卫钉：dragMoved=true（拖拽平移后松手）下点国策/朝令 zone → 不落账（:449/:442 早退在位）', () => {
+    panel.open();
+    const inner = panel as unknown as { dragMoved: boolean };
+    // 国策侧：dragMoved 置位后点 pol_a 的 zone → adoptPolicy 零调用
+    inner.dragMoved = true;
+    const adoptPolicySpy = vi.spyOn(store, 'adoptPolicy');
+    nodesOf(panel)[0]!.zone.handlers.pointerup!();
+    expect(adoptPolicySpy).not.toHaveBeenCalled();
+    expect(store.getAdoptedPolicyIds().size).toBe(0);
+    // 朝令侧：同一形态（:442 早退）
+    tabZoneOf(panel, 'tabDecreeZone').handlers.pointerup!(); // 先切到 decree tab（真入口）
+    inner.dragMoved = true;
+    const adoptDecreeSpy = vi.spyOn(store, 'adoptDecree');
+    cardsOf(panel)[0]!.zone.handlers.pointerup!();
+    expect(adoptDecreeSpy).not.toHaveBeenCalled();
+    expect(store.getActiveDecrees()).toHaveLength(0);
+    // 反向自证：dragMoved 复位后同一点击正常落账 ⇒ 上面的零调用来自早退分支而非夹具失效
+    inner.dragMoved = false;
+    cardsOf(panel)[0]!.zone.handlers.pointerup!();
+    expect(adoptDecreeSpy).toHaveBeenCalledTimes(1);
+    expect(store.getActiveDecrees()).toHaveLength(1);
+  });
+
+  it('c1002-11② 真路径翻转：颁行完成态「✓ 已颁行 永久生效」与资源不足停滞态两文案（:719/:727 现值）', () => {
+    // 完成态：DECREE_FREE 两阶各 5 日免费 → adopt 后 tickDay×10 走完 → completedSet 收编
+    panel.open();
+    tabZoneOf(panel, 'tabDecreeZone').handlers.pointerup!();
+    cardsOf(panel)[0]!.zone.handlers.pointerup!(); // 真路径落账 decree_a
+    expect(store.getActiveDecrees()).toHaveLength(1);
+    for (let i = 0; i < 10; i++) store.tickDay();
+    expect(store.getCompletedDecreeIds()).toContain('decree_a');
+    expect(store.getActiveDecrees()).toHaveLength(0);
+    const freeCard = cardsOf(panel)[0]!;
+    expect(freeCard.status.text).toBe('✓ 已颁行 永久生效'); // :727 完成态文案（磁盘现值）
+
+    // 停滞态：stalled 只发生在**多阶**朝令的「下阶 cost 付不起」（一阶朝令到期即完成，无停滞面）
+    // ⇒ 自建两阶夹具（首阶免费落账、第二阶 cost 9999 金到期付不起），零碰生产码与现有夹具。
+    const DECREE_STALL: RoyalDecree = {
+      id: 'decree_stall', name: '停滞令', category: '内政', description: '', descPlain: '',
+      unlockCondition: [],
+      stages: [
+        { order: 1, cost: {}, days: 2, effects: [], removeEffects: [] },
+        { order: 2, cost: { gold: 9999 }, days: 3, effects: [], removeEffects: [] },
+      ],
+    };
+    const store2 = makeStoreWithDecrees([DECREE_STALL]);
+    const panel2 = new PolicyTreePanel(scene, store2);
+    panel2.open();
+    tabZoneOf(panel2, 'tabDecreeZone').handlers.pointerup!();
+    const s2 = store2 as unknown as { state: { resources: Record<string, number> } };
+    s2.state.resources.gold = 0; // 本就无金，显式钉基线
+    cardsOf(panel2)[0]!.zone.handlers.pointerup!(); // 真路径落账 decree_stall（首阶免费）
+    expect(store2.getActiveDecrees().some(a => a.id === 'decree_stall')).toBe(true);
+    for (let i = 0; i < 5; i++) store2.tickDay(); // 首阶到期日扣下阶 cost 9999 付不起 → 卡在当前阶、daysElapsed 推 sentinel（>2 ⇒ stalled）
+    // 实测语义：stall 不推进 currentStage（付不起的正是**进入下阶**的门）⇒ 文案停在「第1阶」
+    expect(cardsOf(panel2)[0]!.status.text).toBe('第1阶 · 资源不足停滞'); // :719 停滞态文案（磁盘现值）
+  });
+
+  it('c1002-11③ 现状钉桩（记录缺陷，修复另批）：policy tab 下点朝令卡 → store 真落账但卡片文案不刷新', () => {
+    panel.open();
+    expect(panel.getCurrentTab()).toBe('policy'); // 不切 tab，留在 policy
+    const card = cardsOf(panel)[0]!;
+    const before = card.status.text; // policy tab 下 refreshDecrees 不跑 ⇒ 基线（''）
+    card.zone.handlers.pointerup!();
+    // store 面：真落账了（事件发出、activeDecrees 进账）——「事件发了」半面成立
+    expect(store.getActiveDecrees()).toHaveLength(1);
+    expect(store.getActiveDecrees()[0]!.id).toBe('decree_a');
+    // 面板面：卡片文案一字未动（「看不见更新」形态）——switchTo('decree') 前用户无从得知
+    expect(card.status.text).toBe(before);
+    // 反向自证：真入口切到 decree tab 后 refreshDecrees 跑 ⇒ 文案此刻才翻（证明卡没坏、是刷新时机问题）
+    tabZoneOf(panel, 'tabDecreeZone').handlers.pointerup!();
+    expect(cardsOf(panel)[0]!.status.text).not.toBe(before);
+    expect(cardsOf(panel)[0]!.status.text).toContain('第1阶');
   });
 });
