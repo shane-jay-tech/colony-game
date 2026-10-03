@@ -1,10 +1,12 @@
-"""邦国录 · 合成 4 个短音效（纯 stdlib，无外部依赖/无 ffmpeg）。
+"""邦国录 · 合成 6 个短音效（纯 stdlib，无外部依赖/无 ffmpeg）。
 
 加性合成 + 指数衰减包络，写 16-bit 单声道 WAV 到 public/audio/<key>.wav：
   sfx_bell  事件提示——明亮编钟（含非谐分音）
   sfx_chime 建成——清亮上行二音 ding
   sfx_gong  危机——低沉铜锣（非谐分音 + 长衰减 + 微噪）
   sfx_place 落子——短促木质 thunk + click
+  sfx_click 按钮轻响——极短全频 tick（c1002-20 补生成通道；时长与在册 0.10s 档一致）
+  sfx_warn  警报——双音下行短促警笛（c1002-20 补生成通道；≤0.30s，远低于 c924-23 体积闸 0.388s）
 青铜礼器气质，克制不刺耳。
 """
 from __future__ import annotations
@@ -89,9 +91,41 @@ def place() -> None:
     _write("sfx_place", out)
 
 
+def click() -> None:
+    """按钮轻响：极短全频 tick——瞬态 + 高频泛音快衰减（在册 sfx_click 0.10s 档同口径）。"""
+    dur = int(0.10 * SR)
+    out = []
+    for n in range(dur):
+        t = n / SR
+        # 2.2kHz 主频 + 5kHz 泛音，双快衰减（8ms/25ms）＝「嗒」的瞬态形态
+        s = math.sin(2 * math.pi * 2200.0 * t) * math.exp(-t / 0.008)
+        s += 0.5 * math.sin(2 * math.pi * 5000.0 * t) * math.exp(-t / 0.025)
+        out.append(s)
+    _write("sfx_click", out)
+
+
+def warn() -> None:
+    """警报：双音下行短促警笛——两组 A5→E5 交替，各带颤感；≤0.30s（c924-23 体积闸 0.388s 内）。"""
+    dur = int(0.30 * SR)
+    out = []
+    for n in range(dur):
+        t = n / SR
+        # 两组下行音对（880→659Hz），0.15s 交接；每段内 28Hz 幅度调制＝警笛颤感
+        seg = 0 if t < 0.15 else 1
+        f = 880.0 if seg == 0 else 659.3
+        tt = t if seg == 0 else t - 0.15
+        trem = 0.82 + 0.18 * math.sin(2 * math.pi * 28.0 * t)
+        s = math.sin(2 * math.pi * f * t) * _env(n, dur, 0.14) * trem
+        s += 0.3 * math.sin(2 * math.pi * f * 2.0 * t) * math.exp(-tt / 0.05)  # 泛音只在段首亮
+        out.append(s)
+    _write("sfx_warn", out)
+
+
 if __name__ == "__main__":
     bell()
     chime()
     gong()
     place()
+    click()
+    warn()
     print("[sfx] done")
