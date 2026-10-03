@@ -18,8 +18,9 @@ import { makeFakeContainer, makeFakeGraphics, makeFakeText, makeFakeZone } from 
 // c924-02（批二）：container 内联字面量已并入共享 makeFakeContainer（each/removeAll/list 三项补进 union，
 // 生产码零读者 ⇒ 惰性超集）。唯一行为差是共享件 setVisible **记值**（内联为空转），
 // 而本面板 isVisible() 读自己的 isOpen（DiplomacyPanel.ts:244）、不读 container.visible ⇒ 对本文件断言无影响。
-// zone 字面量**刻意保留内联**（理由见下方 zone 处注释）：换共享 makeFakeZone 会让 setPosition/setSize 从"空转"变"记值"、
-// on 从不登记变登记 handlers，属夹具语义改动而非收编，超本单范围。
+// zone 原也保留内联（c924-02 理由＝ setPosition/setSize 空转→记值、on 不登记→登记 handlers）；
+// c1002-07：断言面已实证零依赖空转语义（无断言读 x/y/width/height；c1002-06 真路径取柄走
+// on.mock.calls，共享件同样在 mock.calls 留记录）⇒ 换共享 makeFakeZone 收编（行为超集）。
 
 function makeFakeScene() {
   return {
@@ -28,13 +29,9 @@ function makeFakeScene() {
       container: vi.fn(makeFakeContainer),
       graphics: vi.fn(makeFakeGraphics),
       text: vi.fn(makeFakeText),
-      // ⚠ 保留内联（c924-02）：共享 makeFakeZone 的 setPosition/setSize 会记值（:85-86 mockImplementation）、
-      // on 会把回调登记进 handlers（:87），而本内联版三者皆空转——替换=改夹具语义，
-      // 且本文件无任何断言读 x/y/width/height/handlers，改了既无收益也无人看守，故不动。
-      zone: vi.fn(() => {
-        const z = { x: 0, y: 0, width: 1, height: 1, setOrigin: vi.fn().mockReturnThis(), setInteractive: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(), setSize: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(), on: vi.fn().mockReturnThis(), destroy: vi.fn() };
-        return z;
-      }),
+      // c1002-07：zone 内联字面量收编为共享 makeFakeZone（原 c924-02 保留理由已失效：
+      // 无断言依赖空转语义；c1002-06 真路径取柄走 on.mock.calls，共享件兼容）。
+      zone: vi.fn(makeFakeZone),
     },
     input: { on: vi.fn(), off: vi.fn(), keyboard: undefined },
     registry: { get: vi.fn(), set: vi.fn() },
@@ -98,8 +95,9 @@ describe('DiplomacyPanel', () => {
 
   // ── c1002-06（c923-21 遗留接线第二批）：真路径用例——不经测试后门，触发生产代码亲手
   // zone.on('pointerdown', …) 登记的回调本体（DiplomacyPanel.ts:184/:194/:204）。
-  // 本件 zone 是 c924-02 刻意保留的内联字面量（on 只 vi.fn().mockReturnThis()、不建 handlers 表），
-  // 故从 on.mock.calls 取回回调——取到的仍是面板自己的闭包（c924-18 MegaProjectPanel 同款手法）。
+  // 取柄走 on.mock.calls（c924-18 MegaProjectPanel 同款手法）：c1002-07 起 zone 已换共享
+  // makeFakeZone（其 on 同样在 mock.calls 留记录、另登记 handlers 表），两种形态下取到的
+  // 都是面板自己闭包。
   type ZoneWithSpy = { on: { mock: { calls: Array<[string, (...a: unknown[]) => void]> } } };
   const eventStub = () => ({ stopPropagation: vi.fn() }) as never;
   function pointerDownZones(): Array<{ zone: ZoneWithSpy; invoke: () => void }> {
