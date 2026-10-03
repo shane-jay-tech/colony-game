@@ -1,5 +1,8 @@
 // 存档守护第二包：worldMap 深校验与 buildings 数组逐字段对抗（B21 遗留补强）。
 // 不改产品代码；以现行行为为准钉住，可疑处留 TODO 供日间。
+// c1002-13（c923-30 遗留）：worldMap 族七支点名升 A——worldMap 字符串/width/seed 三支由泛化
+// toThrow(SaveLoadError) 收紧为消息含子字段名（tiles.length/terrain/buildable 两支原已点名，
+// 再生一致性支非对抗面）；消息现值 2026-10-04 探针实测（读数见 c1002-13 result）。例数不变。
 import { describe, expect, it } from 'vitest';
 import { SaveLoadError, deserialize } from '../saveLoad';
 
@@ -50,7 +53,8 @@ function validBuilding(overrides: Record<string, unknown> = {}): Record<string, 
 
 describe('worldMap 深校验对抗', () => {
   it('worldMap 为字符串被拒', () => {
-    expect(() => deserialize(validV9({ worldMap: 'map' }))).toThrow(/malformed/);
+    // c1002-13 升 A：消息点名 worldMap 子字段
+    expect(() => deserialize(validV9({ worldMap: 'map' }))).toThrow(/worldMap is malformed/);
   });
 
   it('width 为 0/负数/非整数被拒', () => {
@@ -60,7 +64,8 @@ describe('worldMap 深校验对抗', () => {
       return v;
     };
     for (const width of [0, -3, 2.5, '4']) {
-      expect(() => deserialize(mk(width))).toThrow(SaveLoadError);
+      // c1002-13 升 A：泛化 SaveLoadError → 消息点名 worldMap.width
+      expect(() => deserialize(mk(width))).toThrow(/worldMap\.width must be a positive integer/);
     }
   });
 
@@ -70,8 +75,9 @@ describe('worldMap 深校验对抗', () => {
       ((v.state as { worldMap: Record<string, unknown> }).worldMap as Record<string, unknown>)['seed'] = seed;
       return v;
     };
-    expect(() => deserialize(mk(NaN))).toThrow(SaveLoadError);
-    expect(() => deserialize(mk(Infinity))).toThrow(SaveLoadError);
+    // c1002-13 升 A：泛化 SaveLoadError → 消息点名 worldMap.seed
+    expect(() => deserialize(mk(NaN))).toThrow(/worldMap\.seed must be a finite number/);
+    expect(() => deserialize(mk(Infinity))).toThrow(/worldMap\.seed must be a finite number/);
   });
 
   it('tiles 数量与 width*height 不符被拒', () => {
