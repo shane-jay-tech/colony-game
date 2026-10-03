@@ -9,7 +9,7 @@
 // （例 2）——只写例 2 的话「两次都没注册」也能让它假绿；例 3 再钉「注册的那个 fn 真有清洗语义」，
 // 防「注册了个空函数」这种两边计数都对的假绿。
 // ⚠ 零生产码改动；`fakeScene.ts` 未改（其 `add.dom` 工厂本就每次调用返回**新** node 与独立 vi.fn）。
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'eventemitter3';
 
 vi.mock('phaser', async () => {
@@ -35,6 +35,9 @@ interface FakeInputNode {
 interface IntroSceneInternals {
   countryInputDom: { node: FakeInputNode };
   inputListener: (() => void) | null;
+  layoutTimer: number | null;
+  scheduleLayout: () => void;
+  scale: { on: ReturnType<typeof vi.fn>; off: ReturnType<typeof vi.fn> };
 }
 
 function allPlainMap(): WorldMap {
@@ -99,5 +102,74 @@ describe('IntroScene DOM input 监听配对（c923-32 缺口 2）', () => {
     node.value = '大夏A1';
     registered();
     expect(node.value).toBe('大夏');
+  });
+});
+
+// ── c1002-15（c924-26 遗留）：IntroScene 的 resize/timer 清理面——ModeSelectSceneShutdown
+// 例 2／例 3 配方平移（IntroScene.ts:589 scale.off('resize') ＋ :590 clearTimeout，与 ModeSelect
+// 同型）。SHUTDOWN once 绑定面已由上方 describe 覆盖（fireShutdown 同一取柄），不重复钉。
+// ⚠ window 用本 describe 局部 vi.stubGlobal（node 环境无 window；生产码只在 scheduleLayout/shutdown
+// 两处碰它）；fakeScene.ts 的 SHUTDOWN 常量面不扩（c924-26 遗留 3 在册）。
+interface FakeWindow {
+  setTimeout: () => number;
+  clearTimeout: (id: number) => void;
+}
+function installFakeWindow(firstId = 5252) {
+  let next = firstId;
+  const setTimeoutSpy = vi.fn(() => next++);
+  const clearTimeoutSpy = vi.fn();
+  vi.stubGlobal('window', { setTimeout: setTimeoutSpy, clearTimeout: clearTimeoutSpy } satisfies FakeWindow);
+  return { setTimeoutSpy, clearTimeoutSpy };
+}
+function callsFor(spy: ReturnType<typeof vi.fn>, ev: string): unknown[][] {
+  return spy.mock.calls.filter((c: unknown[]) => c[0] === ev);
+}
+
+describe('IntroScene resize/timer 清理面（c1002-15，ModeSelect 例 2/3 配方平移）', () => {
+  beforeEach(() => {
+    registryStore.clear();
+    shutdownHandlers.length = 0;
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('resize 反注册配对：create 交给 scale.on("resize") 的那个 fn，正是 shutdown 交给 scale.off 的那个（换闭包＝解不掉）', () => {
+    const { scene } = makeScene();
+    const inner = scene as unknown as IntroSceneInternals;
+    const ons = callsFor(inner.scale.on, 'resize');
+    const offsBefore = callsFor(inner.scale.off, 'resize');
+    expect(ons.length).toBe(1);
+    expect(offsBefore.length).toBe(0);
+    const registered = ons[0]![1];
+
+    fireShutdown();
+    const offs = callsFor(inner.scale.off, 'resize');
+    expect(offs.length).toBe(1);
+    // ModeSelectScene.ts:62-63 注释同型失效形态：off 传新闭包 ⇒ resize 监听残留 ⇒ 必须比引用
+    expect(offs[0]![1], 'scale.off 传的不是 scale.on 那个 fn：resize 监听残留，切场景后对已销毁文字跑 layout').toBe(
+      registered,
+    );
+  });
+
+  it('clearTimeout 用真句柄：scheduleLayout 领到的 id 在 SHUTDOWN 时被精确清掉、layoutTimer 归 null；未排程则一次都不调', () => {
+    const win = installFakeWindow();
+
+    // 负向对照（先跑）：这台从未排程 ⇒ 「clearTimeout 0 次」才是有意义的读数
+    const idle = makeScene().scene;
+    expect((idle as unknown as IntroSceneInternals).layoutTimer).toBeNull();
+    fireShutdown();
+    expect(win.clearTimeoutSpy).not.toHaveBeenCalled();
+
+    // 正向：排程领到的**那个**句柄必须被 clearTimeout 精确回收
+    const { scene } = makeScene();
+    const inner = scene as unknown as IntroSceneInternals;
+    inner.scheduleLayout();
+    expect(win.setTimeoutSpy).toHaveBeenCalledTimes(1);
+    expect(inner.layoutTimer).toBe(5252);
+
+    fireShutdown();
+    expect(win.clearTimeoutSpy.mock.calls).toEqual([[5252]]);
+    expect(inner.layoutTimer).toBeNull();
   });
 });
