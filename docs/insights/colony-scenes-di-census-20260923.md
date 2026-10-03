@@ -52,7 +52,7 @@ PLAN.md:59 写的是「**至少一件**」⇒ 按字面，全仓已有 ≥1 件�
 **缺口 4（弱信号，登记不催办）｜6 个 registry 键有写无读**
 - 证据：`tmp/colony12/keys.py`（剥注释后按 `registryGet/registrySet(….registry, REGISTRY_KEYS.X)` 全 src 扫描）读数——`countryName`、`identity`、`diplomacyPanel`、`megaProjectPanel`、`militaryPanel`、`policyTreePanel` 六键 **set=1／get=0**。同时另 16 键均有读取方（`toast` 被 9 处读、`audioManager` 3 处、`store` 3 处）。`countryName`/`identity` 由 IntroScene 写、无人经 registry 读（HUD 读的是另外几个 panel 键）。
 - 口径注意：这条只统计**经 typed helper 的读取**，所以真正的否证方式是"有没有绕开 helper 的裸访问"——本档一并测了：全 src 的裸 `registry.get(`/`registry.set(` **仅 1 处命中且属另一个对象**（`data/buildingRegistry.ts:30`，非 Phaser DataManager）⇒ Phaser registry 侧**helper 覆盖率 100%**，"有写无读"不是扫描口径造成的假象。
-- 但：这 6 个键可能是「为热重载留的位置」或「UI 面板持有者另有其人」，判死要先看 UIScene shutdown 的 destroy 是不是靠 registry 回读（现读是靠字段）。**属观察，不属缺陷定论** ⇒ 建议只作为 c923-13/台账 82 那条「死数据/闲臵面」普查的一条输入，不单开单。
+- 但：这 6 个键可能是「为热重载留的位置」或「UI 面板持有者另有其人」，判死要先看 UIScene shutdown 的 destroy 是不是靠 registry 回读（现读是靠字段）。**属观察，不属缺陷定论** ⇒ 建议只作为 c923-13/台账 82 那条「死数据/闲置面」普查的一条输入，不单开单。
 
 ## 四、做单时的注意（避坑，非结论）
 
