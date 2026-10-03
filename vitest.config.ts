@@ -16,5 +16,16 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/__tests__/**/*.test.ts', 'scripts/__tests__/**/*.test.ts'],
+    // 主班 2026-10-04：计时护栏件从默认（并行）门禁面摘出——它读的是墙钟，与别的测试文件并行时
+    // 抢核会把读数整体放大（同日实测 2637µs → 14172µs，5.3×），曾使 pre-commit 长期不可过。
+    // 该件改由 `npm run test:perf` 在 vitest.perf.config.ts 下单线程串行跑，继续守严格门槛。
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/cypress/**',
+      '**/.{idea,git,cache,output,temp}/**',
+      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
+      '**/hudRefreshCost.test.ts',
+    ],
   },
 });

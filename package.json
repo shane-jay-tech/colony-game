@@ -15,7 +15,8 @@
     "type-check": "tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.main.json --noEmit",
     "art:exists-check": "tsx scripts/art-exists-check.mts",
     "test": "vitest run",
-    "verify": "npm run type-check && npm run test"
+    "test:perf": "vitest run --config vitest.perf.config.ts",
+    "verify": "npm run type-check && npm run test && npm run test:perf"
   },
   "dependencies": {
     "phaser": "^3.70.0"

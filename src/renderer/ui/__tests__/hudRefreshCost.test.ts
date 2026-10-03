@@ -94,17 +94,16 @@ function timeCalls(fn: () => void, n = N): number {
 }
 
 /**
- * 并发抢核自检（c1002-01 实证；主班 2026-10-04 落）。
+ * 并发抢核**诊断量**（仅留痕，不是放行判据；主班 2026-10-04 落）。
  *
- * 本件读的是**墙钟**，而 vitest 默认 threads 池＝同一进程里多个 worker 并行跑别的测试文件。
- * 抢核时读数整体膨胀，倍数随负载浮动。2026-10-04 全量跑实测（同一台机、同一次跑）：
- *   MilitaryPanel 14172.87µs/call（空闲 2665µs）＝ 5.3×；全挂载合计 17603µs（空闲 3282µs）。
- * ⇒ 任何**绝对**门槛在并发下都会误红：把 5000 抬到 10000 也救不了（14172 仍 > 10000）。
- *   并发下的误红正是 2026-09-30 起各执行班连续 --no-verify 的直接原因（pre-commit 跑全量 test）。
+ * 本件读的是墙钟，并行跑时会因抢核整体膨胀（同日实测：单跑 MilitaryPanel 2637.67µs、
+ * 全量跑同件 14172.87µs，5.3×）。但**不能拿 cpuShare 当放行判据**：它无法区分
+ * 「本进程自身多 worker」与「外部抢占」——本件单跑也量到 1.96（vitest 主线程＋worker 同进程），
+ * 全量 6.82，阈值怎么定都有反例（GPT-5.6 独立评审 2026-10-04：高估/低估两侧都举了场景）。
  *
- * 判据：把测量窗口的**本进程 CPU 时间**与**墙钟**相比。threads 池同进程共享 CPU 计数，
- *   ⇒ 比值 ≈1 ＝只有本线程在跑；>1 ＝还有别的 worker 在抢核（约等于并发 worker 数）。
- *   这是**基线无关**判据，不需要在测试里硬编机器速度常量（硬编常量换个机器就失效）。
+ * ⇒ 结构性处置：本件已从默认 test 面摘出（vitest.config.ts 的 exclude），
+ *   改由 `npm run test:perf` 在 vitest.perf.config.ts 下单线程串行跑，门槛**恒定 5000µs/call**。
+ *   cpuShare 只打进日志，供人工判读"本次读数是否可信"，不参与断言。
  */
 function cpuShareOf<T>(fn: () => T): { value: T; cpuShare: number } {
   const w0 = performance.now();
@@ -194,15 +193,12 @@ describe('c927-26 HUD/订阅件 refresh 毫秒成本（测试面替身）', () =
     console.log(`[c927-26] totalUsPerCallAll10=${totalUs.toFixed(1)} perTickUpperMsAll10=${perTickUpperMs.toFixed(3)} (×${CALLBACKS_PER_TICK} callbacks/tick, a2e3 E3)`);
     // 断言只守数量级护栏（防回归爆量），不钉具体数值（CI 机器差异）：单件 <5ms/次、全挂载推算 <16.7ms 帧预算。
     // 抢核时绝对读数不可比 ⇒ 本跑退守"爆量"底线 50ms/次，并显式留痕（判据见 cpuShareOf 的说明）。
-    // 门槛 3.0：2026-10-04 同日两次实测——单跑（无抢核）cpuShare=1.96（MilitaryPanel 2638µs），
-    // 全量跑（抢核）cpuShare=6.82（同件 13027µs）⇒ 3.0 两侧各留 ~1.5×/2.3× 余量。
-    // 取这个数不是拍的：1.5 会把单跑也误判成抢核（实测 1.96），5.0 又会在中等负载下漏判。
-    const CONTENDED = loop.cpuShare > 3;
-    const PER_SUBJECT_LIMIT_US = CONTENDED ? 50_000 : 5_000;
-    console.log(`[c927-26] cpuShare=${loop.cpuShare.toFixed(2)} ⇒ ${CONTENDED ? ' contended(并发抢核)' : ' idle(无抢核)'}；本次单件门槛=${PER_SUBJECT_LIMIT_US}µs/call`);
-    if (CONTENDED) console.warn(`[c927-26] ⚠ 本跑并发抢核（cpuShare=${loop.cpuShare.toFixed(2)}）：绝对读数被整体放大，只守"爆量"底线 ${PER_SUBJECT_LIMIT_US / 1000}ms/次；要看严格门槛请单跑本件（npx vitest run src/renderer/ui/__tests__/hudRefreshCost.test.ts）。`);
+    // 门槛恒定 5000µs/call，**不按运行时信号动态放宽**（理由见 cpuShareOf 与 vitest.perf.config.ts）。
+    // 本件已从默认 test 面摘出，由 `npm run test:perf` 单线程串行跑；若有人把它塞回并行面，
+    // 误红会立刻复现——那正是 2026-09-30 起连续 --no-verify 的病根。
+    console.log(`[c927-26] cpuShare=${loop.cpuShare.toFixed(2)}（仅诊断：≈2＝只有本进程在跑；明显更高说明有别的 worker 在抢核，本次读数偏保守）`);
     expect(rows).toHaveLength(10);
-    for (const r of rows) expect(r.usPerCall).toBeLessThan(PER_SUBJECT_LIMIT_US);
+    for (const r of rows) expect(r.usPerCall).toBeLessThan(5_000);
     if (perTickUpperMs >= 16.7) console.warn(`[c927-26] ⚠ 全挂载推算 ${perTickUpperMs.toFixed(2)}ms ≥ 16.7ms 帧预算（读数如实报告，是否超预算留主班对照 fake 膨胀 caveat 判读）`);
   });
 });
