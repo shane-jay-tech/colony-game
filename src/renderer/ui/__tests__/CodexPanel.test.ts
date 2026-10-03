@@ -66,12 +66,6 @@ describe('CodexPanel', () => {
     expect(panel.isVisible()).toBe(false);
   });
 
-  it('切换主题不报错且可在打开态调用', () => {
-    panel.open();
-    expect(() => panel.selectTopic(2)).not.toThrow();
-    expect(() => panel.selectTopic(panel.topicCount() - 1)).not.toThrow();
-  });
-
   it('destroy 后释放 pause（不残留软暂停）', () => {
     panel.open();
     expect(store.isPaused()).toBe(true);
@@ -79,9 +73,10 @@ describe('CodexPanel', () => {
     expect(store.isPaused()).toBe(false);
   });
 
-  // c924-18（面板 handlers 真路径扩面批二）：下面两例**不碰 :69 那条只断 not.toThrow() 的老路**，
-  // 也不调生产码里自述为「测试 hook」的 selectTopic（CodexPanel.ts:223-224），改为触发面板
-  // 自己 zone.on('pointerup', …) 登记的回调本体（CodexPanel.ts:137/:148/:156）。
+  // c924-18（面板 handlers 真路径扩面批二）：下面两例不直调任何后门，触发面板自己
+  // zone.on('pointerup', …) 登记的回调本体（CodexPanel.ts:137/:148/:156）。
+  // c1002-18：原「测试 hook」成员（:223-224，仅 not.toThrow 老例在用）已退役删除，
+  // 本两例真路径就是主题切换行为面的现役看守。
   // zone 即 fakeScene.makeFakeZone（其 on 把回调记进 handlers，见 fakeScene.ts:76/:87）——本件零改夹具。
   type HandlerHost = { handlers: Record<string, (...a: unknown[]) => void> };
   const internals = (p: CodexPanel) =>
@@ -98,7 +93,7 @@ describe('CodexPanel', () => {
     return h!;
   }
 
-  it('真路径：点主题条 zone 的 pointerup → selected 换、正文换、选中色互换（不经 selectTopic）', () => {
+  it('真路径：点主题条 zone 的 pointerup → selected 换、正文换、选中色互换', () => {
     panel.open();
     const box = internals(panel);
     const activeColor = box.tabs[0]!.txt.color; // open()→layout() 后第 0 条是选中态

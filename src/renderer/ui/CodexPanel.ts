@@ -220,7 +220,5 @@ export class CodexPanel {
     this.container.destroy(true);
   }
 
-  // 测试 hook（DeepSeek nit：越界 index 会让 layout 访问 TOPICS[selected] 出错，clamp 防御）
-  selectTopic(i: number): void { this.selected = Math.max(0, Math.min(i, TOPICS.length - 1)); if (this.isOpen) this.layout(); }
-  topicCount(): number { return TOPICS.length; }
+  topicCount(): number { return TOPICS.length; } // 词表哨兵面（c1002-18：同族测试 hook 已退役，零生产调用方；行为面由真路径例看守）
 }
