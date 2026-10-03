@@ -171,3 +171,28 @@ describe('saveMatrix 迁移链完整前向守护', () => {
     expect(message).toBeNull();
   });
 });
+
+// ── c1002-19（c924-20 设计稿 §4 A1 判别性断言独立落地，不与选案捆绑）──────────
+// 设计稿原话：A1 证「迁移确实跑了、且会覆盖」——只有两路语义差才能满足的判据，
+// 是 c923-22「删注入行 0 红」空洞的那把牙。锚＝migrations[8] 的 `s['wrathUltimatumEndDay'] = null;`（saveLoad.ts:192）。
+// 红形态说明：设计稿预判「现在就会红」；本班首跑实测两行判据**绿**（迁移赢 ⇒ null；不跑链 ⇒ 兜底保留 999）
+// ——即 A1 作为**回归哨兵**当下成立，其红名触发条件是「将来有人删 migrations[8] 注入行」（那刻第一行读到 999 即红）。
+// 「现在就会红」的原预判指的应是 c923-22 旧断言族（无分叉值的断言在删行后仍 0 红）——A1 正是补那个洞，非自身红。
+// 落地订正：设计稿的浅拷贝两面写法踩「migrations 原地改写」坑（首跑实测第二行假红 null≠999），已改独立克隆两台。
+describe('A1 分叉值断言（c1002-19，设计稿 §4 A1 逐字；回归哨兵形态实测绿）', () => {
+  it('v8 档带分叉值走链 → migrations[8] 注入赢（999 被覆盖为 null）；同 blob 标当版 → 兜底保留 999', () => {
+    // ⚠ 两面必须各自独立克隆：migrations[N] 是**原地改写** blob 的（本文件 realBlobAt 注与
+    // c922-122 教训同源）——若两行共享 state，第一行走链后 999 已被原地改成 null，第二行必假红。
+    // 设计稿的 `{ ...blob, schemaVersion: 9 }` 浅拷贝写法正踩此坑，本落地改为独立 realBlobAt 两台。
+    const chained = realBlobAt(8) as unknown as { schemaVersion: number; state: Record<string, unknown> };
+    delete chained.state.wrathUltimatumEndDay;   // 先钉「键不存在」（夹具来自 serialize，键本在）
+    chained.state.wrathUltimatumEndDay = 999;    // ← 造一个 v8 期不可能有、但链会遇到的值
+    // 走链面：migrations[8] 注入赢 ⇒ null
+    expect(deserialize(chained).wrathUltimatumEndDay).toBeNull();
+    // 不跑链面：当版零迁移 ⇒ 兜底（finite → floor）保留 999
+    const asCurrent = realBlobAt(9) as unknown as { schemaVersion: number; state: Record<string, unknown> };
+    asCurrent.state.wrathUltimatumEndDay = 999;
+    expect(deserialize(asCurrent).wrathUltimatumEndDay).toBe(999);
+    // 断线即红自证：删 migrations[8] 注入行 ⇒ 走链面读到 999 ⇒ 本例红（对比 c923-22 旧断言族删行 0 红）
+  });
+});
