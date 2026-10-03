@@ -23,6 +23,9 @@ import { validateDslExpr } from './dslCore';
 export class ModifierValidationError extends Error {
   constructor(message: string, public readonly path: string) {
     super(`[ModifierValidation] ${path}: ${message}`);
+    // c1002-14（c923-31 遗留）：覆写 name——继承默认 name='Error' 使按 err.name 分流的调用方
+    // 永远走空；分流面核查（rg err.name/\.name === src/ 生产码）现值零调用方 ⇒ 纯工程面提前补齐。
+    this.name = new.target.name;
   }
 }
 

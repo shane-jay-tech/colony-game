@@ -172,7 +172,7 @@ describe('c923-31 path 透传与异常形状', () => {
     expect(() => validateModifierEffect(badEffect('country_grain_output', 'add', NaN), 'P')).toThrow(/value must be/);
   });
 
-  it('【现状】异常类型是 ModifierValidationError，但 name 仍是继承来的 "Error"（类未设 name）', () => {
+  it('c1002-14 name 已覆写为类名（原【现状】「name 仍是 Error」已被构造覆写翻新）', () => {
     let caught: unknown;
     try {
       validateModifierEffect(badEffect('nope', 'add', 1), 'P');
@@ -182,9 +182,9 @@ describe('c923-31 path 透传与异常形状', () => {
     expect(caught).toBeInstanceOf(ModifierValidationError);
     expect(caught).toBeInstanceOf(Error);
     expect(caught).not.toBeNull();
-    // 判别力：构造函数名可读，而 err.name 未覆写 ⇒ 按 name 分流的调用方会走空
+    // c1002-14：constructor.name 与 err.name 现在一致——按 name 分流的调用方自此可达
     expect((caught as object).constructor.name).toBe('ModifierValidationError');
-    expect((caught as Error).name).toBe('Error');
+    expect((caught as Error).name).toBe('ModifierValidationError');
     expect((caught as ModifierValidationError).path).toBe('P.target');
   });
 });
