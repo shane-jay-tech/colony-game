@@ -36,7 +36,8 @@ npm run electron:build:win   # 打包 Windows 桌面 exe → dist-out/win-unpack
 ## 3. 铁律（不可违反，违反必被打回）
 
 1. **测试不破 + type-check 干净**：改完跑 `npm run verify`（= type-check && 1154 测试）全绿；新功能补测试。已装 git pre-commit 钩子，红了拦截提交（勿用 `--no-verify` 绕过）。
-2. **每次代码落地后**跑 `npm run electron:build:win`，让 `D:\colony-game\dist-out\win-unpacked\邦国录.exe` 始终最新（桌面 .lnk 不用改）。
+2. **每次代码落地后**跑 `npm run electron:build:win`，产物落在仓内 `dist-out/win-unpacked/邦国录.exe`（相对路径，随打包 cwd 走）；
+> 订正（2026-10-04 c1002-17）：原句写死 `D:\colony-game\dist-out\...`——该目录已不存在（`D:\colony-game\` 下现仅剩 `user-data`，桌面 .lnk 若仍指旧址需重建）。历史决策档里的同型绝对路径属当时盘态留痕，不回改。
 3. **文案半文半白**：保留古典韵味但**禁偏字**——玉圭/卿大夫/贵胄/弑/无嗣/耒耜/王畿/方伯/泗水/海岱 等一律不用，非历史专业玩家要一遍看懂。
 4. **地图无格线**：渲染层必须像《纪元 1800》，底层可方格但视觉上**完全无格线**（已明确否决"小作坊"程序化色块）。
 5. **美术质量基线**：单看一帧不能让人判断成简陋小作坊（参照纪元气质）。生成管线见 `D:\code\scripts\gen_wanxiang_batch.py`（通义万相 wan2.7-image-pro，1664²，春秋校正 prompt）。

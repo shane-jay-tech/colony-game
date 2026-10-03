@@ -16,7 +16,8 @@
   - **文案半文半白**：保留古典韵味但禁偏字（玉圭/卿大夫/弑/无嗣 等），非历史专业玩家要一遍看懂。
   - **地图无格线**：渲染层必须像《纪元 1800》，底层可方格但视觉上完全无格线。
   - **美术质量基线**：单看一帧不能让人判断成简陋小作坊。
-  - **每次代码落地后**自动跑 `npm run electron:build:win` 刷新 `D:\colony-game\dist-out\win-unpacked\邦国录.exe`，桌面 .lnk 不用改。
+  - **每次代码落地后**自动跑 `npm run electron:build:win` 刷新仓内 `dist-out/win-unpacked/邦国录.exe`。
+> 订正（2026-10-04 c1002-17）：原句写死 `D:\colony-game\dist-out\...`（已不存在的旧部署位），改相对口径；详见 00_上手须知_START_HERE.md 同日订正注。
 - 关键现状文件索引（v1.0，501 测试绿）：
   - 资源/Modifier 注册表：`src/renderer/data/resourceRegistry.ts`
   - 建筑（约 20 种）：`src/renderer/data/buildings.ts`
