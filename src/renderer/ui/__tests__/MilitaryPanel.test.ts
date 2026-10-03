@@ -178,7 +178,10 @@ describe('c930-16 立绘面收口（本地可控 textures）', () => {
       exists: vi.fn((k: string) => k.startsWith('portrait_')),
       get: vi.fn(() => ({ getSourceImage: () => ({ width: 64, height: 96 }) })),
     };
-    const addAny = (scene as unknown as { add: Record<string, ReturnType<typeof vi.fn>> }).add;
+    // 主班修复（TS2322）：原类型 Record<string, ReturnType<typeof vi.fn>> 与 vi.fn(() => im)
+    // 推得的 Mock<[], Record<string, unknown>> 不兼容。本处只用 add.image 换一个替身，
+    // 放宽成可调用签名即可，断言面（下方 extras 检查）不受影响。
+    const addAny = (scene as unknown as { add: Record<string, (...args: unknown[]) => unknown> }).add;
     addAny.image = vi.fn(() => {
       const im: Record<string, unknown> = {};
       for (const meth of ['setOrigin', 'setScale', 'setVisible', 'setDepth', 'setPosition', 'destroy']) {

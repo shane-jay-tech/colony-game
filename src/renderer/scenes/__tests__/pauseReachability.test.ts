@@ -445,20 +445,25 @@ describe('④ 恢复口可达性：顶栏速度钮与空格在两种暂停口下
     codex.toggle();
   });
 
-  it('🔴 双口叠加的时序陷阱：玩家口被顶栏清掉 ⇒ 关面板的瞬间游戏按新档自己跑（玩家没点过继续）', () => {
+  it('双口叠加的时序陷阱已封（c930-04）：模态持有期间顶栏整钮不响应 ⇒ 玩家口不被清、关面板后不自己开跑', () => {
     const { scene, store } = ready();
     store.setPaused(true); // 玩家口
     const codex = panelOf(REGISTRY_KEYS.codexPanel);
     codex.toggle();        // 叠加 holder 口
     const dayBefore = store.getCurrentDay();
-    (scene as unknown as { hud: HudHandlers }).hud.onSpeedButton(3); // setPaused(false) + setSpeed(3)
-    expect(store.getUserPaused()).toBe(false); // 玩家口已被清（此刻仍暂停＝holder 的功劳）
+    const speedBefore = store.getSpeed();
+    (scene as unknown as { hud: HudHandlers }).hud.onSpeedButton(3); // c930-04 前：setPaused(false)＋setSpeed(3)
+    // 钉桩翻转留痕：c927-46 原钉「玩家口被顶栏清掉 ⇒ 关面板的瞬间按新档自己跑（玩家没点过继续）」。
+    // c930-04 在 HUD.ts:513 补了 `if (this.store.hasPauseHolders()) return;` ⇒ 模态持有期间整钮不响应，
+    // 原缺陷点（清玩家口／静默改档）双双消失。本钉随之由「钉陷阱」翻为「钉陷阱已封」。
+    expect(store.getUserPaused()).toBe(true);      // 玩家口未被清（原缺陷点）
     expect(store.isPaused()).toBe(true);
+    expect(store.getSpeed()).toBe(speedBefore);    // 档位也没被静默改掉（原缺陷点）
     expect(store.getCurrentDay()).toBe(dayBefore); // 暂停期间时间没走
-    codex.toggle();                                // 关面板 ⇒ 释放 holder
-    expect(store.isPaused()).toBe(false);          // 游戏直接开跑
-    expect(store.getSpeed()).toBe(3);
-    store.setSpeed(1);
+    codex.toggle();                                // 关面板 ⇒ 只释放 holder
+    expect(store.isPaused()).toBe(true);           // 玩家口仍在 ⇒ 游戏不会自己开跑（陷阱已封）
+    expect(store.getUserPaused()).toBe(true);
+    store.setPaused(false);                        // 收尾：显式撤销玩家口
   });
 
   it('时间面同证：暂停（任一口）下 TimeSystem.update 再大的 delta 也是 0 tick；恢复才走', () => {

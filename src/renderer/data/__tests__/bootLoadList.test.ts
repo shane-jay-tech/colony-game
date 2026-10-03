@@ -66,7 +66,9 @@ describe('a46 terrain naming consistency', () => {
 });
 
 // c-18：清单等价断言补测——四类 category（building/general/event/ui）与 ART_MANIFEST 的派生一致性。
-import { ART_MANIFEST, EVENT_ART } from '../artManifest';
+// c930-20 修复：:147/:151 引用了 scatterArtUrl/eventArtUrl（BootScene 抽出的同源模板），
+// 但提交时漏加 import ⇒ 本件 147:114 处 ReferenceError（收集期即挂）。补回具名。
+import { ART_MANIFEST, EVENT_ART, scatterArtUrl, eventArtUrl } from '../artManifest';
 import { EVENTS } from '../../data/events';
 
 describe('c18 manifest equivalence', () => {

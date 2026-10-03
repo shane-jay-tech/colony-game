@@ -251,10 +251,10 @@ describe('c930-17 真路径五面接线', () => {
     const { scene, buildMode, panel } = makeReal();
     const zone = (panel as unknown as { demolishZone: { handlers: Record<string, () => void> } }).demolishZone;
     buildMode.isDemolish.mockReturnValue(false);
-    zone.handlers['pointerdown']();
+    zone.handlers['pointerdown']!();
     expect(buildMode.enterDemolish).toHaveBeenCalledTimes(1);
     buildMode.isDemolish.mockReturnValue(true);
-    zone.handlers['pointerdown']();
+    zone.handlers['pointerdown']!();
     expect(buildMode.cancel).toHaveBeenCalledTimes(1);
     void scene;
   });
@@ -263,12 +263,12 @@ describe('c930-17 真路径五面接线', () => {
     const { panel } = makeReal();
     const rows = (panel as unknown as { rows: Array<{ def: any; zone: { handlers: Record<string, () => void> } }> }).rows;
     const row = rows[0]!;
-    row.zone.handlers['pointerdown']();
+    row.zone.handlers['pointerdown']!();
     expect((panel as unknown as { buildMode: { select: ReturnType<typeof vi.fn> } }).buildMode.select).toHaveBeenCalledWith(row.def);
-    row.zone.handlers['pointerover']();
+    row.zone.handlers['pointerover']!();
     expect((panel as unknown as { hoveredDef: unknown }).hoveredDef).toBe(row.def);
     expect((panel as unknown as { tooltipNameText: { setText: ReturnType<typeof vi.fn> } }).tooltipNameText.setText).toHaveBeenCalled();
-    row.zone.handlers['pointerout']();
+    row.zone.handlers['pointerout']!();
     expect((panel as unknown as { hoveredDef: unknown }).hoveredDef).toBeNull();
   });
 

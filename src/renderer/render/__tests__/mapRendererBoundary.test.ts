@@ -2,11 +2,11 @@
  * c927-46：MapRenderer 字号下限 12 与贴图缺失回退的边界行为钉桩（7b6a E 组读数续）
  *
  * 锚点漂移先留痕（w40-brief §3＋卷宗"有漂移则按磁盘实况修正并留痕"）：
- *   - 卷宗写 `MapRenderer.ts:738` 的 `fontPx` ⇒ **磁盘现值是 :745**（:738 现在是 `}`，属 9-25 之后的行漂移），
+ *   - 卷宗写 `MapRenderer.ts:738` 的 `fontPx` ⇒ **现值 :747**（c927-46 落钉时 :745；c930-08 再 +2），
  *     表达式逐字未变：`Math.max(12, Math.floor(Math.min(isoW, ISO_TILE_H * (wT + hT)) * 0.4))`；
- *   - 卷宗写 `:691` 的 `hasSprite` ⇒ **未漂移，仍在 :691**：
+ *   - 卷宗写 `:691` 的 `hasSprite` ⇒ 现值 **:693**（c927-46 落钉时仍在 :691，c930-08 +2）：
  *     `!!textures && typeof textures.exists === 'function' && textures.exists(def.assetKey)`；
- *   - 锚点引用的 `:772 t.setVisible(!hasSprite)` ⇒ 现值 **:773**（同样 +1 漂移）。
+ *   - 锚点引用的 `:772 t.setVisible(!hasSprite)` ⇒ 现值 **:775**（落钉时 :773，c930-08 +2）。
  *
  * 🔴 两条本件实测出来的结构读数（钉桩之前没人写过）：
  *   ① **`Math.min(isoW, ISO_TILE_H*(wT+hT))` 在现役 2:1 tile 下是恒等式**：
@@ -314,7 +314,7 @@ describe('A 组 字号下限 12（MapRenderer.ts:745，卷宗写的 :738 已漂 
 
 // ============================== B 组：贴图缺失回退（:691 守卫三重形态） ==============================
 
-describe('B 组 贴图缺失回退（MapRenderer.ts:691 三重守卫 ＋ :773 setVisible(!hasSprite)）', () => {
+describe('B 组 贴图缺失回退（MapRenderer.ts:693 三重守卫 ＋ :775 setVisible(!hasSprite)）', () => {
   it('B-1 exists 返回 false ⇒ 画菱形 footprint、建沙印且不建 image', () => {
     const exists = vi.fn(() => false);
     const scene = makeFakeScene({ exists });
@@ -325,20 +325,29 @@ describe('B 组 贴图缺失回退（MapRenderer.ts:691 三重守卫 ＋ :773 se
     expect(scene._texts[0]!.visible).toBe(true);
   });
 
-  it('B-2 textures 整体缺席：🔴 构造期就抛 ⇒ :691 的 `!!textures` 分支在现役装配序下不可达', () => {
+  it('B-2 textures 整体缺席：构造期不再抛（c930-05 补守卫）⇒ :693 的 `!!textures` 分支已是活口', () => {
     const scene = makeFakeScene(null);
-    // 现状钉（不是认可）：构造链 :465 → `ensureAnimTextures` :471 **裸调** `this.scene.textures.exists(...)`，
-    // 没有任何守卫 ⇒ 还没走到 rerenderBuildings 就炸。于是 :691 那条"三重守卫"里的第一重
-    // （`!!textures`）在真实路径上**永远轮不到执行**——它防的是"贴图面缺席"，可贴图面缺席时
-    // 场景根本构造不出来。本班没改产品码，只把这个不可达性钉下来（要修就得给 :471 补同源守卫）。
-    expect(() => newRenderer(scene)).toThrow(/Cannot read properties of undefined/);
+    // 钉桩翻转留痕：c927-46 原钉「构造链 :465 → ensureAnimTextures :471 裸调 textures.exists ⇒
+    // 未走到 rerenderBuildings 就炸，:691 第一重守卫（`!!textures`）结构性不可达」。
+    // c930-05（3d61583）已在 :471 补同源守卫 ⇒ 原炸点消失、第一重守卫在真实路径上真的轮得到。
+    // 本钉由「钉不可达」翻为「钉守卫在岗」：不再接受"构造期抛"，改判守卫拦下后走缺图回退。
+    // 构造本身即第一个断言：原钉点「构造期抛」已由 c930-05 守卫消除（抛了这行就红）。
+    // 只构造一次——buildingsGfx 取的是 _graphics[2]，重复构造会把桩指到上一枚 renderer 的图层。
+    const renderer = newRenderer(scene);
+    expect(() => renderer.rerenderBuildings([instance('synth_has_art', 0)])).not.toThrow();
+    expect(scene._images).toHaveLength(0);                      // 第一重 !textures ⇒ hasSprite=false
+    expect(buildingsGfx(scene).fillPoints).toHaveBeenCalled();   // 缺图才画地基菱形（回退活口）
   });
 
-  it('B-3 exists 不是函数（形状错）：🔴 同样在构造期抛 ⇒ :691 的 typeof 分支也不可达', () => {
+  it('B-3 exists 不是函数（形状错）：构造期不再抛（同一 c930-05 守卫）⇒ :693 的 typeof 分支已是活口', () => {
     const scene = makeFakeScene({ exists: 'not-a-function' });
-    // 与 B-2 同一炸点（:471）。⇒ 三重守卫里只有第三重 `exists(def.assetKey) === false` 是活口，
-    // 前两重在当前构造序下是**结构性死支**（B-2/B-3 两例就是这条读数的桩；改产品码才能救，本单不动）。
-    expect(() => newRenderer(scene)).toThrow(/exists is not a function/);
+    // 与 B-2 同源翻转（c930-05）。第二重 `typeof textures.exists === 'function'` 现在真的参与判定：
+    // 形状错时整体短路为 false ⇒ 走缺图回退，而不是在构造期炸掉。
+    // 与 B-2 同款：单次构造（buildingsGfx 依赖 _graphics[2] 的构造序）。
+    const renderer = newRenderer(scene);
+    expect(() => renderer.rerenderBuildings([instance('synth_has_art', 0)])).not.toThrow();
+    expect(scene._images).toHaveLength(0);
+    expect(buildingsGfx(scene).fillPoints).toHaveBeenCalled();
   });
 
   it('B-3b 活口对照：exists 存在且可调用时，缺图回退确实走通（B-1/B-5/B-9 的口径基线）', () => {
@@ -451,14 +460,15 @@ describe('C 组 锚点自证（漂移留痕用，逐字钉住两处表达式的�
     expect(src).toContain('const fontPx = Math.max(12, Math.floor(Math.min(isoW, ISO_TILE_H * (wT + hT)) * 0.4));');
     expect(src).toContain("const hasSprite = !!textures && typeof textures.exists === 'function' && textures.exists(def.assetKey);");
     expect(src).toContain('t.setVisible(!hasSprite);');
-    // 漂移留痕：卷宗写 :738/:772，磁盘现值分别是 :745/:773
+    // 漂移留痕：卷宗写 :738/:772；c927-46 落钉时磁盘为 :745/:691/:773；c930-08（b5cbfe2）在
+    // MapRenderer 前置插入 +2 行（unknown defId 计数＋一次性点名日志）⇒ 现值 :747/:693/:775，本钉随之重钉。
     const lines = src.split('\n');
     const fontLine = lines.findIndex(l => l.includes('const fontPx = Math.max(12')) + 1;
     const spriteLine = lines.findIndex(l => l.includes('const hasSprite =')) + 1;
     const visibleLine = lines.findIndex(l => l.includes('t.setVisible(!hasSprite);')) + 1;
-    expect(fontLine).toBe(745);
-    expect(spriteLine).toBe(691);
-    expect(visibleLine).toBe(773);
+    expect(fontLine).toBe(747);
+    expect(spriteLine).toBe(693);
+    expect(visibleLine).toBe(775);
   });
 
   it('C-2 getBuildingDef 替身只覆盖合成 id，在册 id 全部透传（本件的 mock 不外溢）', () => {
