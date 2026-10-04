@@ -1,7 +1,7 @@
 // h912-11 批次一：Boot 加载清单 manifest 派生的相等性断言与自动包含验证。
 
 import { describe, expect, it } from 'vitest';
-import { BUILDING_ART, BUILDING_ART_REUSE, GENERAL_ART, getBootLoadList } from '../artManifest';
+import { BUILDING_ART, BUILDING_ART_REUSE, GENERAL_ART, getBootLoadList, NO_OWN_ART } from '../artManifest';
 import { BUILDINGS } from '../buildings';
 import { GENERAL_POOL } from '../generals';
 
@@ -86,7 +86,7 @@ describe('c18 manifest equivalence', () => {
   // c921-01 翻桩：旧断言要求非地形 path 匹配 assets/<category>s?/——而该目录整体不存在
   // （55 键里 50 键指向它）。现统一为实存 art/<category>s?/ 口径，仅方案 B 两型例外。
   it('③ path 命名与 category 目录约定一致（c921-01 翻桩：实存 art/<category>s?/）', () => {
-    const PENDING = new Set(['bld_tin_mine', 'bld_hemp_field']);
+    const PENDING = NO_OWN_ART; // c1002-26：单源化（原就地复述集，能力等价迁移）
     for (const a of ART_MANIFEST) {
       if (PENDING.has(a.key)) {
         expect(a.path).toBe(`assets/buildings/${a.key}.webp`); // 方案 B：无自有素材，保留占位
@@ -126,8 +126,8 @@ import { ALL_SCATTER_IDS } from '../scatterConfig';
 
 const PUBLIC_DIR = resolve(process.cwd(), 'public');
 
-/** 方案 B 两型（artManifest.ts:28 的模块私有 NO_OWN_ART 未导出，此处按同名同值复述并在 ③ 锁定）。 */
-const NO_OWN_ART_KEYS = new Set(['bld_tin_mine', 'bld_hemp_field']);
+/** 方案 B 两型（c1002-26：改引 artManifest 的 export NO_OWN_ART，原同名同值复述退役）。 */
+const NO_OWN_ART_KEYS = NO_OWN_ART;
 
 /** 统一成正斜杠相对键：manifest.path 与 URL 模板都用 '/'，Windows 下 resolve 会引入 '\'。 */
 function normKey(p: string): string {

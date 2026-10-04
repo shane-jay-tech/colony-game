@@ -25,7 +25,9 @@ export interface ArtAssetDef {
 // c921-01：无自有立绘的缺图建筑（经 BUILDING_ART_REUSE 复用同族贴图）——
 // 同 id 的 png 在 public/art/buildings/ 下不存在 ⇒ 走方案 B：不改 path（保留占位口径，
 // 不谎报一个同样不存在的 png），required 保持 false，并登记进报告的「待补素材清单」。
-const NO_OWN_ART = new Set(['bld_tin_mine', 'bld_hemp_field']);
+// c1002-26（c922-117 遗留）：单源化 export——第三种「待补素材」建筑进表时只改本集合一处
+// （此前 5 处硬编码：本行＋:125 复用映射＋bootLoadList.test 两处＋artManifest.test 一处）。
+export const NO_OWN_ART = new Set(['bld_tin_mine', 'bld_hemp_field']);
 
 export const BUILDING_ART: ArtAssetDef[] = [
   // h912-11：条目顺序与 data/buildings.ts 权威序对齐（原 hemp_field/tin_mine 排在末尾，

@@ -4,13 +4,13 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   ART_MANIFEST, BUILDING_ART, GENERAL_ART, EVENT_ART, TERRAIN_ART,
-  getArtByCategory, isArtAvailable,
-} from '../artManifest';
+  getArtByCategory, isArtAvailable, NO_OWN_ART } from '../artManifest';
 import { BUILDINGS } from '../buildings';
 
 const PUBLIC = join(__dirname, '..', '..', '..', '..', 'public');
 // c921-01 方案 B：无自有素材的缺图建筑（走 BUILDING_ART_REUSE），保留 .webp 占位、required=false。
-const NO_OWN_ART_KEYS = ['bld_hemp_field', 'bld_tin_mine'];
+// c1002-26：改引 artManifest 的 export NO_OWN_ART（原字面量数组退役；能力等价迁移）。
+const NO_OWN_ART_KEYS = [...NO_OWN_ART];
 
 describe('Phase D art manifest', () => {
   it('building art entries = 35 (matches BUILDINGS)', () => {
@@ -78,6 +78,6 @@ describe('Phase D art manifest', () => {
     for (const a of required) {
       expect(existsSync(join(PUBLIC, a.path))).toBe(true);
     }
-    expect(ART_MANIFEST.filter(a => !a.required).map(a => a.key).sort()).toEqual(NO_OWN_ART_KEYS);
+    expect(ART_MANIFEST.filter(a => !a.required).map(a => a.key).sort()).toEqual([...NO_OWN_ART_KEYS].sort()); // c1002-26：Set 迭代序与原字面量序不同，语义（成员等价）不变故加 sort
   });
 });
