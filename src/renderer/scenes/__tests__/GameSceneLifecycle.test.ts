@@ -43,7 +43,7 @@ describe('GameScene 生命周期 characterization', () => {
     expect(SOURCE).toContain('store.on(STATE_EVENTS.BUILDING_UPGRADED, this.upgradedListener)');
   });
 
-  it('shutdown：store.off 反注册 9 个事件（8 订阅 + SEASON_TICK）', () => {
+  it('shutdown：store.off 反注册 10 个事件（9 订阅 + SEASON_TICK；c1002-25 +DECREE_STALLED）', () => {
     const scene = makeScene() as unknown as Record<string, unknown>;
     const offs: string[] = [];
     const store = {
@@ -58,6 +58,7 @@ describe('GameScene 生命周期 characterization', () => {
       STATE_EVENTS.BUILDING_PLACED, STATE_EVENTS.BUILDING_COMPLETED, STATE_EVENTS.BUILDING_REMOVED,
       STATE_EVENTS.STATE_REPLACED, STATE_EVENTS.PANEL_COLLAPSED_CHANGED, STATE_EVENTS.BUILDING_UPGRADED,
       STATE_EVENTS.STORY_UNIFIED, STATE_EVENTS.STORY_ENDING, STATE_EVENTS.SEASON_TICK,
+      STATE_EVENTS.DECREE_STALLED, // c1002-25：朝令停滞 toast 反馈接线（第 10 订阅）
     ];
     for (const ev of expected) {
       expect(offs).toContain(ev);

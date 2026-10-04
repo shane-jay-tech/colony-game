@@ -77,6 +77,16 @@ export class GameScene extends Phaser.Scene {
       this.mapRenderer?.floatTextAtTile(b.position.x, b.position.y, `${def?.name ?? '营建'}　成`, 0xe0b94a);
     }
   };
+  // c1002-25（c920-13 遗留首批）：朝令停滞 toast 反馈（此前 DECREE_STALLED 仅 PolicyTreePanel
+  // 刷新面板、玩家无主动提示＝真缺口）。用 error toast＝自带 sfx_warn 音（Toast.ts:24-25），
+  // 不显式 playSfx——避开 c922-106 遗留 2 的「资源不足路径 warn 叠播」缺陷面。
+  private decreeStalledListener = (payload: GameStateEventMap['state:decreeStalled']): void => {
+    const toast = registryGet(this.registry, REGISTRY_KEYS.toast);
+    if (!toast) return;
+    const def = payload?.decreeId ? this.store?.getDecrees().find(d => d.id === payload.decreeId) : null;
+    toast.show(def ? `「${def.name}」资源不足，推进停滞` : '朝令资源不足，推进停滞', 'error');
+  };
+
   // STATE_REPLACED：除了重画 buildings 还要把 BuildMode 重置（DeepSeek Medium #5）
   private replacedListener = (): void => {
     this.rerenderBuildings();
@@ -219,6 +229,8 @@ export class GameScene extends Phaser.Scene {
     store.on(STATE_EVENTS.STORY_ENDING, this.storyEndingListener);
     // A-3：季节色调切换
     store.on(STATE_EVENTS.SEASON_TICK, this.seasonTintListener);
+    // c1002-25：朝令停滞 toast 反馈
+    store.on(STATE_EVENTS.DECREE_STALLED, this.decreeStalledListener);
 
     // BuildMode 取消时清掉 hover 预览
     this.offBuildModeChange = buildMode.onChange((def) => {
@@ -598,6 +610,7 @@ export class GameScene extends Phaser.Scene {
       this.store.off(STATE_EVENTS.STATE_REPLACED, this.replacedListener);
       this.store.off(STATE_EVENTS.PANEL_COLLAPSED_CHANGED, this.panelCollapsedListener);
       this.store.off(STATE_EVENTS.BUILDING_UPGRADED, this.upgradedListener);
+      this.store.off(STATE_EVENTS.DECREE_STALLED, this.decreeStalledListener);
       this.store.off(STATE_EVENTS.STORY_UNIFIED, this.storyUnifiedListener);
       this.store.off(STATE_EVENTS.STORY_ENDING, this.storyEndingListener);
       this.store.off(STATE_EVENTS.SEASON_TICK, this.seasonTintListener);
