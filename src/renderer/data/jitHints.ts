@@ -47,11 +47,3 @@ export const JIT_HINTS: Readonly<Record<JitTrigger, JitHint>> = {
   first_labor_fail: { trigger: 'first_labor_fail', text: '劳力不足。部分高级建筑需要特定阶层（如士人）。目前民力全是农民，建学塾等基础设施不需要特殊阶层。' },
 };
 
-/**
- * 纯函数：某 trigger 是否该弹提示。已 seen 或无此 trigger → null。
- * @param seen 已弹过的 trigger 集合（来自持久化 seenJitHints）
- */
-export function pickJitHint(trigger: JitTrigger, seen: ReadonlySet<string>): JitHint | null {
-  if (seen.has(trigger)) return null;
-  return JIT_HINTS[trigger] ?? null;
-}

@@ -9,7 +9,8 @@ import { JIT_HINTS, type JitTrigger } from '../data/jitHints';
  * JitHintManager（Phaser 层）——把 JIT 即时提示接到游戏事件上。
  *
  * 某情境**首次**发生 → 通过 Toast 弹一句大白话教学 → 写入 seenJitHints 永不再扰（持久化跨存档）。
- * 选择/去重逻辑在纯函数 pickJitHint + store.markJitHintSeen，本类只做事件→trigger 的接线。
+ * 选择/去重＝store.markJitHintSeen 返回值闸＋JIT_HINTS[trigger] 直取（c1002-27：原注释指的
+ * 纯函数 pickJitHint 生产零调用已退役删除，本注释同步——防后人照注释复活死路径）。
  *
  * Toast 走 registry['toast']（UIScene 注册）；拿不到就静默跳过（不报错）。
  */
