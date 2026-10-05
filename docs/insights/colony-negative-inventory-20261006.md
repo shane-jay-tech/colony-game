@@ -49,3 +49,21 @@
 - 调用面 5 处全在 ProductionPanel（HUD 供需面板），无导出面 ⇒ 文本变化影响面单点。
 
 （合卷于 colony-negative-inventory-20261006.md，c1004-18/19/20 三单共用此档。）
+
+---
+
+# 附：数值异常静默无日志面登记（c1004-20，2026-10-06，合卷节）
+
+- **既有两处日志面**（矿源点名的非本链路面）：①buildMode.ts:105 `console.error('[BuildMode] listener threw:', err)`（listener 防御）；②renderer/main.ts `setupCrashDiagnostics` 的 `console.error('[CRASH] …')`＋红覆盖层（JS 错误/Promise 拒绝/WebGL 丢失）。
+- **本链路静默点**：gameStore.ts:659-661 `setResourceClamped` 的 `if (Number.isNaN(value)) return;`——NaN 增量静默丢弃（库存保持原值），无日志无计数；serialize/deserialize 侧无 NaN（存档面校验 finite 拦截）。
+
+## 「加日志层位」三选推演
+
+| 层位 | 做法 | 捕获面 | 风险 |
+|---|---|---|---|
+| catch 处（=setResourceClamped NaN-return 分支） | +1 行 `console.warn('[resources] NaN increment dropped:', id, new Error().stack?.split('\n')[2])` | **最准**（正是数值异常静默点；stack 第二行=调用方定位） | 高频路径：若上游 bug 持续，每 tick 刷屏——配「同 id 去重/首 10 条后静默」护栏 |
+| serialize 处（存档时全资源 isFinite 扫） | 写档前扫一遍，非 finite 记 warn | 只在存档时刻发现（离异常发生可能隔千 tick） | 定位弱；但保证「落盘档干净」可作最终防线 |
+| HUD 渲染处（ProductionPanel formatRate 前置） | c1004-19 的加闸 '—' 即可视化 | 玩家可见但开发者不可见 | 属展示面非日志面 |
+
+- **推荐组合**：catch 处 warn（带去重护栏）＋serialize 处终检（双保险）；HUD 面归 c1004-19。
+- 零改码；三选落地交主班（与 c1004-18 案②的 console.warn 同族可并单）。
