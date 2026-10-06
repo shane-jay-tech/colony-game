@@ -106,6 +106,9 @@ export function addBags(a: ResourceBag, b: ResourceBag): ResourceBag {
   for (const id of RESOURCE_IDS) {
     const av = a[id] ?? 0;
     const bv = b[id] ?? 0;
+    // c1006-01（案 A，主班 2026-10-06 拍板）：NaN/±Infinity 显式抛错——不采案 B 夹 0
+    // （静默吞错与 c925-6c4b「NaN 静默放行」教训同构）。配方单源：colony-addbags-nan-verdict-20261006.md。
+    if (!Number.isFinite(av) || !Number.isFinite(bv)) throw new RangeError(`addBags: non-finite ${id}`);
     if (av + bv !== 0) out[id] = av + bv;
   }
   return out;

@@ -96,12 +96,12 @@ describe('canAfford · 价格边界必须稳定拒绝', () => {
     expect(canAfford(bag, { notAResource: NaN } as never)).toBe(true); // 未登记键不参与
   });
 
-  it('addBags：价格累加不得造出 NaN / 非有限值（clamp 前的中间态）', () => {
+  it('addBags：非有限入参显式抛错（c1006-01 案 A 翻正：原钉「累加可 NaN」已废）', () => {
     const merged = addBags({ wood: 100 }, { wood: SAFE_MAX });
     expect(Number.isFinite(merged.wood ?? 0)).toBe(true);
-    const withNaN = addBags({ wood: 100 }, { wood: NaN });
-    // 累加本身按 JS 语义可为 NaN，但它绝不能被当成"付得起"
-    expect(canAfford({ wood: 100 }, withNaN)).toBe(false);
+    // 案 A：NaN/±Infinity 入参显式抛 RangeError，不再静默产 NaN 袋
+    expect(() => addBags({ wood: 100 }, { wood: NaN })).toThrow(RangeError);
+    expect(() => addBags({ wood: Infinity }, { wood: 1 })).toThrow(RangeError);
   });
 });
 
