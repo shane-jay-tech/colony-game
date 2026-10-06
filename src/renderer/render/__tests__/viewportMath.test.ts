@@ -6,6 +6,7 @@
  * （除最后那节，其余用例零 Phaser、零 mock scene）。
  */
 import { describe, it, expect, vi } from 'vitest';
+import { clampScrollFor } from '../cameraMath';
 import { readScroll, readZoom, worldRectForMask, worldToGridCell } from '../viewportMath';
 import { gridToIso, gridCenterToIso, isoToGrid, ISO_TILE_W, ISO_TILE_H } from '../iso';
 import { MapRenderer } from '../MapRenderer';
@@ -62,6 +63,29 @@ describe('viewportMath — worldRectForMask（screen 视口 → 世界矩形）'
   it('退化视口（w/h=0）不产 Infinity/NaN（呼应 refreshViewportMask 的 hotfix#4）', () => {
     const r = worldRectForMask({ x: 0, y: 0, w: 0, h: 0 }, 2, 10, 20);
     expect(r).toEqual({ x: 10, y: 20, w: 0, h: 0 });
+  });
+
+  it('贴边：cover 主导轴 clamp 区间塌缩为一点（T2 贴边界，c1007-02 溯源结论的纯函数钉）', () => {
+    // 80×80 图、vp.h=696：cover=max(798/7680, 696/3840)=0.18125 → Y 轴贴合
+    // ⇒ clampScrollFor 的 Y 区间 min==max（scrollY 唯一合法值，即 c1007-02 的 -2005.7 形态）
+    const z = 696 / 3840;
+    const originY = -1476;
+    const mapPxH = 3840;
+    const vp = { x: 272, y: 96, w: 798, h: 696 };
+    const r = clampScrollFor(0, 0, vp, z, -3169, originY, 7680, mapPxH);
+    const minY = originY - vp.y / z;
+    const maxY = originY + mapPxH - (vp.y + vp.h) / z;
+    expect(minY).toBeCloseTo(maxY, 0);          // Y 贴边＝区间塌缩
+    expect(r.y).toBeCloseTo(minY, 0);           // scrollY 收敛到塌缩点
+    expect(r.x).toBeGreaterThan(Math.min(-4669, 0)); // X 非主导轴仍有区间（不塌缩）
+  });
+  it('出界：scroll 极大偏移下世界矩形整体移位但宽高不变（T2 出边界，c1007-04）', () => {
+    const r1 = worldRectForMask({ x: 100, y: 80, w: 800, h: 600 }, 2, 10, 20);
+    const r2 = worldRectForMask({ x: 100, y: 80, w: 800, h: 600 }, 2, 10 + 1e6, 20 + 5e5);
+    expect(r2.w).toBe(r1.w);              // 尺寸只随 zoom，不随 scroll
+    expect(r2.h).toBe(r1.h);
+    expect(r2.x - r1.x).toBeCloseTo(1e6, 0);   // 平移量=scroll 差（补偿加回在除法后）
+    expect(r2.y - r1.y).toBeCloseTo(5e5, 0);
   });
 });
 

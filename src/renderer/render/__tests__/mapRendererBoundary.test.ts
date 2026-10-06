@@ -461,14 +461,14 @@ describe('C 组 锚点自证（漂移留痕用，逐字钉住两处表达式的�
     expect(src).toContain("const hasSprite = !!textures && typeof textures.exists === 'function' && textures.exists(def.assetKey);");
     expect(src).toContain('t.setVisible(!hasSprite);');
     // 漂移留痕：卷宗写 :738/:772；c927-46 落钉时磁盘为 :745/:691/:773；c930-08（b5cbfe2）在
-    // MapRenderer 前置插入 +2 行（unknown defId 计数＋一次性点名日志）⇒ 现值 :747/:693/:775，本钉随之重钉。
+    // 漂移链：c930-08 前置插入 +2 ⇒ :747/:693/:775；c1007-03（646fa63）H 段接线头部 import +1、体内净 +3 ⇒ 现值 :751/:697/:779。
     const lines = src.split('\n');
     const fontLine = lines.findIndex(l => l.includes('const fontPx = Math.max(12')) + 1;
     const spriteLine = lines.findIndex(l => l.includes('const hasSprite =')) + 1;
     const visibleLine = lines.findIndex(l => l.includes('t.setVisible(!hasSprite);')) + 1;
-    expect(fontLine).toBe(747);
-    expect(spriteLine).toBe(693);
-    expect(visibleLine).toBe(775);
+    expect(fontLine).toBe(751);
+    expect(spriteLine).toBe(697);
+    expect(visibleLine).toBe(779);
   });
 
   it('C-2 getBuildingDef 替身只覆盖合成 id，在册 id 全部透传（本件的 mock 不外溢）', () => {
