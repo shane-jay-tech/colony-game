@@ -8,6 +8,7 @@ import { terrainColor, resourceNodeColor, TILE_SIZE, NODE_MARKER_INSET } from '.
 import { getBuildingSigil } from './buildingSigils';
 import { getBuildingAnchor } from './buildingAnchorOverrides';
 import { ISO_TILE_W, ISO_TILE_H, gridToIso, gridCenterToIso } from './iso';
+import { readScroll, readZoom } from './viewportMath';
 import { MAP_ZOOM_MAX } from './cameraMath';
 import { fitZoomFor, coverZoomFor, closeZoomFor, clampScrollFor, scrollForZoomAtAnchor, clampZoom } from './cameraMath';
 import { worldRectForMask, worldToGridCell } from './viewportMath';
@@ -210,7 +211,7 @@ export class MapRenderer {
   setMapZoom(targetZoom: number, anchorScreenX?: number, anchorScreenY?: number): number {
     if (this.destroyed) return 1;
     const cam = this.scene.cameras.main;
-    const oldZoom = (cam.zoom as number | undefined) || 1;
+    const oldZoom = readZoom(cam);
     // v2：上限 = 整图 fit（最大化锁止，不能再放大）；下限 = fit×0.4（可往外缩，居中由 clampScroll 保证）。
     const newZoom = clampZoom(targetZoom, this.getMinZoom(), this.getMaxZoom());
     if (Math.abs(newZoom - oldZoom) < 1e-4) return oldZoom;
@@ -218,7 +219,8 @@ export class MapRenderer {
     // DeepSeek 复审[安全]：锚点可能是异常 pointer 传来的 NaN——非有限值回退到视口中心，避免写 NaN scroll 崩渲染。
     const ax = (anchorScreenX !== undefined && Number.isFinite(anchorScreenX)) ? anchorScreenX : (vp.x + vp.w / 2);
     const ay = (anchorScreenY !== undefined && Number.isFinite(anchorScreenY)) ? anchorScreenY : (vp.y + vp.h / 2);
-    const next = scrollForZoomAtAnchor(ax, ay, oldZoom, newZoom, (cam.scrollX as number | undefined) || 0, (cam.scrollY as number | undefined) || 0);
+    const cur = readScroll(cam);
+    const next = scrollForZoomAtAnchor(ax, ay, oldZoom, newZoom, cur.x, cur.y);
     if (typeof cam.setZoom === 'function') cam.setZoom(newZoom);
     cam.scrollX = next.x;
     cam.scrollY = next.y;
@@ -279,7 +281,7 @@ export class MapRenderer {
   /** v1.0 #5：当前相机 zoom（用于 UI 显示） */
   getMapZoom(): number {
     const cam = this.scene.cameras.main;
-    return (cam.zoom as number | undefined) || 1;
+    return readZoom(cam);
   }
 
   /**
@@ -289,9 +291,10 @@ export class MapRenderer {
   panBy(dxScreen: number, dyScreen: number): void {
     if (this.destroyed) return;
     const cam = this.scene.cameras.main;
-    const z = (cam.zoom as number | undefined) || 1;
-    cam.scrollX = ((cam.scrollX as number | undefined) || 0) - dxScreen / z;
-    cam.scrollY = ((cam.scrollY as number | undefined) || 0) - dyScreen / z;
+    const z = readZoom(cam);
+    const cur = readScroll(cam);
+    cam.scrollX = cur.x - dxScreen / z;
+    cam.scrollY = cur.y - dyScreen / z;
     this.clampScroll();
     this.refreshViewportMask();
   }
@@ -310,7 +313,7 @@ export class MapRenderer {
     if (this.destroyed) return;
     const cam = this.scene.cameras.main;
     const c = this.isoCenter(gx, gy);
-    const z = (cam.zoom as number | undefined) || 1;
+    const z = readZoom(cam);
     const vp = this.computeViewportRect(cam.width, cam.height);
     cam.scrollX = (this.originX + c.x) - (vp.x + vp.w / 2) / z;
     cam.scrollY = (this.originY + c.y) - (vp.y + vp.h / 2) / z;
@@ -325,10 +328,11 @@ export class MapRenderer {
   private clampScroll(): void {
     const cam = this.scene.cameras.main;
     const vp = this.computeViewportRect(cam.width, cam.height);
-    const z = (cam.zoom as number | undefined) || 1;
+    const z = readZoom(cam);
+    const cur = readScroll(cam);
     const next = clampScrollFor(
-      (cam.scrollX as number | undefined) || 0,
-      (cam.scrollY as number | undefined) || 0,
+      cur.x,
+      cur.y,
       vp, z,
       this.originX, this.originY, this.mapPxW, this.mapPxH,
     );
@@ -817,11 +821,12 @@ export class MapRenderer {
    */
   private viewportCenterTile(): { x: number; y: number } {
     const cam = this.scene.cameras.main;
-    const z = (cam.zoom as number | undefined) || 1;
+    const z = readZoom(cam);
     const vp = this.computeViewportRect(cam.width, cam.height);
     // 视口中心屏幕点 → 世界点（world = scroll + screen/zoom）
-    const worldX = ((cam.scrollX as number | undefined) || 0) + (vp.x + vp.w / 2) / z;
-    const worldY = ((cam.scrollY as number | undefined) || 0) + (vp.y + vp.h / 2) / z;
+    const cur = readScroll(cam);
+    const worldX = cur.x + (vp.x + vp.w / 2) / z;
+    const worldY = cur.y + (vp.y + vp.h / 2) / z;
     const lx = worldX - this.originX - this.isoOffsetX;
     const ly = worldY - this.originY;
     const a = lx / MapRenderer.ISO_HW;
@@ -842,9 +847,10 @@ export class MapRenderer {
   gridToScreenPixel(gridX: number, gridY: number): { x: number; y: number } {
     const w = this.gridToScreen(gridX, gridY);
     const cam = this.scene.cameras.main;
-    const z = (cam.zoom as number | undefined) || 1;
-    const sx = (cam.scrollX as number | undefined) || 0;
-    const sy = (cam.scrollY as number | undefined) || 0;
+    const z = readZoom(cam);
+    const cur = readScroll(cam);
+    const sx = cur.x;
+    const sy = cur.y;
     return { x: (w.x - sx) * z, y: (w.y - sy) * z };
   }
 

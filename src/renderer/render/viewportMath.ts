@@ -15,6 +15,22 @@ import type { Rect } from './cameraMath';
 import { isoToGridF } from './iso';
 
 /**
+ * H 段（c1007-03/c1002-23 材料档 §三）：cam zoom/scroll 的唯一读取口径——沿用本文件顶部
+ * 契约 1 的 `(v as number | undefined) || 兜底` 语义（zoom 的 0/NaN/undefined → 1，
+ * scroll 的 NaN/undefined → 0；负值原样透传）。MapRenderer 内一切读子改调这里，不再散写。
+ */
+export function readZoom(cam: { zoom?: number }): number {
+    return (cam.zoom as number | undefined) || 1;
+}
+
+export function readScroll(cam: { scrollX?: number; scrollY?: number }): { x: number; y: number } {
+    return {
+        x: (cam.scrollX as number | undefined) || 0,
+        y: (cam.scrollY as number | undefined) || 0,
+    };
+}
+
+/**
  * A：把「固定的 screen 视口矩形」反向映射成世界矩形——mask 是世界坐标对象，会被相机一起变换，
  * 故反向除 zoom 再把 scroll 补偿加回来；宽高同样除以 zoom。z=1 且 scroll=0 时恒等于 vp。
  */

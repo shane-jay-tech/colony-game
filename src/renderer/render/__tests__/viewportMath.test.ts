@@ -6,7 +6,7 @@
  * （除最后那节，其余用例零 Phaser、零 mock scene）。
  */
 import { describe, it, expect, vi } from 'vitest';
-import { worldRectForMask, worldToGridCell } from '../viewportMath';
+import { readScroll, readZoom, worldRectForMask, worldToGridCell } from '../viewportMath';
 import { gridToIso, gridCenterToIso, isoToGrid, ISO_TILE_W, ISO_TILE_H } from '../iso';
 import { MapRenderer } from '../MapRenderer';
 import { WorldMapAccessor } from '../../state/worldMap';
@@ -297,5 +297,31 @@ describe('viewportMath — MapRenderer.refreshViewportMask 调用点接线', () 
     const vp = expectedVp(1366, 800);
     expect((second[0]! - cam.scrollX) * cam.zoom).toBeCloseTo(vp.x, 6);
     expect(second[2]! * cam.zoom).toBeCloseTo(vp.w, 6);
+  });
+});
+
+describe('viewportMath — H 段 readZoom/readScroll（c1007-03 提纯；契约 1 口径）', () => {
+  it('zoom 的 0/NaN/undefined → 1；正常值与负值原样透传', () => {
+    expect(readZoom({ zoom: 0 })).toBe(1);          // 0 是 falsy：旧 || 口径即兜 1
+    expect(readZoom({ zoom: NaN })).toBe(1);
+    expect(readZoom({})).toBe(1);
+    expect(readZoom({ zoom: 0.1812 })).toBe(0.1812);
+    expect(readZoom({ zoom: -2 })).toBe(-2);        // 负值透传（契约 1：不新增判断）
+  });
+
+  it('scroll 的 NaN/undefined → 0；负值原样透传（构造态 -2005.66 形态）', () => {
+    expect(readScroll({ scrollX: NaN, scrollY: undefined })).toEqual({ x: 0, y: 0 });
+    expect(readScroll({})).toEqual({ x: 0, y: 0 });
+    expect(readScroll({ scrollX: -2005.66, scrollY: -3079.07 }))
+      .toEqual({ x: -2005.66, y: -3079.07 });
+  });
+
+  it('与提取前内联式逐位对拍（同输入同输出）', () => {
+    const cam = { zoom: 2.5, scrollX: -100.5, scrollY: 7.25 };
+    const legacyZ = (cam.zoom as number | undefined) || 1;
+    const legacyX = (cam.scrollX as number | undefined) || 0;
+    const legacyY = (cam.scrollY as number | undefined) || 0;
+    expect(readZoom(cam)).toBe(legacyZ);
+    expect(readScroll(cam)).toEqual({ x: legacyX, y: legacyY });
   });
 });
