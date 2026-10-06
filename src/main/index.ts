@@ -188,6 +188,19 @@ ipcMain.handle('load-game', async (_event, slot: unknown): Promise<string | null
   return await readFile(fp, 'utf-8');
 });
 
+// c1006-08（坏档只读回退·保守形态）：读前一代 .bak 备份——不提正不覆盖坏档（坏档保留供排障）。
+// .bak 也缺/不可读 ⇒ null（UI 侧即停，不无限链）。
+ipcMain.handle('load-game-bak', async (_event, slot: unknown): Promise<string | null> => {
+  if (typeof slot !== 'string' || !VALID_SLOT_RE.test(slot)) throw new Error(`invalid slot for load-game-bak (typeof ${typeof slot}; must match [a-z0-9_-]{1,32})`);
+  const fp = join(app.getPath('userData'), 'saves', `${slot}.json.bak`);
+  if (!existsSync(fp)) return null;
+  try {
+    return await readFile(fp, 'utf-8');
+  } catch {
+    return null;
+  }
+});
+
 ipcMain.handle('list-saves', async (): Promise<string[]> => {
   const savesDir = join(app.getPath('userData'), 'saves');
   if (!existsSync(savesDir)) return [];

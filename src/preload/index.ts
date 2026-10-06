@@ -6,6 +6,9 @@ const api = {
     ipcRenderer.invoke('save-game', slot, json),
   loadGame: (slot: string): Promise<string | null> =>
     ipcRenderer.invoke('load-game', slot),
+  // c1006-08：坏档只读回退通道（读前一代 .bak；不提正不覆盖）
+  loadGameBak: (slot: string): Promise<string | null> =>
+    ipcRenderer.invoke('load-game-bak', slot),
   listSaves: (): Promise<string[]> =>
     ipcRenderer.invoke('list-saves'),
   getSaveMeta: (slot: string): Promise<{ slot: string; savedAt: number; currentDay: number | null } | null> =>

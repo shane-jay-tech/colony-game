@@ -124,6 +124,47 @@ describe('SaveLoadPanel', () => {
     expect(panel.isVisible()).toBe(false);
   });
 
+  it('c1006-08 坏档回退：SaveLoadError 时读 .bak 成功则替换状态并提示坏档保留原位', async () => {
+    loadGameMock.mockRejectedValue(new Error('存档校验失败：schema 不合规'));
+    const loadGameBakMock = vi.fn().mockResolvedValue(JSON.stringify(serialize(store.getState())));
+    const apiHost = (globalThis as unknown as { window?: unknown }).window as { colonyApi: Record<string, unknown> };
+    apiHost.colonyApi.loadGameBak = loadGameBakMock;
+    await panel.show();
+    const replaceSpy = vi.spyOn(store, 'replaceState');
+    click('读档');
+    click('读入？');
+    await vi.waitFor(() => expect(replaceSpy).toHaveBeenCalledOnce());
+    expect(loadGameBakMock).toHaveBeenCalledWith('slot1');
+    expect(toastMock.show).toHaveBeenCalledWith('已从备份回退（坏档保留在原位）', 'error', 3200);
+    expect(panel.isVisible()).toBe(false);
+  });
+
+  it('c1006-08 .bak 也坏即停：回退返回 null 则保持原报错且不替换状态', async () => {
+    loadGameMock.mockRejectedValue(new Error('存档校验失败：schema 不合规'));
+    const loadGameBakMock = vi.fn().mockResolvedValue('not-json{{{');
+    const apiHost = (globalThis as unknown as { window?: unknown }).window as { colonyApi: Record<string, unknown> };
+    apiHost.colonyApi.loadGameBak = loadGameBakMock;
+    await panel.show();
+    const replaceSpy = vi.spyOn(store, 'replaceState');
+    click('读档');
+    click('读入？');
+    await vi.waitFor(() => expect(toastMock.show).toHaveBeenCalledWith(
+      '操作失败：存档校验失败：schema 不合规', 'error', 3200));
+    expect(replaceSpy).not.toHaveBeenCalled();
+    expect(toastMock.show).not.toHaveBeenCalledWith('已从备份回退（坏档保留在原位）', 'error', 3200);
+  });
+
+  it('c1006-08 空槽 null 不触发回退：不调用 loadGameBak', async () => {
+    const loadGameBakMock = vi.fn();
+    const apiHost = (globalThis as unknown as { window?: unknown }).window as { colonyApi: Record<string, unknown> };
+    apiHost.colonyApi.loadGameBak = loadGameBakMock;
+    await panel.show();
+    click('读档');
+    click('读入？');
+    await vi.waitFor(() => expect(toastMock.show).toHaveBeenCalledWith('该存档不存在或已损坏', 'error', 2600));
+    expect(loadGameBakMock).not.toHaveBeenCalled();
+  });
+
   it('destroy 不抛错', () => {
     expect(() => panel.destroy()).not.toThrow();
   });

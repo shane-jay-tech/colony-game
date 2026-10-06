@@ -852,6 +852,8 @@ export function validateSlot(slot: string): void {
 type ColonyApiShape = {
   saveGame(slot: string, json: string): Promise<boolean>;
   loadGame(slot: string): Promise<string | null>;
+  /** c1006-08：坏档只读回退通道（preload 未更新形态下可选） */
+  loadGameBak?(slot: string): Promise<string | null>;
   getSaveMeta(slot: string): Promise<SaveMeta | null>;
 };
 
@@ -873,6 +875,22 @@ export async function saveToSlot(slot: string, store: GameStore): Promise<void> 
   const written = await getColonyApi().saveGame(slot, JSON.stringify(serialize(store.getState())));
   if (written === false) {
     throw new SaveLoadError(`[saveLoad] Save to slot "${slot}" failed: storage layer wrote nothing`);
+  }
+}
+
+// c1006-08（坏档只读回退·保守形态）：读前一代 .bak 并走同一 deserialize 解析链。
+// 只读语义：不提正、不覆盖坏档；.bak 缺失/不可解析 ⇒ null（UI 侧即停，不无限链）。
+export async function loadFromSlotBak(slot: string): Promise<GameState | null> {
+  validateSlot(slot);
+  const api = getColonyApi();
+  if (typeof api.loadGameBak !== 'function') return null;   // preload 未更新形态兜底
+  const raw = await api.loadGameBak(slot);
+  if (raw === null) return null;
+  try {
+    return deserialize(JSON.parse(raw));
+  } catch (err) {
+    console.warn(`[saveLoad] .bak 回退失败（slot=${slot}）：`, err);
+    return null;
   }
 }
 

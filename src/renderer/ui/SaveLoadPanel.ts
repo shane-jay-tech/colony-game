@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS, FONTS } from './palette';
 import { REGISTRY_KEYS, registryGet } from './registry';
-import { getSaveMeta, loadFromSlot, saveToSlot, type SaveMeta } from '../state/saveLoad';
+import { getSaveMeta, loadFromSlot, loadFromSlotBak, saveToSlot, type SaveMeta } from '../state/saveLoad';
 import type { GameStore } from '../state/gameStore';
 
 /**
@@ -192,7 +192,25 @@ export class SaveLoadPanel {
         this.toast()?.show(`${slotDef?.label ?? slot} 已保存`, 'info', 2200);
         await this.refresh();
       } else {
-        const state = await loadFromSlot(slot);
+        let state: Awaited<ReturnType<typeof loadFromSlot>>;
+        try {
+          state = await loadFromSlot(slot);
+        } catch (err) {
+          // c1006-08（坏档只读回退·保守形态）：坏档 SaveLoadError ⇒ 读前一代 .bak 尝试；
+          // 成功 toast「已从备份回退（坏档保留在原位）」；.bak 也坏 ⇒ 保持原报错。不提正不覆盖。
+          try {
+            const bakState = await loadFromSlotBak(slot);
+            if (bakState !== null) {
+              this.store.replaceState(bakState);
+              this.toast()?.show('已从备份回退（坏档保留在原位）', 'error', 3200);
+              this.hide();
+              return;
+            }
+          } catch {
+            /* .bak 通道故障 ⇒ 保持原报错 */
+          }
+          throw err;
+        }
         if (state === null) {
           this.toast()?.show('该存档不存在或已损坏', 'error', 2600);
           await this.refresh();
