@@ -139,12 +139,15 @@ describe('c923-31 validateModifierEffect：非法 value', () => {
     }
   });
 
-  it('【现状】Infinity / -Infinity 不被拦：文案承诺 finite 但判据只查 typeof 与 NaN', () => {
-    // 现状缺陷，非期望行为：错误文案写 "must be a finite number"，判据却是
-    // `typeof value !== 'number' || Number.isNaN(value)` ⇒ 无穷大漏网。
-    // 本例钉的是"当前不抛"，若将来改用 Number.isFinite 收紧，这里必红一次。
-    expect(() => validateModifierEffect(goodEffect(Number.POSITIVE_INFINITY), 'P')).not.toThrow();
-    expect(() => validateModifierEffect(goodEffect(Number.NEGATIVE_INFINITY), 'P')).not.toThrow();
+  it('🟢 翻正（c1006-05 L3 DEV 门）：Infinity / -Infinity 现被拦（DEV throw）', () => {
+    // c1006-05 判据换 Number.isFinite 收紧：DEV 门显式 throw；生产面 console.error 降级。
+    // 原【现状】钉（无穷漏网）同笔翻正。
+    expect(() => validateModifierEffect(goodEffect(Number.POSITIVE_INFINITY), 'P')).toThrow(
+      ModifierValidationError,
+    );
+    expect(() => validateModifierEffect(goodEffect(Number.NEGATIVE_INFINITY), 'P')).toThrow(
+      ModifierValidationError,
+    );
   });
 });
 
