@@ -20,6 +20,8 @@ export default defineConfig(({ mode }) => {
     main: {
       build: {
         outDir: 'dist/main',
+        // c1006-06（案：只 drop log/debug——warn/error 告警族全存活，D 盘 fallback 与崩溃族安全网保留）
+        esbuild: { drop: ['log', 'debug'] },
         rollupOptions: {
           input: resolve(__dirname, 'src/main/index.ts'),
           external: ['electron', /^node:.*/], // electron 由 runtime 提供；node:* 内置
@@ -34,6 +36,8 @@ export default defineConfig(({ mode }) => {
     preload: {
       build: {
         outDir: 'dist/preload',
+        // c1006-06：同上，只 drop log/debug
+        esbuild: { drop: ['log', 'debug'] },
         rollupOptions: {
           input: resolve(__dirname, 'src/preload/index.ts'),
           external: ['electron', /^node:.*/],
@@ -47,6 +51,8 @@ export default defineConfig(({ mode }) => {
       build: {
         outDir: resolve(__dirname, 'dist/renderer'),
         assetsInlineLimit: 0,
+        // c1006-06：同上，只 drop log/debug（BootScene:36 缺图 debug 属剥除目标）
+        esbuild: { drop: ['log', 'debug'] },
         rollupOptions: {
           input: resolve(__dirname, 'src/renderer/index.html'),
           output: {
