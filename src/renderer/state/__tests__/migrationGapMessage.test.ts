@@ -62,8 +62,10 @@ describe('断链消息与 future-version 消息字段口径一致', () => {
   };
 
   it('future-version 既有格式一字不回退（saveLoadIo.test.ts:46 依赖其前缀）', () => {
+    // c1006-03：SaveLoadError 消息前缀化（[saveLoad] 横幅）——正则子串锚
+    // （saveLoadIo.test.ts:46 /future schema version/）不受影响，逐字锚随前缀同步。
     expect(futureMessage(10)).toBe(
-      `Save created with future schema version 10 (current: ${SAVE_SCHEMA_VERSION})`,
+      `[saveLoad] Save created with future schema version 10 (current: ${SAVE_SCHEMA_VERSION})`,
     );
   });
 

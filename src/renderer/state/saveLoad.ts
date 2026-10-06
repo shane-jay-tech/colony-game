@@ -206,7 +206,7 @@ function runMigrations(blob: unknown, fromVersion: number): unknown {
       // 旧串只报 “from schema version 2” 会误导定位）。控制流一字未动，仅改消息拼装，
       // 字段口径与 future-version 对齐：主句报原始档，括号给「缺何档 + 当前何版」。
       throw new SaveLoadError(
-        `No migration path from schema version ${fromVersion} to ${SAVE_SCHEMA_VERSION} ` +
+        `[saveLoad] No migration path from schema version ${fromVersion} to ${SAVE_SCHEMA_VERSION} ` +
           `(missing: migrations[${version}], current: ${SAVE_SCHEMA_VERSION})`,
       );
     }
@@ -220,47 +220,47 @@ function runMigrations(blob: unknown, fromVersion: number): unknown {
 // NaN positions etc. would otherwise crash the renderer mid-frame later.
 function validateWorldMap(raw: unknown): WorldMap {
   if (typeof raw !== 'object' || raw === null) {
-    throw new SaveLoadError('worldMap is malformed (not an object)');
+    throw new SaveLoadError('[saveLoad] worldMap is malformed (not an object)');
   }
   const wm = raw as Record<string, unknown>;
   if (!Number.isInteger(wm['width']) || (wm['width'] as number) <= 0) {
-    throw new SaveLoadError('worldMap.width must be a positive integer');
+    throw new SaveLoadError('[saveLoad] worldMap.width must be a positive integer');
   }
   if (!Number.isInteger(wm['height']) || (wm['height'] as number) <= 0) {
-    throw new SaveLoadError('worldMap.height must be a positive integer');
+    throw new SaveLoadError('[saveLoad] worldMap.height must be a positive integer');
   }
   if (!Number.isFinite(wm['seed'])) {
-    throw new SaveLoadError('worldMap.seed must be a finite number');
+    throw new SaveLoadError('[saveLoad] worldMap.seed must be a finite number');
   }
   if (!Array.isArray(wm['tiles'])) {
-    throw new SaveLoadError('worldMap.tiles must be an array');
+    throw new SaveLoadError('[saveLoad] worldMap.tiles must be an array');
   }
   if (!Array.isArray(wm['resourceNodes'])) {
-    throw new SaveLoadError('worldMap.resourceNodes must be an array');
+    throw new SaveLoadError('[saveLoad] worldMap.resourceNodes must be an array');
   }
   const width = wm['width'] as number;
   const height = wm['height'] as number;
   const rawTiles = wm['tiles'] as unknown[];
   if (rawTiles.length !== width * height) {
     throw new SaveLoadError(
-      `worldMap.tiles.length=${rawTiles.length} does not match width*height=${width * height}`,
+      `[saveLoad] worldMap.tiles.length=${rawTiles.length} does not match width*height=${width * height}`,
     );
   }
   const tiles: MapTile[] = [];
   for (let i = 0; i < rawTiles.length; i++) {
     const t = rawTiles[i];
     if (typeof t !== 'object' || t === null) {
-      throw new SaveLoadError(`worldMap.tiles[${i}] is not an object`);
+      throw new SaveLoadError(`[saveLoad] worldMap.tiles[${i}] is not an object`);
     }
     const rec = t as Record<string, unknown>;
     if (typeof rec['terrain'] !== 'string' || !isValidTerrain(rec['terrain'])) {
-      throw new SaveLoadError(`worldMap.tiles[${i}].terrain is not a valid terrain`);
+      throw new SaveLoadError(`[saveLoad] worldMap.tiles[${i}].terrain is not a valid terrain`);
     }
     if (typeof rec['buildable'] !== 'boolean') {
-      throw new SaveLoadError(`worldMap.tiles[${i}].buildable must be boolean`);
+      throw new SaveLoadError(`[saveLoad] worldMap.tiles[${i}].buildable must be boolean`);
     }
     if (typeof rec['walkable'] !== 'boolean') {
-      throw new SaveLoadError(`worldMap.tiles[${i}].walkable must be boolean`);
+      throw new SaveLoadError(`[saveLoad] worldMap.tiles[${i}].walkable must be boolean`);
     }
     tiles.push({
       terrain: rec['terrain'],
@@ -273,27 +273,27 @@ function validateWorldMap(raw: unknown): WorldMap {
   for (let i = 0; i < rawNodes.length; i++) {
     const n = rawNodes[i];
     if (typeof n !== 'object' || n === null) {
-      throw new SaveLoadError(`worldMap.resourceNodes[${i}] is not an object`);
+      throw new SaveLoadError(`[saveLoad] worldMap.resourceNodes[${i}] is not an object`);
     }
     const rec = n as Record<string, unknown>;
     if (typeof rec['kind'] !== 'string' || !isValidResourceNodeKind(rec['kind'])) {
-      throw new SaveLoadError(`worldMap.resourceNodes[${i}].kind is not a valid kind`);
+      throw new SaveLoadError(`[saveLoad] worldMap.resourceNodes[${i}].kind is not a valid kind`);
     }
     const pos = rec['position'];
     if (typeof pos !== 'object' || pos === null) {
-      throw new SaveLoadError(`worldMap.resourceNodes[${i}].position is not an object`);
+      throw new SaveLoadError(`[saveLoad] worldMap.resourceNodes[${i}].position is not an object`);
     }
     const posRec = pos as Record<string, unknown>;
     const px = posRec['x'];
     const py = posRec['y'];
     if (!Number.isInteger(px) || (px as number) < 0 || (px as number) >= width) {
-      throw new SaveLoadError(`worldMap.resourceNodes[${i}].position.x out of range`);
+      throw new SaveLoadError(`[saveLoad] worldMap.resourceNodes[${i}].position.x out of range`);
     }
     if (!Number.isInteger(py) || (py as number) < 0 || (py as number) >= height) {
-      throw new SaveLoadError(`worldMap.resourceNodes[${i}].position.y out of range`);
+      throw new SaveLoadError(`[saveLoad] worldMap.resourceNodes[${i}].position.y out of range`);
     }
     if (!Number.isFinite(rec['remaining']) || (rec['remaining'] as number) < 0) {
-      throw new SaveLoadError(`worldMap.resourceNodes[${i}].remaining must be a non-negative number`);
+      throw new SaveLoadError(`[saveLoad] worldMap.resourceNodes[${i}].remaining must be a non-negative number`);
     }
     resourceNodes.push({
       kind: rec['kind'],
@@ -380,19 +380,19 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
 
 export function deserialize(blob: unknown): GameState {
   if (typeof blob !== 'object' || blob === null) {
-    throw new SaveLoadError('Save data must be a non-null object');
+    throw new SaveLoadError('[saveLoad] Save data must be a non-null object');
   }
   const raw = blob as Record<string, unknown>;
   if (!('schemaVersion' in raw)) {
-    throw new SaveLoadError('Save data missing schemaVersion field');
+    throw new SaveLoadError('[saveLoad] Save data missing schemaVersion field');
   }
   const schemaVersion = raw['schemaVersion'] as number;
   if (typeof schemaVersion !== 'number') {
-    throw new SaveLoadError('schemaVersion must be a number');
+    throw new SaveLoadError('[saveLoad] schemaVersion must be a number');
   }
   if (schemaVersion > SAVE_SCHEMA_VERSION) {
     throw new SaveLoadError(
-      `Save created with future schema version ${schemaVersion} (current: ${SAVE_SCHEMA_VERSION})`,
+      `[saveLoad] Save created with future schema version ${schemaVersion} (current: ${SAVE_SCHEMA_VERSION})`,
     );
   }
 
@@ -404,7 +404,7 @@ export function deserialize(blob: unknown): GameState {
   const data = migrated as { schemaVersion: number; state: SerializedSave['state'] };
   if (typeof data.state !== 'object' || data.state === null) {
     // 020c：缺 state 不再裸抛 TypeError，统一 SaveLoadError 通道
-    throw new SaveLoadError('Save data missing state field');
+    throw new SaveLoadError('[saveLoad] Save data missing state field');
   }
   const s = data.state;
 
@@ -416,7 +416,7 @@ export function deserialize(blob: unknown): GameState {
     const missingLoadBearing = (['rngSeed', 'eventHistory'] as const).filter((k) => s[k] === undefined);
     if (missingLoadBearing.length > 0) {
       throw new SaveLoadError(
-        `Save missing load-bearing field(s): ${missingLoadBearing.join(', ')} ` +
+        `[saveLoad] Save missing load-bearing field(s): ${missingLoadBearing.join(', ')} ` +
           '(refusing to load: silent backfill would switch the replay track)',
       );
     }
@@ -449,7 +449,7 @@ export function deserialize(blob: unknown): GameState {
     Array.isArray(rawResources) ||
     !Object.values(rawResources).every(v => typeof v === 'number' && Number.isFinite(v))
   ) {
-    throw new SaveLoadError('resources must be a record of finite numbers');
+    throw new SaveLoadError('[saveLoad] resources must be a record of finite numbers');
   }
   // c1006-02（案②，主班 2026-10-06 拍板）：负库存历史档钳 0——照 constructionProgress
   // p911r-40 双段式先例（先 finite throw 后负值钳）。现行写路径不产负库存 ⇒ 钳制只服务
@@ -476,7 +476,7 @@ export function deserialize(blob: unknown): GameState {
     || rawCurrentDay < 0 || rawCurrentDay > MAX_SAVE_CURRENT_DAY
   ) {
     throw new SaveLoadError(
-      `currentDay out of range: ${String(s.currentDay)} (allowed 0..${MAX_SAVE_CURRENT_DAY})`,
+      `[saveLoad] currentDay out of range: ${String(s.currentDay)} (allowed 0..${MAX_SAVE_CURRENT_DAY})`,
     );
   }
   const gameState: GameState = {
@@ -701,22 +701,22 @@ function deserializeMegaProjects(raw: unknown): MegaProjectProgress[] {
 function deserializeActiveExpeditions(raw: unknown): ActiveExpedition[] {
   if (raw === undefined || raw === null) return [];
   if (!Array.isArray(raw)) {
-    throw new SaveLoadError('activeExpeditions must be an array');
+    throw new SaveLoadError('[saveLoad] activeExpeditions must be an array');
   }
   const out: ActiveExpedition[] = [];
   for (let i = 0; i < raw.length; i++) {
     const e = raw[i];
     if (typeof e !== 'object' || e === null || Array.isArray(e)) {
-      throw new SaveLoadError(`activeExpeditions[${i}] is not an object`);
+      throw new SaveLoadError(`[saveLoad] activeExpeditions[${i}] is not an object`);
     }
     const rec = e as Record<string, unknown>;
     const cfg = rec['config'];
     if (typeof cfg !== 'object' || cfg === null || Array.isArray(cfg)) {
-      throw new SaveLoadError(`activeExpeditions[${i}].config is missing or not an object`);
+      throw new SaveLoadError(`[saveLoad] activeExpeditions[${i}].config is missing or not an object`);
     }
     const units = (cfg as Record<string, unknown>)['units'];
     if (typeof units !== 'object' || units === null || Array.isArray(units)) {
-      throw new SaveLoadError(`activeExpeditions[${i}].config.units is missing or not an object`);
+      throw new SaveLoadError(`[saveLoad] activeExpeditions[${i}].config.units is missing or not an object`);
     }
     out.push({
       ...(e as ActiveExpedition),
@@ -782,47 +782,47 @@ const VALID_BUILDING_TIER = new Set<BuildingTier>([1, 2, 3, 4]);
  */
 function validateBuildingsArray(raw: unknown): BuildingInstance[] {
   if (!Array.isArray(raw)) {
-    throw new SaveLoadError('buildings must be an array');
+    throw new SaveLoadError('[saveLoad] buildings must be an array');
   }
   const out: BuildingInstance[] = [];
   for (let i = 0; i < raw.length; i++) {
     const b = raw[i];
     if (typeof b !== 'object' || b === null) {
-      throw new SaveLoadError(`buildings[${i}] is not an object`);
+      throw new SaveLoadError(`[saveLoad] buildings[${i}] is not an object`);
     }
     const rec = b as Record<string, unknown>;
     if (typeof rec['defId'] !== 'string' || rec['defId'].length === 0) {
-      throw new SaveLoadError(`buildings[${i}].defId must be a non-empty string`);
+      throw new SaveLoadError(`[saveLoad] buildings[${i}].defId must be a non-empty string`);
     }
     const pos = rec['position'];
     if (typeof pos !== 'object' || pos === null) {
-      throw new SaveLoadError(`buildings[${i}].position is not an object`);
+      throw new SaveLoadError(`[saveLoad] buildings[${i}].position is not an object`);
     }
     const px = (pos as Record<string, unknown>)['x'];
     const py = (pos as Record<string, unknown>)['y'];
     if (!Number.isInteger(px) || !Number.isInteger(py)) {
-      throw new SaveLoadError(`buildings[${i}].position.{x,y} must be integers`);
+      throw new SaveLoadError(`[saveLoad] buildings[${i}].position.{x,y} must be integers`);
     }
     if (typeof rec['status'] !== 'string' || !VALID_BUILDING_STATUS.has(rec['status'] as BuildingStatus)) {
-      throw new SaveLoadError(`buildings[${i}].status invalid: "${String(rec['status'])}"`);
+      throw new SaveLoadError(`[saveLoad] buildings[${i}].status invalid: "${String(rec['status'])}"`);
     }
     if (typeof rec['tier'] !== 'number' || !VALID_BUILDING_TIER.has(rec['tier'] as BuildingTier)) {
-      throw new SaveLoadError(`buildings[${i}].tier invalid: "${String(rec['tier'])}"`);
+      throw new SaveLoadError(`[saveLoad] buildings[${i}].tier invalid: "${String(rec['tier'])}"`);
     }
     const rawProgress = rec['constructionProgress'];
     if (typeof rawProgress !== 'number' || !Number.isFinite(rawProgress)) {
-      throw new SaveLoadError(`buildings[${i}].constructionProgress must be finite number`);
+      throw new SaveLoadError(`[saveLoad] buildings[${i}].constructionProgress must be finite number`);
     }
     // p911r-40：钳制到 [0,100]（游戏语义为百分比，gameStore productionTick 同口径；越界值来自损坏档）
     const progress = Math.min(100, Math.max(0, rawProgress));
     if (!Array.isArray(rec['modifiers']) || (rec['modifiers'] as unknown[]).some(m => typeof m !== 'string')) {
-      throw new SaveLoadError(`buildings[${i}].modifiers must be array of string ids`);
+      throw new SaveLoadError(`[saveLoad] buildings[${i}].modifiers must be array of string ids`);
     }
     // v0.9：upgradingTo 可选；若存在必须是非空字符串
     let upgradingTo: string | undefined;
     if (rec['upgradingTo'] !== undefined && rec['upgradingTo'] !== null) {
       if (typeof rec['upgradingTo'] !== 'string' || rec['upgradingTo'].length === 0) {
-        throw new SaveLoadError(`buildings[${i}].upgradingTo must be a non-empty string when present`);
+        throw new SaveLoadError(`[saveLoad] buildings[${i}].upgradingTo must be a non-empty string when present`);
       }
       upgradingTo = rec['upgradingTo'];
     }
@@ -844,7 +844,7 @@ const VALID_SLOT_RE = /^[a-z0-9_-]{1,32}$/;
 export function validateSlot(slot: string): void {
   if (!VALID_SLOT_RE.test(slot)) {
     throw new SaveLoadError(
-      `Invalid save slot name "${slot}": must match [a-z0-9_-]{1,32}`,
+      `[saveLoad] Invalid save slot name "${slot}": must match [a-z0-9_-]{1,32}`,
     );
   }
 }
@@ -872,7 +872,7 @@ export async function saveToSlot(slot: string, store: GameStore): Promise<void> 
   // 原先整行丢弃返回值会让保存失败静默；统一走 SaveLoadError 通道（消息含槽位名）。
   const written = await getColonyApi().saveGame(slot, JSON.stringify(serialize(store.getState())));
   if (written === false) {
-    throw new SaveLoadError(`Save to slot "${slot}" failed: storage layer wrote nothing`);
+    throw new SaveLoadError(`[saveLoad] Save to slot "${slot}" failed: storage layer wrote nothing`);
   }
 }
 
@@ -886,7 +886,7 @@ export async function loadFromSlot(slot: string): Promise<GameState | null> {
     parsed = JSON.parse(raw);
   } catch (err) {
     throw new SaveLoadError(
-      `Save file in slot "${slot}" is corrupted (not valid JSON): ${(err as Error).message}`,
+      `[saveLoad] Save file in slot "${slot}" is corrupted (not valid JSON): ${(err as Error).message}`,
     );
   }
   return deserialize(parsed);
