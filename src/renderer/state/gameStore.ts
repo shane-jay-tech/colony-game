@@ -655,8 +655,19 @@ export class GameStore implements IStateEventEmitter {
    * 溢出（±Infinity）**不走此闸**：Math.max/min 已把它稳定钳到 0 / 上限，属既有正确行为，
    * 由 priceBoundaryClamp.test.ts 的溢出例钉住（收窄口径见 result A2）。
    */
+  private _nanDropWarned = new Set<ResourceId>();
+
   private setResourceClamped(id: ResourceId, value: number): void {
-    if (Number.isNaN(value)) return;
+    if (Number.isNaN(value)) {
+      // c1006-02（c1004-20 三选·推荐组合①）：NaN 增量静默丢弃点补 warn（带去重护栏：
+      // 同 id 首条后静默，防上游 bug 持续时每 tick 刷屏）。
+      if (!this._nanDropWarned.has(id)) {
+        this._nanDropWarned.add(id);
+        console.warn('[resources] NaN increment dropped:', id,
+          new Error().stack?.split('\n')[2]);
+      }
+      return;
+    }
     this.state.resources[id] = Math.min(this.getResourceCap(id), Math.max(0, Math.floor(value)));
   }
 

@@ -305,6 +305,11 @@ function validateWorldMap(raw: unknown): WorldMap {
 }
 
 export function serialize(state: Readonly<GameState>): SerializedSave {
+  // c1006-02（c1004-20 三选·推荐组合②）：存档前全资源 isFinite 终检——
+  // 非 finite 记 warn（最终防线：保证落盘档干净；定位弱于 catch 处，属双保险位）。
+  for (const [k, v] of Object.entries(state.resources)) {
+    if (!Number.isFinite(v)) console.warn('[saveLoad] serialize: non-finite resource', k, v);
+  }
   return {
     schemaVersion: SAVE_SCHEMA_VERSION,
     savedAt: Date.now(),
@@ -445,6 +450,22 @@ export function deserialize(blob: unknown): GameState {
     !Object.values(rawResources).every(v => typeof v === 'number' && Number.isFinite(v))
   ) {
     throw new SaveLoadError('resources must be a record of finite numbers');
+  }
+  // c1006-02（案②，主班 2026-10-06 拍板）：负库存历史档钳 0——照 constructionProgress
+  // p911r-40 双段式先例（先 finite throw 后负值钳）。现行写路径不产负库存 ⇒ 钳制只服务
+  // 历史遗物档（非法态归零即合法态）；一次性 console.warn 留观测（c1004-02 同味）。
+  let negativeCount = 0;
+  for (const [k, v] of Object.entries(rawResources)) {
+    if ((v as number) < 0) {
+      (rawResources as Record<string, number>)[k] = 0;
+      negativeCount += 1;
+    }
+  }
+  if (negativeCount > 0) {
+    console.warn(
+      `[saveLoad] resources 负库存钳 0（历史档遗物，共 ${negativeCount} 项）：` +
+      '现行写路径不产负库存，钳制即修复到合法态',
+    );
   }
 
   // reconstruct GameState, adding runtime-only defaults

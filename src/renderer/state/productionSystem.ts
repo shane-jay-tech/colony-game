@@ -286,8 +286,11 @@ export function computeDailyRates(
   return out;
 }
 
-/** 格式化速率展示：整数去小数、非整数保留 1 位（如 0.4/日、12/日）。 */
+/** 格式化速率展示：整数去小数、非整数保留 1 位（如 0.4/日、12/日）。
+ * c1006-02（c1004-19 案）：前置 isFinite 闸——非有限值（NaN/±Infinity/1e21 以上溢形态）
+ * 渲染 '—'（展示层闸，ProductionPanel 调用面 5 处不再让 Infinity/NaN 字面进 HUD）。 */
 export function formatRate(v: number): string {
+  if (!Number.isFinite(v)) return '—';
   const rounded = Math.round(v * 10) / 10;
   if (Math.abs(rounded - Math.round(rounded)) < 1e-9) return String(Math.round(rounded));
   return rounded.toFixed(1);

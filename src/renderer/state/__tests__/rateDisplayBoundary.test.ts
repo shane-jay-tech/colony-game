@@ -31,12 +31,11 @@ describe('① formatRate 数值边界（展示面）', () => {
     expect(formatRate(1.25)).toBe('1.3');
   });
 
-  it('🔴 乙判据实况：非有限速率会以字面 "Infinity" / "NaN" 进 UI（展示层无闸）', () => {
-    // 上游给什么，这里就原样成字：一旦有人绕过 GameStore 的钳制闸，面板会显示这三个字面串。
-    expect(formatRate(Number.POSITIVE_INFINITY)).toBe('Infinity');
-    expect(formatRate(Number.NEGATIVE_INFINITY)).toBe('-Infinity');
-    expect(formatRate(Number.NaN)).toBe('NaN');
-    // 断言本身即"反例登记"：这三条若哪天变成可读串（如 '—'），本用例转红逼复核。
+  it('🟢 乙判据翻正（c1006-02 formatRate 加闸）：非有限速率渲染 "—" 不再进字面串', () => {
+    // c1006-02 加 isFinite 闸后，非有限值渲染占位 '—'——原「Infinity/NaN 字面进 UI」缺口已封。
+    expect(formatRate(Number.POSITIVE_INFINITY)).toBe('—');
+    expect(formatRate(Number.NEGATIVE_INFINITY)).toBe('—');
+    expect(formatRate(Number.NaN)).toBe('—');
   });
 
   it('🔴 乙判据实况（精度误导面）：|v|<0.05 的净耗被显示成 0，1e21 走科学计数法', () => {
@@ -122,7 +121,7 @@ describe('② 库存与消耗的边界（纯函数层无闸，真路径有闸）
     expect(res['gold']).toBeLessThan(0);
   });
 
-  it('🔴 甲判据的缺口（存档侧）：deserialize 只验"有限"，负数库存原样进门', () => {
+  it('🟢 案②翻正（c1006-02）：负库存历史档进门钳 0（原 E1 缺口已封）', () => {
     // saveLoad.ts 的 resources 闸口径是 `typeof v === 'number' && Number.isFinite(v)`——
     // 负数与 -0 都是"有限数"，于是 {"grain":-5000} 这种档可以正常载入并在游戏里长跑。
     const st = deserialize(JSON.parse(JSON.stringify({
@@ -132,13 +131,14 @@ describe('② 库存与消耗的边界（纯函数层无闸，真路径有闸）
       // 让这条 🔴 钉子继续钉"负数库存不被资源闸拦下"这一面，而不是被缺字段闸先拦。
       state: { resources: { grain: -5000, wood: -0.5 }, currentDay: 5, rngSeed: 3, buildings: [], eventHistory: [] },
     })));
-    expect(st.resources['grain']).toBe(-5000);
-    expect(st.resources['wood']).toBe(-0.5);
-    // 并且不是"载入后立刻被第一 tick 修好"：跑 10 日仍是负的有限值
+    // 案②：负值进门即钳 0（历史档遗物归零＝修复到合法态）
+    expect(st.resources['grain']).toBe(0);
+    expect(st.resources['wood']).toBe(0);
+    // 长跑 10 日仍保持非负（合法态不被破坏）
     const store = new GameStore(new EventEmitter() as unknown as IEventEmitter);
     store.replaceState({ ...store.getState(), ...st });
     for (let i = 0; i < 10; i++) store.tickDay();
-    expect(store.getState().resources['grain']).toBeLessThan(0);
+    expect(store.getState().resources['grain']).toBeGreaterThanOrEqual(0);
     expect(Number.isFinite(store.getState().resources['grain'] as number)).toBe(true);
   });
 
@@ -175,7 +175,7 @@ describe('③ 错误有日志——本仓产出/消耗面无此实体（静默�
     return { warn, error, log };
   }
 
-  it('灌 NaN/Infinity 跑一日：三条 console 通道零输出（错误既不上报也不记账）', () => {
+  it('🟢 丙翻正（c1006-02 三选①）：NaN 增量丢弃点补 warn（去重护栏：同 id 首条后静默）', () => {
     const { warn, error, log } = watchConsole();
     const store = new GameStore(new EventEmitter() as unknown as IEventEmitter);
     const base = store.getState();
@@ -185,9 +185,9 @@ describe('③ 错误有日志——本仓产出/消耗面无此实体（静默�
       productionCarry: { grain: Number.NaN },
     });
     store.tickDay();
-    expect(warn).not.toHaveBeenCalled();
+    // 翻正断言：NaN 增量被丢弃时至少一条 warn 留痕（不再全程静默）
+    expect(warn.mock.calls.length).toBeGreaterThan(0);
     expect(error).not.toHaveBeenCalled();
-    expect(log).not.toHaveBeenCalled();
   });
 
   it('40 日长跑同样零日志（说明不是"这一支路没触发"，而是整条产出/消耗链没有日志面）', () => {
