@@ -420,8 +420,8 @@ export interface AudioCue {
 // ============== Save Data ===============================================
 
 export interface SaveData {
-  version: string; // '0.7.0'
-  timestamp: number;
+  timestamp: number;   // c1006-07：.version 死条目已删（零读者实锤，配方 bd88fab；
+                       //  存档实键=schemaVersion number 轴，本接口非运行时序列化面）
   world: {
     /** 资源使用 ResourceBag（typed） */
     resources: Partial<Record<ResourceId, number>>;
