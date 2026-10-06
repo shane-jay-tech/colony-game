@@ -3,9 +3,21 @@ import { join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
 import { readFile, writeFile, readdir, mkdir, stat, rename, copyFile } from 'fs/promises';
 
-const D_DRIVE_USER_DATA = 'D:/colony-game/user-data';
-const D_DRIVE_TEMP = 'D:/colony-game/user-data/temp';
-const D_DRIVE_LOGS = 'D:/colony-game/user-data/logs';
+// c1006-04（案 b，主班 2026-10-06 拍板）：加用户命名空间层——多 Windows 账号
+// 各自独立存档，互不串档。配方单源：colony-userdata-3path-verdict-20261006.md。
+import { userInfo } from 'os';
+const USER_NAMESPACE = (() => {
+  try {
+    const name = userInfo().username;
+    // Windows 文件名非法字符兜底清洗（中文/字母/数字保留，其余折叠为 '_'）
+    return name.replace(/[^\w一-鿿.-]/g, '_') || 'default';
+  } catch {
+    return 'default';   // os.userInfo 在受限环境可抛，兜底固定名
+  }
+})();
+const D_DRIVE_USER_DATA = `D:/colony-game/user-data/${USER_NAMESPACE}`;
+const D_DRIVE_TEMP = `D:/colony-game/user-data/${USER_NAMESPACE}/temp`;
+const D_DRIVE_LOGS = `D:/colony-game/user-data/${USER_NAMESPACE}/logs`;
 
 /**
  * 用户硬性要求 D 盘存储；但极个别 Windows 环境无 D 盘（笔记本单 SSD），那种情况下
