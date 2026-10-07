@@ -7,7 +7,7 @@ import { COLORS, COLORS_HEX, UI } from '../../shared/palette';
 import { terrainColor, resourceNodeColor, TILE_SIZE, NODE_MARKER_INSET } from './mapColors';
 import { getBuildingSigil } from './buildingSigils';
 import { getBuildingAnchor } from './buildingAnchorOverrides';
-import { ISO_TILE_W, ISO_TILE_H, gridToIso, gridCenterToIso } from './iso';
+import { ISO_TILE_W, ISO_TILE_H, gridToIso, gridCenterToIso, isoToGridF } from './iso';
 import { readScroll, readZoom } from './viewportMath';
 import { MAP_ZOOM_MAX } from './cameraMath';
 import { fitZoomFor, coverZoomFor, closeZoomFor, clampScrollFor, scrollForZoomAtAnchor, clampZoom } from './cameraMath';
@@ -852,6 +852,24 @@ export class MapRenderer {
     const sx = cur.x;
     const sy = cur.y;
     return { x: (w.x - sx) * z, y: (w.y - sy) * z };
+  }
+
+  /**
+   * 屏幕坐标 → 世界格坐标（连续值，未取整）——gridToScreenPixel 的精确逆（l1007-37 提取）。
+   *
+   * 口径与 T8 逆对桩（MapRenderer.t8-inverse.l100705.test.ts）逐位同源：
+   * screen/zoom + scroll → 减 origin/isoOffsetX（isoCenter 的平移项逆扣）→
+   * isoToGridF → 减 0.5（gridCenterToIso 是顶点投影 (gx+0.5, gy+0.5)，逆还原格中心）。
+   * 点击命中取整用 isoToGrid(worldFromScreen(x, y))。
+   */
+  worldFromScreen(screenX: number, screenY: number): { gx: number; gy: number } {
+    const cam = this.scene.cameras.main;
+    const z = readZoom(cam);
+    const cur = readScroll(cam);
+    const wx = screenX / z + cur.x;
+    const wy = screenY / z + cur.y;
+    const gf = isoToGridF(wx - this.originX - this.isoOffsetX, wy - this.originY);
+    return { gx: gf.gx - 0.5, gy: gf.gy - 0.5 };
   }
 
   /** 单 tile 像素尺寸（DOM overlay 用同样的 TILE_SIZE）。 */
