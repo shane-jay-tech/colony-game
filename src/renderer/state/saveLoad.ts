@@ -15,6 +15,7 @@ import type { ActiveExpedition, DefenseAlert } from '../data/military';
 import { clampSentiment } from './publicSentiment';
 import { WARINESS_BASELINE, clampWariness } from './wariness';
 import type { RelicSite } from './relicSystem';
+import { JIT_HINTS } from '../data/jitHints';
 
 export const SAVE_SCHEMA_VERSION = 9;
 
@@ -490,7 +491,13 @@ export function deserialize(blob: unknown): GameState {
     pendingEventDayStart: s.pendingEventDayStart ?? null,
     productionCarry: s.productionCarry ?? {},
     tutorialStepId: s.tutorialStepId ?? null,
-    seenJitHints: Array.isArray(s.seenJitHints) ? s.seenJitHints.filter((x): x is string => typeof x === 'string') : [],
+    // c1007-29（c1007-10 遗留）：白名单 filter——删 JIT_HINTS 键后旧档残键（孤儿 trigger）
+    // 若被保留，JitHintManager wouldSeen 判重会吞掉**新键**的首提示（同字符串碰撞面）或
+    // 白白增长 seen 集。这里只留 JIT_HINTS 在册 trigger，孤儿键落盘即弃。
+    seenJitHints: Array.isArray(s.seenJitHints)
+      ? s.seenJitHints.filter((x): x is string =>
+          typeof x === 'string' && Object.prototype.hasOwnProperty.call(JIT_HINTS, x))
+      : [],
     // DeepSeek 复审[major]：clamp 到 [0, currentDay]，防损坏存档把 lastEventDay 设超大导致事件永久不触发
     lastEventDay: typeof s.lastEventDay === 'number' ? Math.max(0, Math.min(s.lastEventDay, rawCurrentDay)) : 0,
     lastSeenTimestamp: s.lastSeenTimestamp ?? 0,
