@@ -108,7 +108,7 @@ describe('键盘入口①择途屏 ModeSelectScene', () => {
 /** EventModal 测试件同构的最小 store 装配（IntroScene 真链路需要 registry.store）。 */
 function allPlainMap(): WorldMap {
   const tiles = [];
-  for (let i = 0; i < 16 * 16; i++) tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
+  for (let i = 0; i < 16 * 16; i++) tiles.push({ terrain: 'plain' as const, buildable: true });
   return { width: 16, height: 16, tiles, resourceNodes: [], seed: 0 };
 }
 function makeStore(): GameStore {

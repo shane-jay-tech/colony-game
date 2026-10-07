@@ -12,7 +12,7 @@ import * as buildingRegistry from '../../data/buildingRegistry';
 function allPlainMap(width = 100, height = 100): WorldMap {
   const tiles = [];
   for (let i = 0; i < width * height; i++) {
-    tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
+    tiles.push({ terrain: 'plain' as const, buildable: true });
   }
   return { width, height, tiles, resourceNodes: [], seed: 0 };
 }
@@ -363,8 +363,8 @@ describe('GameStore.placeBuilding (Slice B)', () => {
   it('rejects with unbuildable_terrain on river tile (Slice C)', () => {
     // Construct a worldMap with a river at (5,5)
     const tiles = [];
-    for (let i = 0; i < 100 * 100; i++) tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
-    tiles[5 * 100 + 5] = { terrain: 'river' as const, buildable: false, walkable: true };
+    for (let i = 0; i < 100 * 100; i++) tiles.push({ terrain: 'plain' as const, buildable: true });
+    tiles[5 * 100 + 5] = { terrain: 'river' as const, buildable: false };
     const store = new GameStore(makeEmitter(), {
       worldMap: { width: 100, height: 100, tiles, resourceNodes: [], seed: 0 },
     });

@@ -37,7 +37,7 @@ const HILL_CLUSTER_SIZE = 22;
 const MOUNTAIN_CLUSTER_SIZE = 14; // 山比丘陵小一点，更密集
 
 function defaultTile(): MapTile {
-  return { terrain: 'plain', buildable: true, walkable: true };
+  return { terrain: 'plain', buildable: true };
 }
 
 function applyTerrain(tile: MapTile, terrain: Terrain): void {
@@ -47,15 +47,12 @@ function applyTerrain(tile: MapTile, terrain: Terrain): void {
     case 'hills':
     case 'forest':
       tile.buildable = true;
-      tile.walkable = true;
       return;
     case 'river':
       tile.buildable = false;
-      tile.walkable = true;
       return;
     case 'mountain':
       tile.buildable = false;
-      tile.walkable = false;
       return;
   }
 }

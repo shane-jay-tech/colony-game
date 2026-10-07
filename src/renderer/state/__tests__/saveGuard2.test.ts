@@ -25,10 +25,10 @@ function validV9(overrides: Record<string, unknown> = {}): Record<string, unknow
         height: 2,
         seed: 1,
         tiles: [
-          { terrain: 'plain', buildable: true, walkable: true },
-          { terrain: 'plain', buildable: true, walkable: true },
-          { terrain: 'river', buildable: false, walkable: true },
-          { terrain: 'plain', buildable: true, walkable: true },
+          { terrain: 'plain', buildable: true },
+          { terrain: 'plain', buildable: true },
+          { terrain: 'river', buildable: false },
+          { terrain: 'plain', buildable: true },
         ],
         resourceNodes: [],
       },
@@ -83,21 +83,21 @@ describe('worldMap 深校验对抗', () => {
   it('tiles 数量与 width*height 不符被拒', () => {
     const v = validV9();
     const wm = (v.state as { worldMap: Record<string, unknown> }).worldMap;
-    (wm as { tiles: unknown[] }).tiles = [{ terrain: 'plain', buildable: true, walkable: true }];
+    (wm as { tiles: unknown[] }).tiles = [{ terrain: 'plain', buildable: true }];
     expect(() => deserialize(v)).toThrow(/does not match width\*height/);
   });
 
   it('单个瓦片 terrain 非法被拒（含下标定位）', () => {
     const v = validV9();
     const tiles = (v.state as { worldMap: { tiles: unknown[] } }).worldMap.tiles;
-    tiles[2] = { terrain: 'lava', buildable: true, walkable: true };
+    tiles[2] = { terrain: 'lava', buildable: true };
     expect(() => deserialize(v)).toThrow(/tiles\[2\]\.terrain is not a valid terrain/);
   });
 
-  it('瓦片 buildable/walkable 非布尔被拒', () => {
+  it('瓦片 buildable 非布尔被拒（walkable 校验已删 c1007-36）', () => {
     const v = validV9();
     const tiles = (v.state as { worldMap: { tiles: unknown[] } }).worldMap.tiles;
-    tiles[0] = { terrain: 'plain', buildable: 'yes', walkable: true };
+    tiles[0] = { terrain: 'plain', buildable: 'yes' };
     expect(() => deserialize(v)).toThrow(/buildable must be boolean/);
   });
 

@@ -81,8 +81,8 @@ function smallMap(badTerrainAt = -1): Record<string, unknown> {
   const tiles: unknown[] = [];
   for (let i = 0; i < 4; i++) {
     tiles.push(i === badTerrainAt
-      ? { terrain: 'void_lava', buildable: true, walkable: true }
-      : { terrain: 'plain', buildable: true, walkable: true });
+      ? { terrain: 'void_lava', buildable: true }
+      : { terrain: 'plain', buildable: true });
   }
   return { width: 2, height: 2, seed: 7, tiles, resourceNodes: [] };
 }

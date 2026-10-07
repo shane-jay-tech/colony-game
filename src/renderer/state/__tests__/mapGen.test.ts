@@ -41,23 +41,21 @@ describe('generateMap — shape', () => {
     }
   });
 
-  it('river tiles have buildable=false, walkable=true', () => {
+  it('river tiles have buildable=false（walkable 字段已删 c1007-36）', () => {
     const m = generateMap({ width: 32, height: 32, seed: 100 });
     const river = m.tiles.filter(t => t.terrain === 'river');
     expect(river.length).toBeGreaterThan(0);
     for (const t of river) {
       expect(t.buildable).toBe(false);
-      expect(t.walkable).toBe(true);
     }
   });
 
-  it('mountain tiles have buildable=false, walkable=false', () => {
+  it('mountain tiles have buildable=false（walkable 字段已删 c1007-36）', () => {
     const m = generateMap({ width: 32, height: 32, seed: 100 });
     const mountains = m.tiles.filter(t => t.terrain === 'mountain');
     if (mountains.length === 0) return; // small chance no mountain on tiny maps; tolerate
     for (const t of mountains) {
       expect(t.buildable).toBe(false);
-      expect(t.walkable).toBe(false);
     }
   });
 });

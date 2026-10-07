@@ -20,7 +20,7 @@ import type { CourtEvent } from '../../data/schema';
 
 function allPlainMap(): WorldMap {
   const tiles = [];
-  for (let i = 0; i < 40 * 40; i++) tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
+  for (let i = 0; i < 40 * 40; i++) tiles.push({ terrain: 'plain' as const, buildable: true });
   return { width: 40, height: 40, tiles, resourceNodes: [], seed: 0 };
 }
 

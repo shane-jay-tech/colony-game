@@ -39,7 +39,7 @@ const bounds: MapBounds = { width: 10, height: 10 };
 
 function plainAccessor(w = 10, h = 10): WorldMapAccessor {
   const tiles: MapTile[] = [];
-  for (let i = 0; i < w * h; i++) tiles.push({ terrain: 'plain', buildable: true, walkable: true });
+  for (let i = 0; i < w * h; i++) tiles.push({ terrain: 'plain', buildable: true });
   return new WorldMapAccessor({ width: w, height: h, tiles, resourceNodes: [], seed: 0 });
 }
 const PLAIN = plainAccessor();

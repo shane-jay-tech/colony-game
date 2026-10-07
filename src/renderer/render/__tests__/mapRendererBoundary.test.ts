@@ -199,7 +199,7 @@ function newRenderer(scene: FakeScene): MapRenderer {
 }
 
 function makeMap(w = 8, h = 8): WorldMap {
-  const tiles = Array.from({ length: w * h }, () => ({ terrain: 'plain' as const, buildable: true, walkable: true }));
+  const tiles = Array.from({ length: w * h }, () => ({ terrain: 'plain' as const, buildable: true }));
   return { width: w, height: h, tiles, resourceNodes: [], seed: 0 };
 }
 

@@ -261,13 +261,10 @@ function validateWorldMap(raw: unknown): WorldMap {
     if (typeof rec['buildable'] !== 'boolean') {
       throw new SaveLoadError(`[saveLoad] worldMap.tiles[${i}].buildable must be boolean`);
     }
-    if (typeof rec['walkable'] !== 'boolean') {
-      throw new SaveLoadError(`[saveLoad] worldMap.tiles[${i}].walkable must be boolean`);
-    }
+
     tiles.push({
       terrain: rec['terrain'],
       buildable: rec['buildable'],
-      walkable: rec['walkable'],
     });
   }
   const rawNodes = wm['resourceNodes'] as unknown[];
@@ -495,10 +492,13 @@ export function deserialize(blob: unknown): GameState {
     tutorialStepId: s.tutorialStepId ?? null,
     // c1007-29（c1007-10 遗留）：白名单 filter——删 JIT_HINTS 键后旧档残键（孤儿 trigger）
     // 若被保留，JitHintManager wouldSeen 判重会吞掉**新键**的首提示（同字符串碰撞面）或
-    // 白白增长 seen 集。这里只留 JIT_HINTS 在册 trigger，孤儿键落盘即弃。
+    // 白白增长 seen 集。白名单两族：JIT_HINTS 在册 trigger ＋ hist_ 前缀谏言 id
+    // （historianSystem 复用本字段存「只打扰一次」谏言，c1007-36 回归修正——首版漏该族
+    // 曾误弃致谏言读档重播）。其余孤儿键落盘即弃。
     seenJitHints: Array.isArray(s.seenJitHints)
       ? s.seenJitHints.filter((x): x is string =>
-          typeof x === 'string' && Object.prototype.hasOwnProperty.call(JIT_HINTS, x))
+          typeof x === 'string'
+          && (Object.prototype.hasOwnProperty.call(JIT_HINTS, x) || x.startsWith('hist_')))
       : [],
     // DeepSeek 复审[major]：clamp 到 [0, currentDay]，防损坏存档把 lastEventDay 设超大导致事件永久不触发
     lastEventDay: typeof s.lastEventDay === 'number' ? Math.max(0, Math.min(s.lastEventDay, rawCurrentDay)) : 0,

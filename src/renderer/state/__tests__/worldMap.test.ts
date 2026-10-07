@@ -3,13 +3,13 @@ import { WorldMapAccessor } from '../worldMap';
 import type { WorldMap, MapTile, ResourceNode } from '../../data/mapSchema';
 
 function plainTile(): MapTile {
-  return { terrain: 'plain', buildable: true, walkable: true };
+  return { terrain: 'plain', buildable: true };
 }
 function riverTile(): MapTile {
-  return { terrain: 'river', buildable: false, walkable: true };
+  return { terrain: 'river', buildable: false };
 }
 function mountainTile(): MapTile {
-  return { terrain: 'mountain', buildable: false, walkable: false };
+  return { terrain: 'mountain', buildable: false };
 }
 
 function makeMap(width: number, height: number, factory: (x: number, y: number) => MapTile, nodes: ResourceNode[] = []): WorldMap {

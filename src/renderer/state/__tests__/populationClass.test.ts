@@ -17,7 +17,7 @@ function makeEmitter(): IEventEmitter {
 }
 
 function allPlainMap(): WorldMap {
-  const tiles = Array.from({ length: 80 * 80 }, () => ({ terrain: 'plain' as const, buildable: true, walkable: true }));
+  const tiles = Array.from({ length: 80 * 80 }, () => ({ terrain: 'plain' as const, buildable: true }));
   return { width: 80, height: 80, tiles, resourceNodes: [], seed: 1 };
 }
 

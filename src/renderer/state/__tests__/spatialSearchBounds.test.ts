@@ -75,13 +75,13 @@ function countingMap(base: WorldMap): Counting {
   };
 }
 
-function tile(terrain: MapTile['terrain'], buildable: boolean, walkable: boolean): MapTile {
-  return { terrain, buildable, walkable };
+function tile(terrain: MapTile['terrain'], buildable: boolean): MapTile {
+  return { terrain, buildable };
 }
 
 function plain(w: number, h: number): WorldMap {
   const tiles: MapTile[] = [];
-  for (let i = 0; i < w * h; i++) tiles.push(tile('plain', true, true));
+  for (let i = 0; i < w * h; i++) tiles.push(tile('plain', true));
   return { width: w, height: h, tiles, resourceNodes: [], seed: 1 };
 }
 
@@ -109,7 +109,7 @@ describe('e118 ① 大地图：空间查询的读格次数精确有界', () => {
     expect(big.tiles.length).toBe(DIM * DIM);
     expect(big.resourceNodes.length).toBeGreaterThan(0);
     // 山格存在 ⇒ 「不可达地形」这一形状在大地图里是真的会出现（不靠手搓夹具）
-    expect(big.tiles.some((t) => !t.buildable && !t.walkable)).toBe(true);
+    expect(big.tiles.some((t) => !t.buildable)).toBe(true); // walkable 字段已删（c1007-36），不可达形状由 buildable=false 承载
   });
 
   it('isBuildable 的读格次数恰等于足迹面积（3×3＝9 次），且不因地图尺寸增长', () => {
@@ -134,7 +134,7 @@ describe('e118 ① 大地图：空间查询的读格次数精确有界', () => {
 
   it('命中第一格不可建造即**提前退出**：遮挡格在前 ⇒ 后续格一次都不读（最坏 O(面积) 的常数面收窄）', () => {
     const base = plain(DIM, DIM);
-    base.tiles[10 * DIM + 10] = tile('mountain', false, false); // 3×3 足迹左上角即山
+    base.tiles[10 * DIM + 10] = tile('mountain', false); // 3×3 足迹左上角即山
     const c = countingMap(base);
     const acc = new WorldMapAccessor(c.map);
     c.reset();
@@ -178,8 +178,8 @@ describe('e118 ② 不可达：越界与地形否决都给出可归因的 reason
 
   it('河流／山 ⇒ unbuildable_terrain；同图 plain 仍可建（区分两类否决）', () => {
     const base = plain(16, 16);
-    base.tiles[4 * 16 + 4] = tile('river', false, true);
-    base.tiles[9 * 16 + 9] = tile('mountain', false, false);
+    base.tiles[4 * 16 + 4] = tile('river', false);
+    base.tiles[9 * 16 + 9] = tile('mountain', false);
     const acc = new WorldMapAccessor(base);
     const def = farmDef(); // 2×2
     expect(canPlace(RICH, [], def, 4, 4, { width: 16, height: 16 }, acc)).toEqual({
@@ -336,12 +336,12 @@ describe('e118 ⑤ 静态门禁：全表扫描 API 无人接进渲染/主循环'
     expect(callers).toEqual(ALLOWED);
   });
 
-  it('MapTile.walkable 无运行时消费者（只 mapGen 写／saveLoad 校验）⇒ 寻路在本仓确未落地', () => {
+  it('MapTile.walkable 已删（c1007-36）：生产面零命中（字段与其三环引用一并移除）', () => {
     const users = prodFiles
       .filter((f) => /\bwalkable\b/.test(f.src))
       .map((f) => f.rel)
       .sort();
-    expect(users).toEqual(['data/mapSchema.ts', 'state/mapGen.ts', 'state/saveLoad.ts']);
+    expect(users).toEqual([]);
   });
 
   it('超时/取消机制的现状：格网查询面没有任何 abort／timeout 包装（缺位待裁决，见 result 遗留问题）', () => {

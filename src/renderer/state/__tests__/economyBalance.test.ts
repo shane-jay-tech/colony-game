@@ -16,7 +16,7 @@ import type { WorldMap } from '../../data/mapSchema';
 function allPlainMap(width = 60, height = 60): WorldMap {
   const tiles = [];
   for (let i = 0; i < width * height; i++) {
-    tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
+    tiles.push({ terrain: 'plain' as const, buildable: true });
   }
   return { width, height, tiles, resourceNodes: [], seed: 0 };
 }

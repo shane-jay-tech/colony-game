@@ -160,7 +160,7 @@ describe('deserialize error handling', () => {
       schemaVersion: 1,
       state: {
         rngSeed: 1,
-        worldMap: { width: 8, height: 8, tiles: [{ terrain: 'plain', buildable: true, walkable: true }], resourceNodes: [], seed: 0 },
+        worldMap: { width: 8, height: 8, tiles: [{ terrain: 'plain', buildable: true }], resourceNodes: [], seed: 0 },
       },
     };
     expect(() => deserialize(blob)).toThrow(SaveLoadError);
@@ -179,8 +179,8 @@ describe('deserialize error handling', () => {
 
   it('worldMap with invalid terrain string throws SaveLoadError (Slice C hardening)', () => {
     const tiles = [];
-    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true, walkable: true });
-    tiles[0] = { terrain: 'lava', buildable: true, walkable: true } as never;
+    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true });
+    tiles[0] = { terrain: 'lava', buildable: true } as never;
     const blob = {
       schemaVersion: 1,
       state: { rngSeed: 1, worldMap: { width: 8, height: 8, tiles, resourceNodes: [], seed: 0 } },
@@ -190,8 +190,8 @@ describe('deserialize error handling', () => {
 
   it('worldMap with non-boolean buildable throws SaveLoadError (Slice C hardening)', () => {
     const tiles = [];
-    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true, walkable: true });
-    tiles[3] = { terrain: 'plain', buildable: 'yes', walkable: true } as never;
+    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true });
+    tiles[3] = { terrain: 'plain', buildable: 'yes' } as never;
     const blob = {
       schemaVersion: 1,
       state: { rngSeed: 1, worldMap: { width: 8, height: 8, tiles, resourceNodes: [], seed: 0 } },
@@ -201,7 +201,7 @@ describe('deserialize error handling', () => {
 
   it('worldMap with NaN seed throws SaveLoadError (Slice C hardening)', () => {
     const tiles = [];
-    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true, walkable: true });
+    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true });
     const blob = {
       schemaVersion: 1,
       state: { rngSeed: 1, worldMap: { width: 8, height: 8, tiles, resourceNodes: [], seed: NaN } },
@@ -219,7 +219,7 @@ describe('deserialize error handling', () => {
 
   it('worldMap with bogus resource node kind throws SaveLoadError (Slice C hardening)', () => {
     const tiles = [];
-    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true, walkable: true });
+    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true });
     const blob = {
       schemaVersion: 1,
       state: {
@@ -235,7 +235,7 @@ describe('deserialize error handling', () => {
 
   it('worldMap with NaN resource node position throws SaveLoadError (Slice C hardening)', () => {
     const tiles = [];
-    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true, walkable: true });
+    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true });
     const blob = {
       schemaVersion: 1,
       state: {
@@ -251,7 +251,7 @@ describe('deserialize error handling', () => {
 
   it('worldMap with negative remaining throws SaveLoadError (Slice C hardening)', () => {
     const tiles = [];
-    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true, walkable: true });
+    for (let i = 0; i < 8 * 8; i++) tiles.push({ terrain: 'plain', buildable: true });
     const blob = {
       schemaVersion: 1,
       state: {

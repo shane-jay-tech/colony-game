@@ -87,7 +87,7 @@ describe('② 库存与消耗的边界（纯函数层无闸，真路径有闸）
     const store = new GameStore(new EventEmitter() as unknown as IEventEmitter);
     const base = store.getState();
     const map: WorldMap = { width: 12, height: 12, seed: 3, resourceNodes: [], tiles: [] };
-    for (let i = 0; i < 144; i++) map.tiles.push({ terrain: 'plain', buildable: true, walkable: true });
+    for (let i = 0; i < 144; i++) map.tiles.push({ terrain: 'plain', buildable: true });
     store.replaceState({ ...base, worldMap: map, currentDay: 0, rngSeed: 3 });
     for (let day = 0; day < 40; day++) {
       store.tickDay();

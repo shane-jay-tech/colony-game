@@ -346,7 +346,7 @@ describe('C1 缺字段明确拒绝（成立的那一面）：每个反例都要�
 function tileBlob(n: number): SaveBlob[] {
   // 地形字面量取自数据注册表（写死 'grass' 会被 validateWorldMap 当场拒：合法值 plain/hills/forest/mountain/river）
   const terrain = TERRAIN_KINDS[0] as string;
-  return Array.from({ length: n }, () => ({ terrain, buildable: true, walkable: true }));
+  return Array.from({ length: n }, () => ({ terrain, buildable: true }));
 }
 
 describe('C2 缺失字段的处置（r5 B2 裁决已落地）：载荷字段拒载，UI 字段仍回填默认', () => {

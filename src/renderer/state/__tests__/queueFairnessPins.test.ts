@@ -51,7 +51,7 @@ function makeEmitter(): IEventEmitter {
 
 /** 80×80 全平原（与 populationClass.test 同构，够跑真 tickDay 不越界）。 */
 function plainMap(): WorldMap {
-  const tiles = Array.from({ length: 80 * 80 }, () => ({ terrain: 'plain' as const, buildable: true, walkable: true }));
+  const tiles = Array.from({ length: 80 * 80 }, () => ({ terrain: 'plain' as const, buildable: true }));
   return { width: 80, height: 80, tiles, resourceNodes: [], seed: 1 };
 }
 

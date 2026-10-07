@@ -50,7 +50,7 @@ const { registryStore, shutdownHandlers } = sceneClassMock;
 /** 16×16 全平原（与 UIScene.test 同构，够 GameStore 建 accessor 与全套面板装配）。 */
 function plainMap(): WorldMap {
   const tiles = [];
-  for (let i = 0; i < 16 * 16; i++) tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
+  for (let i = 0; i < 16 * 16; i++) tiles.push({ terrain: 'plain' as const, buildable: true });
   return { width: 16, height: 16, tiles, resourceNodes: [], seed: 0 };
 }
 

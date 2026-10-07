@@ -13,8 +13,6 @@ export interface MapTile {
   terrain: Terrain;
   /** 是否可建造（river / mountain = false） */
   buildable: boolean;
-  /** 是否可通行（mountain = false；river 可过桥所以保持 true） */
-  walkable: boolean;
 }
 
 export const RESOURCE_NODE_KINDS = ['forest_node', 'stone_node', 'river_node'] as const;

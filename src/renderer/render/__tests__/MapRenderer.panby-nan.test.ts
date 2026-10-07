@@ -26,7 +26,7 @@ const NaN_V = Number.NaN;
 
 function makeMap(w = 80, h = 80): WorldMap {
   const tiles = [];
-  for (let i = 0; i < w * h; i++) tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
+  for (let i = 0; i < w * h; i++) tiles.push({ terrain: 'plain' as const, buildable: true });
   return { width: w, height: h, tiles, resourceNodes: [], seed: 0 };
 }
 

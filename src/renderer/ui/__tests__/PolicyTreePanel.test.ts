@@ -38,7 +38,7 @@ function makeFakeScene(toast?: { show: ReturnType<typeof vi.fn> }) {
 
 function allPlainMap(): WorldMap {
   const tiles = [];
-  for (let i = 0; i < 16 * 16; i++) tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
+  for (let i = 0; i < 16 * 16; i++) tiles.push({ terrain: 'plain' as const, buildable: true });
   return { width: 16, height: 16, tiles, resourceNodes: [], seed: 0 };
 }
 

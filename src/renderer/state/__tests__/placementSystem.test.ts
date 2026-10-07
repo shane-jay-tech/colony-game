@@ -19,7 +19,7 @@ function farmDef(): BuildingDef {
 
 function allPlainAccessor(w = 10, h = 10): WorldMapAccessor {
   const tiles: MapTile[] = [];
-  for (let i = 0; i < w * h; i++) tiles.push({ terrain: 'plain', buildable: true, walkable: true });
+  for (let i = 0; i < w * h; i++) tiles.push({ terrain: 'plain', buildable: true });
   return new WorldMapAccessor({ width: w, height: h, tiles, resourceNodes: [], seed: 0 });
 }
 
@@ -130,8 +130,8 @@ describe('canPlace', () => {
 describe('canPlace — unbuildable_terrain (Slice C)', () => {
   function makeWorldMapWithRiverAt(rx: number, ry: number, w = 10, h = 10): WorldMap {
     const tiles: MapTile[] = [];
-    for (let i = 0; i < w * h; i++) tiles.push({ terrain: 'plain', buildable: true, walkable: true });
-    tiles[ry * w + rx] = { terrain: 'river', buildable: false, walkable: true };
+    for (let i = 0; i < w * h; i++) tiles.push({ terrain: 'plain', buildable: true });
+    tiles[ry * w + rx] = { terrain: 'river', buildable: false };
     return { width: w, height: h, tiles, resourceNodes: [], seed: 0 };
   }
 
@@ -146,7 +146,7 @@ describe('canPlace — unbuildable_terrain (Slice C)', () => {
     const state = makeState({ resources: { wood: 50, people: 20 } });
     // every tile is river — but placement is OOB → expect out_of_bounds
     const tiles: MapTile[] = [];
-    for (let i = 0; i < 10 * 10; i++) tiles.push({ terrain: 'river', buildable: false, walkable: true });
+    for (let i = 0; i < 10 * 10; i++) tiles.push({ terrain: 'river', buildable: false });
     const wm = new WorldMapAccessor({ width: 10, height: 10, tiles, resourceNodes: [], seed: 0 });
     expect(canPlace(state.resources, state.buildings, farmDef(), -1, 0, bounds, wm)).toEqual({ ok: false, reason: 'out_of_bounds' });
   });

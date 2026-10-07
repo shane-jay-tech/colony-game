@@ -278,7 +278,7 @@ describe('viewportMath — MapRenderer.refreshViewportMask 调用点接线', () 
       events: { once: vi.fn(), on: vi.fn(), off: vi.fn() },
     };
     const tiles = Array.from({ length: 80 * 80 }, () => ({
-      terrain: 'plain' as const, buildable: true, walkable: true,
+      terrain: 'plain' as const, buildable: true, 
     }));
     const map: WorldMap = { width: 80, height: 80, resourceNodes: [], seed: 0, tiles };
     const renderer = new MapRenderer(scene as never, new WorldMapAccessor(map));

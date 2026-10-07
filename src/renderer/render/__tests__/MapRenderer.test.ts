@@ -11,7 +11,7 @@ import { UI } from '../../ui/palette';
 
 function makeMap(w = 8, h = 8): WorldMap {
   const tiles = [];
-  for (let i = 0; i < w * h; i++) tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
+  for (let i = 0; i < w * h; i++) tiles.push({ terrain: 'plain' as const, buildable: true });
   return { width: w, height: h, tiles, resourceNodes: [], seed: 0 };
 }
 
@@ -268,7 +268,7 @@ describe('MapRenderer.setHoverPreview', () => {
 describe('MapRenderer.bake (terrain / nodes)', () => {
   it('skips out-of-bounds resource nodes with a warning instead of drawing them', () => {
     const tiles = [];
-    for (let i = 0; i < 4 * 4; i++) tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
+    for (let i = 0; i < 4 * 4; i++) tiles.push({ terrain: 'plain' as const, buildable: true });
     const map: WorldMap = {
       width: 4, height: 4, tiles, seed: 0,
       resourceNodes: [
@@ -290,8 +290,8 @@ describe('MapRenderer.bake (terrain / nodes)', () => {
 
   it('calls fillRect at least once per tile + once per resource node', () => {
     const tiles = [];
-    for (let i = 0; i < 4 * 4; i++) tiles.push({ terrain: 'plain' as const, buildable: true, walkable: true });
-    tiles[0] = { terrain: 'river' as const, buildable: false, walkable: true };
+    for (let i = 0; i < 4 * 4; i++) tiles.push({ terrain: 'plain' as const, buildable: true });
+    tiles[0] = { terrain: 'river' as const, buildable: false };
     const map: WorldMap = {
       width: 4, height: 4, tiles, seed: 0,
       resourceNodes: [
