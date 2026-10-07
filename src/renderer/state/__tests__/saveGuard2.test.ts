@@ -1,5 +1,5 @@
 // 存档守护第二包：worldMap 深校验与 buildings 数组逐字段对抗（B21 遗留补强）。
-// 不改产品代码；以现行行为为准钉住，可疑处留 TODO 供日间。
+// 不改产品代码；以现行行为为准钉住（历史 TODO 已全部翻桩：p911r-40/c919-04——c1007-34 订正，可疑处直接立修复单）。
 // c1002-13（c923-30 遗留）：worldMap 族七支点名升 A——worldMap 字符串/width/seed 三支由泛化
 // toThrow(SaveLoadError) 收紧为消息含子字段名（tiles.length/terrain/buildable 两支原已点名，
 // 再生一致性支非对抗面）；消息现值 2026-10-04 探针实测（读数见 c1002-13 result）。例数不变。

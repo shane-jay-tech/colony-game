@@ -1,5 +1,6 @@
 // 特征+对抗测试：存档迁移链守护（task 20260904-194639-6bb2, B21）。
-// 不改产品代码；以现行行为为准钉住，可疑处留 TODO 供日间。
+// c1007-34 订正：6bb2 遗留行「建议日间补第二包」——已由 saveGuard2（26 例，commit caf90fc 世代）补齐。
+// 不改产品代码；以现行行为为准钉住（历史 TODO 已全部翻桩：p911r-40/c919-04——c1007-34 订正，可疑处直接立修复单）。
 import { describe, expect, it } from 'vitest';
 import {
   SAVE_SCHEMA_VERSION,

@@ -1,6 +1,6 @@
 // 存档守护第三包：损坏防御（#4/#5）＋中间断代迁移（#1/#2）＋回归保险（#3/#6/#7）。
 // 候选清单来源：docs/insights/savegame-compat-audit-20260905.md §三/§四。
-// 不改产品代码；以现行行为为准钉住，可疑处留 TODO 供日间。
+// 不改产品代码；以现行行为为准钉住（历史 TODO 已全部翻桩：p911r-40/c919-04——c1007-34 订正，可疑处直接立修复单）。
 import { describe, expect, it } from 'vitest';
 import { SaveLoadError, SAVE_SCHEMA_VERSION, deserialize } from '../saveLoad';
 import { WARINESS_BASELINE } from '../wariness';
