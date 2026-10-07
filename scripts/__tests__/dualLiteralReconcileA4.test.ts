@@ -76,10 +76,10 @@ describe('A4 双字面量对账（serialize state ↔ deserialize gameState）',
   const src = readFileSync(SAVELOAD_PATH, 'utf8');
   const { serializeKeys, deserializeKeys } = loadLiterals(src);
 
-  it('serialize state 字面量 51 键、deserialize gameState 53 键（现值；漂移注见文件头）', () => {
-    expect(serializeKeys).toHaveLength(51);
-    expect(deserializeKeys).toHaveLength(53);
-    expect(DESIGN_SNAPSHOT.serialize).toBe(51); // 设计稿 serialize 侧与现值同值
+  it('serialize state 字面量 52 键、deserialize gameState 54 键（现值；c1007-30 +lastPlayerActionDay，漂移注见文件头）', () => {
+    expect(serializeKeys).toHaveLength(52);
+    expect(deserializeKeys).toHaveLength(54);
+    expect(DESIGN_SNAPSHOT.serialize).toBe(51); // 设计稿快照为 9/24 时点；现值 52＝c1007-30 字段迁移 +1（漂移注）
   });
 
   it('A4 核心不变量：deserialize − 豁免清单 ＝ serialize 键集（集合相等）', () => {

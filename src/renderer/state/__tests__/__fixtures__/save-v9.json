@@ -118,6 +118,7 @@
       "hist_08_idle"
     ],
     "lastEventDay": 25,
+    "lastPlayerActionDay": 30,
     "lastSeenTimestamp": 0,
     "currentDay": 30,
     "rngSeed": 20260813,
@@ -128,1283 +129,1027 @@
       "tiles": [
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "forest",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "mountain",
-          "buildable": false,
-          "walkable": false
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "hills",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "river",
-          "buildable": false,
-          "walkable": true
+          "buildable": false
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         },
         {
           "terrain": "plain",
-          "buildable": true,
-          "walkable": true
+          "buildable": true
         }
       ],
       "resourceNodes": [
