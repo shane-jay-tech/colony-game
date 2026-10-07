@@ -45,6 +45,7 @@ export interface SerializedSave {
     tutorialStepId: string | null;
     seenJitHints?: string[];
     lastEventDay?: number;
+    lastPlayerActionDay?: number;
     lastSeenTimestamp: number;
     currentDay: number;
     rngSeed: number;
@@ -327,6 +328,7 @@ export function serialize(state: Readonly<GameState>): SerializedSave {
       tutorialStepId: state.tutorialStepId,
       seenJitHints: state.seenJitHints,
       lastEventDay: state.lastEventDay,
+      lastPlayerActionDay: state.lastPlayerActionDay,
       lastSeenTimestamp: state.lastSeenTimestamp,
       currentDay: state.currentDay,
       rngSeed: state.rngSeed,
@@ -500,6 +502,10 @@ export function deserialize(blob: unknown): GameState {
       : [],
     // DeepSeek 复审[major]：clamp 到 [0, currentDay]，防损坏存档把 lastEventDay 设超大导致事件永久不触发
     lastEventDay: typeof s.lastEventDay === 'number' ? Math.max(0, Math.min(s.lastEventDay, rawCurrentDay)) : 0,
+    // c1007-30：旧档缺字段 backfill=currentDay（idleDays 从读档日起算，不虚增；新档照读+钳制）
+    lastPlayerActionDay: typeof s.lastPlayerActionDay === 'number'
+      ? Math.max(0, Math.min(s.lastPlayerActionDay, rawCurrentDay))
+      : rawCurrentDay,
     lastSeenTimestamp: s.lastSeenTimestamp ?? 0,
     currentDay: rawCurrentDay,
     rngSeed,

@@ -629,6 +629,7 @@ describe('GameStore.replaceState / setLastSeenNow', () => {
       tutorialStepId: null,
       seenJitHints: [],
       lastEventDay: 0,
+      lastPlayerActionDay: 0,
       lastSeenTimestamp: 0,
       paused: false,
       speed: 2 as const,

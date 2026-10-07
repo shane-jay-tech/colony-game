@@ -74,7 +74,7 @@ describe('c1007-24 ErrorBoundary', () => {
     process.env.NODE_ENV = 'production';
     try {
       expect(() =>
-        validateModifierEffect({ attr: 'country_grain_output', op: 'add', value: Number.NaN }, 'P'),
+        validateModifierEffect({ target: 'country_grain_output', op: 'add', value: Number.NaN }, 'P'),
       ).toThrow(ModifierValidationError);
     } finally {
       if (prevNodeEnv === undefined) delete process.env.NODE_ENV;

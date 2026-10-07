@@ -18,6 +18,7 @@ function makeGameState(): GameState {
     tutorialStepId: null,
     seenJitHints: [],
     lastEventDay: 0,
+    lastPlayerActionDay: 0,
     lastSeenTimestamp: 12345678,
     paused: false,
     speed: 1,

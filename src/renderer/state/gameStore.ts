@@ -205,6 +205,10 @@ export interface GameState {
   pendingEventDayStart: number | null;
   /** 上一次朝堂事件结算的 currentDay；事件冷却（balanceConfig.event.minDaysBetween）据此计算 */
   lastEventDay: number;
+  /** c1007-30（c1007-12 遗留）：玩家最后一次动作的 currentDay（建造/纳策/颁令三动作点归位）。
+   *  史官 idleDays 改派生式 currentDay - lastPlayerActionDay（读档后计数保持，修复读档归零缺陷）。
+   *  命名守约：不得叫 lastActionDay——那是 NPC 国家字段（gameStore:2494 族），撞名=语义污染。 */
+  lastPlayerActionDay: number;
   tutorialStepId: string | null;
   /** Phase4 新手引导：已弹过的 JIT 即时提示 trigger（持久化，永不重复） */
   seenJitHints: string[];
@@ -322,6 +326,7 @@ function makeDefaultState(): GameState {
     pendingEventId: null,
     pendingEventDayStart: null,
     lastEventDay: 0,
+    lastPlayerActionDay: 0,
     // Slice G 教程：新建游戏默认显示欢迎引导；存档读回的 state 会覆盖此值
     tutorialStepId: 'tut_welcome',
     seenJitHints: [],
@@ -406,7 +411,8 @@ export class GameStore implements IStateEventEmitter {
    *  c925-db58：删去原 historianGrainNegDays——它以「存粮 < 0」为累加条件，而存粮经
    *  setResourceClamped 恒 ≥0，故该计数器恒为 0（死源），且读档归零后与存档不同源。
    *  史官缺粮谏言现直接读持久字段 state.grainNegativeDays（见 runHistorianTick）。 */
-  private historianIdleDays = 0;
+  // c1007-30：historianIdleDays 运行时计数器退役——idleDays 改 state.lastPlayerActionDay 派生
+  // （持久化，读档后保持；原计数器 private 不持久化、读档归零，正是 c1004-05 所记缺陷源）。
   private historianGradeAscended = false;
 
   constructor(emitter: IEventEmitter, initialState?: Partial<GameState>, content?: GameStoreContent) {
@@ -826,7 +832,7 @@ export class GameStore implements IStateEventEmitter {
       this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_cost' });
     }
     this.emitter.emit(STATE_EVENTS.BUILDING_PLACED, building);
-    this.historianIdleDays = 0;
+    this.state.lastPlayerActionDay = this.state.currentDay; // c1007-30：玩家动作点，idleDays 归位点
     this.autoUnpause();
     return { ok: true };
   }
@@ -1364,7 +1370,7 @@ export class GameStore implements IStateEventEmitter {
     this.addModifier(result.modifier);
     this.pushStoryAxis(def.storyAxisDelta); // Phase2：国策推双轴
     this.emitter.emit(STATE_EVENTS.POLICY_ADOPTED, { policyId });
-    this.historianIdleDays = 0;
+    this.state.lastPlayerActionDay = this.state.currentDay; // c1007-30：玩家动作点，idleDays 归位点
     this.autoUnpause();
     return result;
   }
@@ -1387,7 +1393,7 @@ export class GameStore implements IStateEventEmitter {
     this.state.activeDecrees.push({ ...result.activeRecord });
     this.pushStoryAxis(def.storyAxisDelta); // Phase2：朝令推双轴
     this.emitter.emit(STATE_EVENTS.DECREE_ADOPTED, { decreeId });
-    this.historianIdleDays = 0;
+    this.state.lastPlayerActionDay = this.state.currentDay; // c1007-30：玩家动作点，idleDays 归位点
     this.autoUnpause();
     return result;
   }
@@ -2240,7 +2246,6 @@ export class GameStore implements IStateEventEmitter {
     // 旧写法 `this.historianGrainNegDays = (resources.grain < 0) ? +1 : 0` 恒为 0——
     // 存粮经 setResourceClamped 已 clamp≥0，`grain < 0` 永假 ⇒ hist_02_grain_low（"粮已见底"）
     // 在真实跑图里根本发不出；且该计数器不持久化、replaceState 读档后归零，与存档不同源。
-    this.historianIdleDays++;
 
     const cal = dayToCalendar(this.state.currentDay);
     const buildingDefIds = new Set(this.state.buildings.filter(b => b.status === 'working').map(b => b.defId));
@@ -2254,7 +2259,7 @@ export class GameStore implements IStateEventEmitter {
       hasHostileNpc: this.state.npcCountries.some(n => n.stance <= -30),
       populationAtCap: (this.state.resources.people ?? 0) >= this.getHousingCap() && this.getHousingCap() > 0,
       gradeJustAscended: this.historianGradeAscended,
-      idleDays: this.historianIdleDays,
+      idleDays: this.state.currentDay - this.state.lastPlayerActionDay, // c1007-30 派生式
       crisisActive: this.state.crisisActive,
       noAdjacentBonus: buildingDefIds.has('bld_farm') && !buildingDefIds.has('bld_well') && this.state.buildings.length >= 5,
       isFirstWinter: cal.season === 3,
@@ -2925,7 +2930,6 @@ export class GameStore implements IStateEventEmitter {
     this.pauseHolders.clear();
     this.storyTransitionPending = false;
     this.breathingState = createBreathingState();
-    this.historianIdleDays = 0;
     this.historianGradeAscended = false;
     this.emitter.emit(STATE_EVENTS.STATE_REPLACED, undefined);
   }
