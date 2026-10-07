@@ -145,7 +145,7 @@ describe('EventModal', () => {
 
   it('shows when EVENT_TRIGGERED is emitted', () => {
     // 直接通过 store 设置 pending：模拟 tickDay 路径
-    // store.runEventTick 是 private — 用 'as any' 取一下，或者直接 emit + 设状态
+    // store.runEventTick 是 private — 通过 emit + 设状态驱动（类型化收口后不再取私成员）
     // 这里用 emit 模拟（store 端 pendingEventId 必须先设上，否则 getPendingEvent 拿 null）
     (store as unknown as { state: { pendingEventId: string | null; pendingEventDayStart: number | null } })
       .state.pendingEventId = EVT_CHOICE.id;

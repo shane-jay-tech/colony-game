@@ -24,7 +24,7 @@ function allPlainMap(): WorldMap {
 const BIG_BOUNDS = { width: 80, height: 80 };
 
 function newStore(overrides: Record<string, unknown> = {}): GameStore {
-  return new GameStore(makeEmitter(), { worldMap: allPlainMap(), ...overrides } as any);
+  return new GameStore(makeEmitter(), { worldMap: allPlainMap(), ...overrides } as Partial<ConstructorParameters<typeof GameStore>[1]> & Record<string, unknown>);
 }
 
 // ============== Pure function unit tests ==============

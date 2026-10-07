@@ -535,7 +535,7 @@ describe('B-0 人口阶层存档迁移', () => {
         grainNegativeDays: NaN,
       },
     };
-    const restored = deserialize(blob as any);
+    const restored = deserialize(blob as unknown as Parameters<typeof deserialize>[0]);
     expect(restored.populationClasses).toEqual({ farmer: 15, worker: 0, soldier: 0, scholar: 0 });
     expect(restored.conversionQueue).toEqual([]);
     expect(restored.grainNegativeDays).toBe(0);

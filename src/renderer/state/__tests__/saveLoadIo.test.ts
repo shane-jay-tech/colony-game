@@ -15,11 +15,11 @@ const fakeApi = {
 };
 
 function install(): void {
-  (globalThis as any).window = { colonyApi: fakeApi };
+  (globalThis as unknown as { window?: unknown }).window = { colonyApi: fakeApi };
 }
 
 afterEach(() => {
-  delete (globalThis as any).window;
+  delete (globalThis as unknown as { window?: unknown }).window;
   vi.restoreAllMocks();
 });
 

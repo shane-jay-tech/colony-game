@@ -243,7 +243,7 @@ describe('c930-17 真路径五面接线', () => {
     const scene = makeBuildPanelScene() as Record<string, any>;
     const store = makeStore();
     const buildMode = makeBuildModeStub();
-    const panel = new BuildPanel(scene as never, store, buildMode as never) as any;
+    const panel = new BuildPanel(scene as never, store, buildMode as never) as unknown as BuildPanel & { demolishRect?: unknown; rowsAreaRect?: unknown };
     return { scene, store, buildMode, panel };
   }
 
@@ -318,7 +318,7 @@ describe('c930-18 几何字段真值', () => {
     const scene = makeBuildPanelScene() as Record<string, any>;
     const store = makeStore();
     const buildMode = makeBuildModeStub();
-    const panel = new BuildPanel(scene as never, store, buildMode as never) as any;
+    const panel = new BuildPanel(scene as never, store, buildMode as never) as unknown as BuildPanel & { demolishRect?: unknown; rowsAreaRect?: unknown };
     // demolishRect = { x+8, top+40, w−16, 26 } = { 16, 136, 240, 26 }
     expect((panel as unknown as { demolishRect: unknown }).demolishRect).toEqual({ x: 16, y: 136, w: 240, h: 26 });
     // rowsAreaRect = { x+8, top+72, w−16, h−80 } = { 16, 168, 240, 616 }
