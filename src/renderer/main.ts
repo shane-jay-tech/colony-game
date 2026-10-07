@@ -14,6 +14,7 @@ import { POLICIES, EVENTS, DECREES, validateStaticData } from './data';
 import { BALANCE } from './data/balanceConfig';
 import type { ResourceId } from './data/resourceRegistry';
 import { REGISTRY_KEYS, registrySet } from './ui/registry';
+import { installErrorBoundary } from './data/ErrorBoundary';
 
 /**
  * Renderer 入口。
@@ -79,15 +80,9 @@ function setupCrashDiagnostics(): void {
       el.textContent = `⚠ 崩溃捕捉 ⚠\n${title}\n${detail}\n（截图发给开发；点此关闭）`;
     } catch { /* 诊断本身别再抛 */ }
   };
-  window.addEventListener('error', (e) => {
-    show('JS 错误', `${e.message}\n@ ${e.filename}:${e.lineno}:${e.colno}\n${e.error?.stack ?? ''}`.slice(0, 1500));
-  });
-  window.addEventListener('unhandledrejection', (e) => {
-    const r = (e as PromiseRejectionEvent).reason;
-    const msg = String(r?.message ?? r ?? '');
-    if (msg.includes('decodeAudioData') || msg.includes('Unable to decode audio')) return;
-    show('Promise 未捕获', String(r?.stack ?? r ?? '').slice(0, 1500));
-  });
+  // c1007-24：window 级 error/rejection 监听收编进 ErrorBoundary 模块（可测/防重入），
+  // 本处只注入 crash overlay 呈现回调；decodeAudioData 噪声过滤随模块迁移（行为不变）。
+  installErrorBoundary({ report: show });
   game.events.once(Phaser.Core.Events.READY, () => {
     const canvas = game.canvas;
     if (!canvas) return;

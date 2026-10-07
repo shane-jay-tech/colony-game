@@ -47,16 +47,14 @@ export function validateModifierEffect(e: ModifierEffect, path: string): void {
   //   （拦 NaN、不拦无穷）。文案是"应有判据"的口径，代码是"现有判据"的事实，二者不等值。
   //   同族对照：state 层 saveLoad.ts:232/431/741 用 `Number.isFinite`（无穷也拦），
   //   两处判据不同形 —— 排查"非有限值怎么没报错"时别互相指望。
-  //   c1006-05（L3 DEV 门 throw 落地）：判据换 `!Number.isFinite(e.value)` 一并拦无穷；
-  //   DEV 门显式 throw 暴露数据面缺口；生产面降级 console.error（ErrorBoundary 未在位，
-  //   render 选卡路径 throw 会整页崩——配方明示的降级路径；红名单两例已同笔翻正）。
+  //   c1006-05（L3 DEV 门 throw 落地）：判据换 `!Number.isFinite(e.value)` 一并拦无穷。
+  //   c1007-24：ErrorBoundary 在位 ⇒ 降级 console.error 撤销，DEV/生产双 throw——
+  //   生产错误冒泡 window 级监听进崩溃 overlay（main.ts 注入），不再整页无声崩死。
   if (typeof e.value !== 'number' || !Number.isFinite(e.value)) {
+    // c1007-24（c1006-05 遗留 1）：ErrorBoundary（src/renderer/data/ErrorBoundary.ts）补建后
+    // 升回 DEV/生产双 throw——错误统一冒泡 window 级监听进崩溃层，不再静默降级 console.error。
     const msg = `value must be a finite number, got ${e.value}`;
-    const dev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
-    if (dev) {
-      throw new ModifierValidationError(msg, `${path}.value`);
-    }
-    console.error('[modifierValidator]', msg, `at ${path}`);
+    throw new ModifierValidationError(msg, `${path}.value`);
   }
 }
 
