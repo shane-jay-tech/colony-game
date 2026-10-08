@@ -66,6 +66,54 @@ function readCached(p) {
   return txt;
 }
 
+// c1011-02：桶再导出穿透（c1010-03 遗留②）——其它文件里的 import 语句与 export{...} 再导出块
+// （含多行块的成员行）不算真实消费（纯管道），命中落在这些行不计数，防 internalOnly/dead 被桶掩护。
+// export * from 形态不点名符号、本就不产生词命中，无需处理。
+const IMPORT_START_RE = /^\s*import\b/;
+const EXPORT_BLOCK_START_RE = /^\s*export\s*\{/;
+function classifyLines(lines) {
+  const out = [];
+  let block = null; // null | 'import' | 'export'
+  for (const t of lines) {
+    let masked = false;
+    if (block === null) {
+      if (IMPORT_START_RE.test(t)) {
+        block = 'import';
+        masked = true;
+        if (/from\s*['"]/.test(t)) block = null; // 单行 import
+      } else if (EXPORT_BLOCK_START_RE.test(t)) {
+        block = 'export';
+        masked = true;
+        if (/\}/.test(t) && /from\s*['"]|[;]\s*$/.test(t)) block = null; // 单行块
+      }
+    } else {
+      masked = true;
+      const closed = block === 'import' ? /from\s*['"]/.test(t) : /\}/.test(t);
+      if (closed) block = null;
+    }
+    out.push({ t, masked });
+  }
+  return out;
+}
+const lineTexts = new Map();
+function linesOf(p) {
+  let l = lineTexts.get(p);
+  if (l === undefined) {
+    l = classifyLines(readCached(p).split('\n'));
+    lineTexts.set(p, l);
+  }
+  return l;
+}
+function countHits(lineArr, wordRe) {
+  let n = 0;
+  for (const { t, masked } of lineArr) {
+    if (masked) continue;
+    wordRe.lastIndex = 0;
+    if (wordRe.test(t)) n += 1;
+  }
+  return n;
+}
+
 for (const file of files) {
   const src = readCached(file);
   EXPORT_RE.lastIndex = 0;
@@ -78,11 +126,10 @@ for (const file of files) {
     let testHits = 0;
     for (const other of files) {
       if (other === file) continue;
-      nonTestHits += (readCached(other).match(wordRe) || []).length;
+      nonTestHits += countHits(linesOf(other), wordRe);
     }
     for (const t of testFiles) {
-      const txt = readCached(t);
-      testHits += (txt.match(wordRe) || []).length;
+      testHits += countHits(linesOf(t), wordRe);
     }
     const ownOccurrences = (src.match(wordRe) || []).length;
     let bucket;
