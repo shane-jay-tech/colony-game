@@ -93,8 +93,12 @@ export class BuildingPopover {
     // v1.0 #3：算当前激活的相邻加成（依次扫描 def.output 每种资源）
     const activeAdj = this.computeActiveAdjacency(instance, def);
     const adjacencyRowH = activeAdj.length > 0 ? DESC_LINE_H * activeAdj.length + ROW_GAP : 0;
-    const upgradeRowH = def.upgradesTo ? BUTTON_H + ROW_GAP : 0;
-    const hintH = def.upgradesTo ? DESC_LINE_H : 0;
+    // c1012-01 案a：数组化（旧标量归一兼容＝迁移例）
+    const upgradeToList: string[] | undefined =
+      def.upgradesTo == null ? undefined : Array.isArray(def.upgradesTo) ? def.upgradesTo : [def.upgradesTo];
+    const hasUpgrade = (upgradeToList?.length ?? 0) > 0;
+    const upgradeRowH = hasUpgrade ? BUTTON_H + ROW_GAP : 0;
+    const hintH = hasUpgrade ? DESC_LINE_H : 0;
     const totalH =
       POPOVER_PAD * 2 + TITLE_H + ROW_GAP + descLineCount * DESC_LINE_H + adjacencyRowH + ROW_GAP + upgradeRowH + hintH;
 
@@ -160,8 +164,11 @@ export class BuildingPopover {
     }
 
     // 升级行（如有 upgradesTo）
-    if (def.upgradesTo) {
-      const toDef = getBuildingDef(def.upgradesTo);
+    if (hasUpgrade) {
+      // 本方法作用域内自洽解析（旧标量归一兼容）
+      const rawTo = getBuildingDef(this.currentInstance.defId)?.upgradesTo;
+      const firstTo = rawTo == null ? undefined : Array.isArray(rawTo) ? rawTo[0] : rawTo;
+      const toDef = firstTo ? getBuildingDef(firstTo) : null;
       if (toDef) {
         this.drawUpgradeRow(def, toDef, cy);
       }
@@ -314,7 +321,8 @@ export class BuildingPopover {
     }
     const result = this.store.upgradeBuilding(this.currentInstance.position.x, this.currentInstance.position.y);
     if (result.ok) {
-      const toDefId = getBuildingDef(this.currentInstance.defId)?.upgradesTo;
+      const rawTo = getBuildingDef(this.currentInstance.defId)?.upgradesTo;
+      const toDefId = rawTo == null ? undefined : Array.isArray(rawTo) ? rawTo[0] : rawTo;
       const toDef = toDefId ? getBuildingDef(toDefId) : null;
       this.toast?.show(`已开工升级 → ${toDef?.name ?? '更高阶'}`, 'info');
       this.hide();

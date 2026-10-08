@@ -46,32 +46,39 @@ describe('buildingRefs 建筑配置表引用完整性', () => {
     expect(dangling).toEqual([]);
   });
 
-  it('③ 升级链 upgradesTo / upgradesFrom 指向存在的建筑', () => {
+  it('③ 升级链 upgradesTo / upgradesFrom 数组逐元素指向存在的建筑（c1012-01 案a 数组化）', () => {
     const dangling: string[] = [];
     for (const b of BUILDINGS) {
       for (const key of ['upgradesTo', 'upgradesFrom'] as const) {
-        const ref = (b as unknown as Record<string, string | undefined>)[key];
-        if (ref !== undefined && !ids.has(ref)) {
-          dangling.push(`${b.id}.${key} → ${ref}（不存在）`);
+        for (const ref of ((b as unknown as Record<string, string[] | undefined>)[key] ?? [])) {
+          if (!ids.has(ref)) {
+            dangling.push(`${b.id}.${key} → ${ref}（不存在）`);
+          }
         }
       }
     }
     expect(dangling).toEqual([]);
   });
 
-  it('④ 反向配对：X.upgradesFrom = Y ⇒ Y.upgradesTo = X（单值来源语义）', () => {
-    // TODO（只记不改）：陶窑 bld_pottery_kiln.upgradesTo = bld_market 为「一目标多来源」，
-    // 而 bld_market.upgradesFrom = bld_well——不对称，语义待日间确认。
+    it('④ 反向配对（c1012-01 案a 数组化）：from[] 每一源的 to[] 必含本建筑；:63 TODO 闭合', () => {
+    // 原 TODO（不对称）：pottery.upgradesTo=market 而 market.upgradesFrom=well 单值承载不了
+    // 多来源。决议#4 案 a：双字段数组化＋market.upgradesFrom=['bld_well','bld_pottery_kiln']
+    // ⇒ 反向配对在数组语义下全量成立（不对称消解）。
     const broken: string[] = [];
     for (const b of BUILDINGS) {
-      const from = (b as unknown as Record<string, string | undefined>)['upgradesFrom'];
-      if (from === undefined) continue;
-      const parent = BUILDINGS.find((x) => x.id === from) as unknown as Record<
-        string,
-        string | undefined
-      >;
-      if (parent?.['upgradesTo'] !== b.id) {
-        broken.push(`${b.id}.upgradesFrom=${from} 但 ${from}.upgradesTo=${parent?.['upgradesTo'] ?? '（未声明）'}`);
+      for (const from of b.upgradesFrom ?? []) {
+        const parent = BUILDINGS.find((x) => x.id === from);
+        const toList = parent?.upgradesTo ?? [];
+        if (!toList.includes(b.id)) {
+          broken.push(`${b.id}.upgradesFrom 含 ${from} 但 ${from}.upgradesTo 不含本建筑`);
+        }
+      }
+      for (const to of b.upgradesTo ?? []) {
+        const child = BUILDINGS.find((x) => x.id === to);
+        const fromList = child?.upgradesFrom ?? [];
+        if (!fromList.includes(b.id)) {
+          broken.push(`${b.id}.upgradesTo 含 ${to} 但 ${to}.upgradesFrom 不含本建筑（反向缺失）`);
+        }
       }
     }
     expect(broken).toEqual([]);
@@ -92,4 +99,15 @@ describe('buildingRefs 建筑配置表引用完整性', () => {
     expect(checked).toBe(9);
     expect(dangling).toEqual([]);
   });
+});
+
+it('⑥ 迁移例（c1012-01 案a）：全量 defs 升级引用均为数组形态（标量残留=0）＋市场双源钉', () => {
+  for (const b of BUILDINGS) {
+    if (b.upgradesTo !== undefined) expect(Array.isArray(b.upgradesTo)).toBe(true);
+    if (b.upgradesFrom !== undefined) expect(Array.isArray(b.upgradesFrom)).toBe(true);
+  }
+  const market = BUILDINGS.find((x) => x.id === 'bld_market');
+  expect(market?.upgradesFrom).toEqual(['bld_well', 'bld_pottery_kiln']);
+  // 存档兼容面： BuildingDef 为静态数据不进存档——存档只持 defId/level 实例，
+  // v3 往返不受 schema 形态影响（saveLoad 49 例回归为主证）。
 });

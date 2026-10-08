@@ -191,8 +191,12 @@ export function runSimulation(days: number, opts: { diversify?: boolean } = {}):
       if (upgraded) break;
       if (inst.status !== 'working') continue;
       const def = getBuildingDef(inst.defId);
-      if (!def?.upgradesTo) continue;
-      const target = getBuildingDef(def.upgradesTo);
+      // c1012-01 案a 数组化随动：旧标量归一（迁移例同款读法）
+      if (!def) continue;
+      const rawTo = def.upgradesTo;
+      const firstTo = rawTo == null ? undefined : Array.isArray(rawTo) ? rawTo[0] : rawTo;
+      if (!firstTo) continue;
+      const target = getBuildingDef(firstTo);
       if (!target) continue;
       if (!signatureIds.has(target.id)) continue;
       if (!affordable(store.getResources(), def.upgradeCost ?? {})) continue;

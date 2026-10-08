@@ -41,7 +41,7 @@ export const BUILDINGS: BuildingDef[] = [
     badgeRules: [],
     description: '甘泉安众，民心稍安。',
     descPlain: '提供饮水来源，使民心稳定。建造耗木 10。',
-    upgradesTo: 'bld_market',
+    upgradesTo: ['bld_market'],
   },
   {
     id: 'bld_house',
@@ -60,7 +60,7 @@ export const BUILDINGS: BuildingDef[] = [
     housingCapacity: 10,
     description: '筑庐聚民，邦本益固。',
     descPlain: '增加人口上限 10。有余粮时人口会渐增。建造耗木 15、石 5。',
-    upgradesTo: 'bld_palace',
+    upgradesTo: ['bld_palace'],
   },
   {
     id: 'bld_market',
@@ -84,7 +84,7 @@ export const BUILDINGS: BuildingDef[] = [
     ],
     description: '市廛通货，邦库渐丰。',
     descPlain: '中级商业建筑，每日产 3 钱。需先采纳"通市"国策。临驿道加 25% 钱。',
-    upgradesFrom: 'bld_well',
+    upgradesFrom: ['bld_well', 'bld_pottery_kiln'],  // c1012-01 案a：多来源（陶窑同入 market 链，不对称消解）
     upgradeCost: { wood: 18, stone: 12, cloth: 3 },
     upgradeTime: 3,
     adjacencyBonus: [
@@ -112,7 +112,7 @@ export const BUILDINGS: BuildingDef[] = [
     ],
     description: '入林伐木，材集成栋。',
     descPlain: '基础木材产出，每日产 8 木。建造耗石 10。',
-    upgradesTo: 'bld_water_mill',
+    upgradesTo: ['bld_water_mill'],
   },
   {
     id: 'bld_quarry',
@@ -132,7 +132,7 @@ export const BUILDINGS: BuildingDef[] = [
     ],
     description: '凿山取石，工役艰辛。',
     descPlain: '基础石材产出，每日产 6 石。建造耗木 15。',
-    upgradesTo: 'bld_smithy',
+    upgradesTo: ['bld_smithy'],
   },
   {
     id: 'bld_tin_mine',
@@ -172,7 +172,7 @@ export const BUILDINGS: BuildingDef[] = [
     ],
     description: '窑火三日，器成可售。',
     descPlain: 'T1 金钱来源，每日产 2 钱，日耗粮 1、薪柴木 2。无前置国策，开局即可建造。临市集加 25% 钱。建造耗木 12、石 8。',
-    upgradesTo: 'bld_market',
+    upgradesTo: ['bld_market'],
     adjacencyBonus: [
       { partnerDefId: 'bld_market', range: 3, resource: 'gold', outputMul: 1.25, description: '市廛近窑，陶器速售' },
     ],
@@ -197,7 +197,7 @@ export const BUILDINGS: BuildingDef[] = [
     ],
     description: '机杼之声，盈于市井。',
     descPlain: '中级工坊，每日产 4 布，耗 2 麻。需先采纳"育蚕"国策。临桑园加 25% 布。',
-    upgradesFrom: 'bld_mulberry_grove',
+    upgradesFrom: ['bld_mulberry_grove'],
     upgradeCost: { wood: 18, stone: 9, people: 5 },
     upgradeTime: 3,
     adjacencyBonus: [
@@ -224,8 +224,8 @@ export const BUILDINGS: BuildingDef[] = [
     ],
     description: '冶铜铸器，国之利兵。',
     descPlain: '中级工坊，每日产 3 铜，耗 1 锡合金。需先采纳"采铜"国策。临采石场加 25% 铜。',
-    upgradesFrom: 'bld_quarry',
-    upgradesTo: 'bld_iron_forge',
+    upgradesFrom: ['bld_quarry'],
+    upgradesTo: ['bld_iron_forge'],
     upgradeCost: { wood: 15, stone: 15 },
     upgradeTime: 3,
     adjacencyBonus: [
@@ -290,7 +290,7 @@ export const BUILDINGS: BuildingDef[] = [
     badgeRules: [],
     description: '设庠讲学，士学兴焉。',
     descPlain: 'T2 科技建筑，研究 +12%（远胜 T1 学塾），并解锁高阶政令。需采纳"兴学"国策，日耗粮 3、钱 2。',
-    upgradesFrom: 'bld_village_school',
+    upgradesFrom: ['bld_village_school'],
     upgradeCost: { wood: 15, stone: 12, cloth: 5 },
     upgradeTime: 4,
   },
@@ -310,7 +310,7 @@ export const BUILDINGS: BuildingDef[] = [
     badgeRules: [],
     description: '建阙临邦，王城初成。',
     descPlain: '殿宇阶层象征，大幅提升民心。耗资巨大，建造期 10 日；日耗粮 10、建材木 4、礼金 4。',
-    upgradesFrom: 'bld_house',
+    upgradesFrom: ['bld_house'],
     upgradeCost: { wood: 48, stone: 48, bronze: 12, rite: 6 },
     upgradeTime: 6,
     housingCapacity: 30,
@@ -378,7 +378,7 @@ export const BUILDINGS: BuildingDef[] = [
     ],
     description: '水激轮转，杵舂自成。',
     descPlain: '以水力推碓磨，中阶工坊，每日 +6 木 +3 粮。需采纳"水利"国策。临伐木场加 20% 木。',
-    upgradesFrom: 'bld_woodcutter',
+    upgradesFrom: ['bld_woodcutter'],
     upgradeCost: { wood: 18, stone: 15 },
     upgradeTime: 3,
     adjacencyBonus: [
@@ -405,7 +405,7 @@ export const BUILDINGS: BuildingDef[] = [
     ],
     description: '炉火彻夜，铁英乃成。',
     descPlain: '冶铜坊升级版，每日 +4 铜（产量比铜冶坊高），耗 2 锡，日耗木 3 粮 3、占用 5 民。需先建铜冶坊。临采石场加 25% 铜。',
-    upgradesFrom: 'bld_smithy',
+    upgradesFrom: ['bld_smithy'],
     upgradeCost: { wood: 18, stone: 18, bronze: 3 },
     upgradeTime: 4,
     adjacencyBonus: [
@@ -430,7 +430,7 @@ export const BUILDINGS: BuildingDef[] = [
     ],
     description: '桑麻沃野，绩纺有依。',
     descPlain: '种桑养蚕，基础布料产出，每日 +2 布。无前置国策，开局即可建造。',
-    upgradesTo: 'bld_loom_house',
+    upgradesTo: ['bld_loom_house'],
   },
   {
     id: 'bld_hemp_field',
@@ -485,7 +485,7 @@ export const BUILDINGS: BuildingDef[] = [
     badgeRules: [],
     description: '里庠开课，学童琅琅。',
     descPlain: 'T1 平民启蒙，研究 +2%。日耗粮 1、钱 1。无前置；进阶研究仍需 T2 学宫。',
-    upgradesTo: 'bld_academy',
+    upgradesTo: ['bld_academy'],
   },
   {
     id: 'bld_envoy_lodge',

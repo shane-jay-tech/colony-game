@@ -859,8 +859,15 @@ export class GameStore implements IStateEventEmitter {
     if (inst.status !== 'working') return { ok: false, reason: 'not_working' };
     const fromDef = getBuildingDef(inst.defId);
     if (!fromDef) return { ok: false, reason: 'unknown_def' };
-    if (!fromDef.upgradesTo) return { ok: false, reason: 'no_upgrade_path' };
-    const toDef = getBuildingDef(fromDef.upgradesTo);
+    // c1012-01 案a：upgradesTo 数组化——取首目标（现数据各建筑 ≤1 目标；
+    // 多目标选择交互属数据增长后续，非本单面）。
+    // 迁移例：旧标量形态（外部内容/旧夹具）在此归一为单元素数组——读写两侧兼容。
+    const rawTargets = fromDef.upgradesTo;
+    const upgradeTargets: string[] =
+      rawTargets == null ? [] : Array.isArray(rawTargets) ? rawTargets : [rawTargets];
+    if (upgradeTargets.length === 0) return { ok: false, reason: 'no_upgrade_path' };
+    const targetId = upgradeTargets[0];
+    const toDef = targetId === undefined ? undefined : getBuildingDef(targetId);
     if (!toDef) return { ok: false, reason: 'unknown_target_def' };
 
     // 前置（bld_*=已建建筑；pol_*=已采纳国策；decree_*=已完成朝令）

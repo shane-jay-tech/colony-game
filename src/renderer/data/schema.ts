@@ -91,9 +91,9 @@ export interface BuildingDef {
   descPlain: string;
   // v0.9 升级链
   /** 同链路低一级建筑 id（T2 指 T1）；空表示本身就是起点 */
-  upgradesFrom?: string;
+  upgradesFrom?: string[];
   /** 同链路高一级建筑 id（T1 指 T2）；空表示无更高阶 */
-  upgradesTo?: string;
+  upgradesTo?: string[];
   /** 升级（不是新建）的成本，通常比新建便宜 */
   upgradeCost?: ResourceCost;
   /** 升级耗时（天） */

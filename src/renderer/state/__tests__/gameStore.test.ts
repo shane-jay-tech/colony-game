@@ -943,7 +943,7 @@ describe('GameStore Slice F integration', () => {
 describe('GameStore.upgradeBuilding (v0.9)', () => {
   const T1 = makeDef({
     id: 'bld_t1', constructionTime: 1,
-    upgradesTo: 'bld_t2',
+    upgradesTo: ['bld_t2'],
   });
   const T2 = makeDef({
     id: 'bld_t2', tier: 2, cost: { wood: 100 }, constructionTime: 5,
