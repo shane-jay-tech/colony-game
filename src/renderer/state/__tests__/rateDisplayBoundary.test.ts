@@ -45,14 +45,13 @@ describe('① formatRate 数值边界（展示面）', () => {
     expect(formatRate(1e-8)).toBe('0');
     // -0 不会露出负零字面
     expect(formatRate(-0.04)).not.toBe('-0');
-    // 巨量走 String(1e21) ⇒ "1e+21" 进 UI 文本
-    expect(formatRate(1e21)).toBe('1e+21');
-    // 半位阈值：正负两侧**不对称**——JS Math.round(-0.5) === -0（向 +∞ 进位），
-    // 于是 +0.05 显示 0.1，而 -0.05 显示 0：同一量级的净耗在负侧被抹成"无消耗"。
+    // n1012-04/c1012-04 三件套③翻正：幅值上限 |v|≥1e21 同渲染 '—'（第三盲点已封）
+    expect(formatRate(1e21)).toBe('—');
+    // 三件套②翻正：symRound 半位对称——正负两侧对称（原 -0.05 被抹成 0 的不对称退役）
     expect(formatRate(0.05)).toBe('0.1');
-    expect(formatRate(-0.05)).toBe('0');
-    expect(formatRate(-0.06)).toBe('-0.1'); // 再大一点就露出来 ⇒ 只有 .x5 这一点不对称
-    expect(Math.round(-0.5)).toBe(-0);     // 根因就在 JS 的 half-up 口径
+    expect(formatRate(-0.05)).toBe('-0.1');
+    expect(formatRate(-0.06)).toBe('-0.1');
+    expect(Math.round(-0.5)).toBe(-0);     // 根因注保留：JS half-up 口径仍在，symRound 在 formatRate 内矫正
   });
 
   it('展示串里不得出现 undefined / null 之类的失控形态', () => {

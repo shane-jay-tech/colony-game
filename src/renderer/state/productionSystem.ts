@@ -286,12 +286,20 @@ export function computeDailyRates(
   return out;
 }
 
+/** 符号对称取整（c1012-04/c1004-19 三件套②）：half-away-from-zero——
+ * Math.round 向 +∞（-0.5→-0）造成负半位吃零（-0.05→'0'）；symRound -0.05→'-0.1'。 */
+function symRound(x: number): number {
+  return x < 0 ? -Math.round(-x) : Math.round(x);
+}
+
 /** 格式化速率展示：整数去小数、非整数保留 1 位（如 0.4/日、12/日）。
- * c1006-02（c1004-19 案）：前置 isFinite 闸——非有限值（NaN/±Infinity/1e21 以上溢形态）
- * 渲染 '—'（展示层闸，ProductionPanel 调用面 5 处不再让 Infinity/NaN 字面进 HUD）。 */
+ * 三件套（c1004-19 选型；①c1006-02 已落闸／②③c1012-04 同笔补齐）：
+ * ① isFinite 闸——非有限值渲染 '—'；
+ * ② symRound 半位对称——负半位不再向 +∞ 吃零；
+ * ③ 幅值上限——|v| ≥ 1e21（上溢字面形态，c1004-19 第三盲点）同渲染 '—'。 */
 export function formatRate(v: number): string {
-  if (!Number.isFinite(v)) return '—';
-  const rounded = Math.round(v * 10) / 10;
+  if (!Number.isFinite(v) || Math.abs(v) >= 1e21) return '—';
+  const rounded = symRound(v * 10) / 10;
   if (Math.abs(rounded - Math.round(rounded)) < 1e-9) return String(Math.round(rounded));
   return rounded.toFixed(1);
 }
