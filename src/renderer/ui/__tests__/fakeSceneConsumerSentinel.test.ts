@@ -55,6 +55,7 @@ const BASELINE = new Set([
   'src/renderer/ui/__tests__/BuildingPopover.test.ts',
   'src/renderer/ui/__tests__/CodexPanel.test.ts',
   'src/renderer/ui/__tests__/DiplomacyPanel.test.ts',
+  'src/renderer/ui/__tests__/CrisisModal.test.ts', // c1010-02 fakeScene 替身五例（漏登记补行，c1014-06 代登记）
   'src/renderer/ui/__tests__/EventModal.test.ts',
   'src/renderer/ui/__tests__/FactionDemandModal.test.ts',
   'src/renderer/ui/__tests__/HUD.test.ts',

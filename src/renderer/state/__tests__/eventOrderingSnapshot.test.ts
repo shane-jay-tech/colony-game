@@ -283,15 +283,18 @@ describe('ad32 ④ 不依赖对象枚举顺序', () => {
     const sorters = stateAndDataSources()
       .filter((f) => /\.sort\s*\(/.test(f.src))
       .map((f) => f.rel);
-    expect([...new Set(sorters)].sort()).toEqual(['state/supplyChain.ts']);
+    // c1014-06 收编 snapshotDigest（c1007-36/38 预案同笔翻正）：其 .sort( 是
+    // canonicalJson 的键排序本身＝顺序规范化（digest 稳定的来源），非顺序敏感消费。
+    expect([...new Set(sorters)].sort()).toEqual(['state/snapshotDigest.ts', 'state/supplyChain.ts']);
   });
 
   it('门禁：Object.keys/entries/values 在 state/＋data/ 的命中文件集钉成现状（新增顺序敏感用法先红）', () => {
     const hits = [...new Set(stateAndDataSources()
       .filter((f) => /Object\.(keys|entries|values)\s*\(/.test(f.src))
       .map((f) => f.rel))].sort();
-    // 现状 7 件，逐一都是"顺序无关"用法（求和 / 判空 / 计数 / 建注册表后另配显式序表）；
-    // 谁新增第 8 件，本用例即红 ⇒ 逼一次"这个枚举序会不会流进快照或结算"的人工 review。
+    // 现状 8 件，逐一都是"顺序无关"用法（求和 / 判空 / 计数 / 建注册表后另配显式序表；
+    // snapshotDigest.ts=键排序规范化后哈希，c1014-06 收编同笔加入）；
+    // 谁新增第 9 件，本用例即红 ⇒ 逼一次"这个枚举序会不会流进快照或结算"的人工 review。
     expect(hits).toEqual([
       'data/buildingRegistry.ts',
       'data/modifierValidator.ts',
@@ -300,6 +303,7 @@ describe('ad32 ④ 不依赖对象枚举顺序', () => {
       'state/militarySystem.ts',
       'state/productionSystem.ts',
       'state/saveLoad.ts',
+      'state/snapshotDigest.ts',
     ]);
   });
 
