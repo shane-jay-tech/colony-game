@@ -68,10 +68,41 @@ test('G2 结构不变量：bucket↔hitsInTests 自洽＋朴素重扫逐条一�
     }
   }
   collectAllTests(join(ROOT, 'src'));
+  // c1011-02 对齐：hitsInTests 语义改为「真实测试使用」（import/再导出块行不算，与工具同口径）——
+  // 朴素重扫仍独立实现计数（非调用工具函数），只是对齐掩蔽语义后继续抓计数错误与桶错分。
+  const IMPORT_START = /^\s*import\b/;
+  const EXPORT_BLOCK_START = /^\s*export\s*\{/;
+  function countRealUsages(txt: string, re: RegExp): number {
+    let hits = 0;
+    let block: 'import' | 'export' | null = null;
+    for (const line of txt.split('\n')) {
+      let masked = false;
+      if (block === null) {
+        if (IMPORT_START.test(line)) {
+          block = 'import';
+          masked = true;
+          if (/from\s*['"]/.test(line)) block = null;
+        } else if (EXPORT_BLOCK_START.test(line)) {
+          block = 'export';
+          masked = true;
+          if (/\}/.test(line) && /from\s*['"]|[;]\s*$/.test(line)) block = null;
+        }
+      } else {
+        masked = true;
+        const closed = block === 'import' ? /from\s*['"]/.test(line) : /\}/.test(line);
+        if (closed) block = null;
+      }
+      if (!masked) {
+        re.lastIndex = 0; // /g 粘性复位（与工具 countHits 同纪律）
+        if (re.test(line)) hits += 1; // 按行计（与工具 wordRe.test 同粒度，非出现次）
+      }
+    }
+    return hits;
+  }
   for (const e of entries) {
     const re = new RegExp(`\\b${e.name.replace(/\$/g, '\\$')}\\b`, 'g');
     let hits = 0;
-    for (const txt of corpus) hits += (txt.match(re) || []).length;
+    for (const txt of corpus) hits += countRealUsages(txt, re);
     expect(hits, e.name).toBe(e.hitsInTests);
   }
 });
