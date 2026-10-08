@@ -78,8 +78,9 @@ export class GameScene extends Phaser.Scene {
     }
   };
   // c1002-25（c920-13 遗留首批）：朝令停滞 toast 反馈（此前 DECREE_STALLED 仅 PolicyTreePanel
-  // 刷新面板、玩家无主动提示＝真缺口）。用 error toast＝自带 sfx_warn 音（Toast.ts:24-25），
-  // 不显式 playSfx——避开 c922-106 遗留 2 的「资源不足路径 warn 叠播」缺陷面。
+  // 刷新面板、玩家无主动提示＝真缺口）。error toast 自带 sfx_warn 音（Toast.ts:24-25）；
+  // 与资源不足路径显式 playSfx 的双源叠播已由 AudioManager 同帧去重根治（c1011-01，50ms 窗），
+  // 该双源缺陷的活体标记就此移除。
   private decreeStalledListener = (payload: GameStateEventMap['state:decreeStalled']): void => {
     const toast = registryGet(this.registry, REGISTRY_KEYS.toast);
     if (!toast) return;

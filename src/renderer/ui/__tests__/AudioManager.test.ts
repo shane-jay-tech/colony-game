@@ -75,3 +75,21 @@ describe('AudioManager characterization（c920-10）', () => {
     expect(soundPlay).not.toHaveBeenCalled();
   });
 });
+
+describe('AudioManager 同帧去重（c1011-01）', () => {
+  beforeEach(() => resetMocks());
+
+  it('同帧双播只出一声（50ms 窗拦截第二播）', () => {
+    const { mgr, soundPlay } = makeManager(['sfx_warn']);
+    mgr.playSfx('sfx_warn', 0.5);
+    mgr.playSfx('sfx_warn', 0.5);
+    expect(soundPlay).toHaveBeenCalledTimes(1);
+  });
+
+  it('不同音效互不去重', () => {
+    const { mgr, soundPlay } = makeManager(['sfx_warn', 'sfx_chime']);
+    mgr.playSfx('sfx_warn', 0.5);
+    mgr.playSfx('sfx_chime', 0.5);
+    expect(soundPlay).toHaveBeenCalledTimes(2);
+  });
+});

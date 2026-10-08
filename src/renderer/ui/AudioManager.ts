@@ -133,9 +133,18 @@ export class AudioManager {
     this.fadeTween(sound, 0, () => { try { sound.stop(); sound.destroy(); } catch { /* noop */ } });
   }
 
+  // c1011-01：同帧去重窗（c922-106 遗留 2 根治，c1007-32 定 50ms）——双源同帧二次播忽略，
+  // toast 自动音与场景层显式音并存时只出一声；音量定稿：warn 类双源同值 0.5（playUi 映射与
+  // GameScene 显式参一致），去重拦截不产生音量差感知。
+  private lastSfxAt = new Map<string, number>();
+
   // c919-03：转公开——GameScene 建造失败等场景层经 registryGet(audioManager) 直呼（P2-3 资源不足反馈）。
   playSfx(key: string, baseVolume: number): void {
     if (this.destroyed || !this.has(key)) return;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const last = this.lastSfxAt.get(key);
+    if (last !== undefined && now - last < 50) return;
+    this.lastSfxAt.set(key, now);
     const vol = baseVolume * this.getSfxScale();
     if (vol <= 0) return;
     try {
@@ -154,6 +163,7 @@ export class AudioManager {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.lastSfxAt.clear();
     this.offSettings?.();
     this.store.off(STATE_EVENTS.GRADE_CHANGED, this.onBgmRefresh);
     this.store.off(STATE_EVENTS.STORY_CHAPTER_CHANGED, this.onBgmRefresh);
