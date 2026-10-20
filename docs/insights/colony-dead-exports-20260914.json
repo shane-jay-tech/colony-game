@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-18T18:45:50.388Z",
+ "generatedAt": "2026-09-18T19:39:52.078Z",
  "rule": "value-exports-only; word-boundary; buckets dead|tests-only|internal-only|wired-dynamically",
  "summary": {
   "dead": 0,
@@ -30,28 +30,28 @@
   },
   {
    "file": "src\\renderer\\data\\artManifest.ts",
-   "line": 77,
+   "line": 80,
    "name": "ART_MANIFEST",
    "bucket": "tests-only",
    "hitsInTests": 14
   },
   {
    "file": "src\\renderer\\data\\artManifest.ts",
-   "line": 84,
+   "line": 87,
    "name": "getArtByCategory",
    "bucket": "tests-only",
    "hitsInTests": 5
   },
   {
    "file": "src\\renderer\\data\\artManifest.ts",
-   "line": 102,
+   "line": 105,
    "name": "BUILDING_ART_REUSE",
    "bucket": "tests-only",
    "hitsInTests": 9
   },
   {
    "file": "src\\renderer\\data\\artManifest.ts",
-   "line": 120,
+   "line": 123,
    "name": "isArtAvailable",
    "bucket": "tests-only",
    "hitsInTests": 5
@@ -110,7 +110,7 @@
    "line": 9,
    "name": "TERRAIN_KINDS",
    "bucket": "tests-only",
-   "hitsInTests": 12
+   "hitsInTests": 13
   },
   {
    "file": "src\\renderer\\data\\mapSchema.ts",
