@@ -15,7 +15,7 @@ import { sceneClassMock } from '../../ui/__tests__/fakeScene';
 import { GameStore } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
-import { NPC_POOL } from '../../data/npcCountries';
+import { NPC_POOL, STORY_NPC_ROSTER } from '../../data/npcCountries';
 import { BALANCE, STORY_BALANCE } from '../../data/balanceConfig';
 import type { ResourceId } from '../../data/resourceRegistry';
 
@@ -104,15 +104,16 @@ describe('IntroScene 立邦真实链路', () => {
     expect(sceneClassMock.sceneStart).not.toHaveBeenCalled();
   });
 
-  // c1023-07（c1011-14 缺口2·立国序列）：story 立国后 mode=story＋序章 flags＋随机 4 国含蛮夷＋故事资源覆盖。
-  // IntroScene.tryStart 的接线序列 = startStoryMode → startNewGameNpcs（c1011-09 材料指名的缺口形态）。
-  it('立国序列断言：story 立国后 mode/序章 flags/随机 4 国含蛮夷/故事资源覆盖沙盒基线，接线次序 story→npcs', () => {
+  // c1023-07（c1011-14 缺口2·立国序列）→ c1023-06 改钉：story 立国后 mode=story＋序章 flags＋固定 roster（PLAN#2 接线）＋故事资源覆盖。
+  // IntroScene.tryStart 的 story 接线序列 = startStoryMode → startStoryRosterNpcs；种子随机 startNewGameNpcs 只属 sandbox 分支。
+  it('立国序列断言：story 立国后 mode/序章 flags/固定 roster 与池一致/故事资源覆盖沙盒基线，接线次序 story→roster', () => {
     const store = makeStore();
     // 模拟 main.ts Slice E：沙盒基线先行发放，证故事表是真覆盖而非「初始恰好为 0」
     for (const [id, amount] of Object.entries(BALANCE.startingResources)) {
       if (amount && amount > 0) store.addResource(id as ResourceId, amount);
     }
     const storySpy = vi.spyOn(store, 'startStoryMode');
+    const rosterSpy = vi.spyOn(store, 'startStoryRosterNpcs');
     const npcsSpy = vi.spyOn(store, 'startNewGameNpcs');
     const scene = makeReadyScene(store);
     (scene as unknown as { tryStart: () => void }).tryStart();
@@ -124,11 +125,12 @@ describe('IntroScene 立邦真实链路', () => {
     expect(flags!.chapter).toBe(0);
     expect(flags!.unified).toBe(false);
 
-    // ② 随机阵容：4 国、全出自 8 国池、含 ≥1 蛮夷（tribal，现池即 npc_rong）
+    // ② 固定阵容（c1023-06）：= STORY_NPC_ROSTER 全量、与 8 国池一致（含蛮夷 npc_rong 恒真）、非随机
     const npcs = store.getNpcCountries();
-    expect(npcs.length).toBe(4);
+    expect(npcs.map(n => n.id)).toEqual([...STORY_NPC_ROSTER]);
     const poolIds = new Set(NPC_POOL.map(d => d.id));
     expect(npcs.every(n => poolIds.has(n.id))).toBe(true);
+    expect(new Set(npcs.map(n => n.id)).size).toBe(NPC_POOL.length);
     const tribalIds = NPC_POOL.filter(d => d.archetype === 'tribal').map(d => d.id);
     expect(npcs.some(n => tribalIds.includes(n.id))).toBe(true);
 
@@ -139,7 +141,29 @@ describe('IntroScene 立邦真实链路', () => {
     }
     expect(res.grain).not.toBe(BALANCE.startingResources.grain); // 320 vs 250——覆盖确已发生
 
-    // ④ 接线次序：startStoryMode 先于 startNewGameNpcs（同一 tryStart 序列内）
-    expect(storySpy.mock.invocationCallOrder[0]!).toBeLessThan(npcsSpy.mock.invocationCallOrder[0]!);
+    // ④ 接线次序：startStoryMode 先于 startStoryRosterNpcs（同一 tryStart 序列内）；story 分支不走种子随机
+    expect(storySpy.mock.invocationCallOrder[0]!).toBeLessThan(rosterSpy.mock.invocationCallOrder[0]!);
+    expect(npcsSpy).not.toHaveBeenCalled();
+  });
+
+  // c1023-06 补面：sandbox 立国序列 = setMode('sandbox') → startNewGameNpcs（种子随机保留），roster 注入不触发。
+  it('立国序列断言（sandbox）：随机 4 国含蛮夷保留，story roster 注入不触发', () => {
+    const store = makeStore();
+    const rosterSpy = vi.spyOn(store, 'startStoryRosterNpcs');
+    const npcsSpy = vi.spyOn(store, 'startNewGameNpcs');
+    const scene = makeReadyScene(store);
+    registryStore.set(REGISTRY_KEYS.gameMode, 'sandbox'); // 在 makeReadyScene 预置 story 之后覆写为 sandbox
+    (scene as unknown as { tryStart: () => void }).tryStart();
+
+    expect(store.getMode()).toBe('sandbox');
+    const npcs = store.getNpcCountries();
+    expect(npcs.length).toBe(4);
+    const poolIds = new Set(NPC_POOL.map(d => d.id));
+    expect(npcs.every(n => poolIds.has(n.id))).toBe(true);
+    const tribalIds = NPC_POOL.filter(d => d.archetype === 'tribal').map(d => d.id);
+    expect(npcs.some(n => tribalIds.includes(n.id))).toBe(true);
+    expect(npcsSpy).toHaveBeenCalledTimes(1);
+    expect(rosterSpy).not.toHaveBeenCalled();
+    expect(sceneClassMock.sceneStart).toHaveBeenCalledWith('GameScene');
   });
 });

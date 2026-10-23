@@ -573,11 +573,12 @@ export class IntroScene extends Phaser.Scene {
       const mode = registryGet(this.registry, REGISTRY_KEYS.gameMode);
       if (mode === 'story') {
         store.startStoryMode(); // 设 mode='story' + 初始化 storyFlags（序章态）
+        store.startStoryRosterNpcs(); // PLAN#2：story 固定 roster 阵容（8 国池全量，c1023-06）
       } else {
         store.setMode('sandbox');
+        // Phase1：每局随机刷 NPC 阵容（池中选 4，含 ≥1 蛮夷）——不同局不同邻邦（sandbox 保留种子随机）
+        store.startNewGameNpcs(Math.floor(Math.random() * 0x7fffffff));
       }
-      // Phase1：每局随机刷 NPC 阵容（池中选 4，含 ≥1 蛮夷）——不同局不同邻邦
-      store.startNewGameNpcs(Math.floor(Math.random() * 0x7fffffff));
     }
 
     registrySet(this.registry, REGISTRY_KEYS.introDone, true);

@@ -141,3 +141,19 @@ export function makeInitialNpcStates(seed: number = DEFAULT_NPC_SEED): NpcCountr
 export function getNpcDef(id: string): NpcCountryDef | undefined {
   return NPC_POOL.find(d => d.id === id);
 }
+
+/**
+ * 故事模式固定 NPC roster（PLAN#2「Wire story mode to the fixed story NPC roster」·c1023-06 落地）。
+ * 成员与 8 国池全量对齐（c1011-09 预估的「产品点名 4-8 国」前置未到，任务书口径＝先按邦国池对齐；
+ * 不接 story 章节内容单域）。sandbox 不读此表，仍走 selectNpcsForGame 种子随机（PLAN「retaining seeded random」）。
+ */
+export const STORY_NPC_ROSTER: readonly string[] = NPC_POOL.map(d => d.id);
+
+/** roster id → 初始 NpcCountryState（未知 id 抛错，防名单与池漂移时静默缩员）。 */
+export function makeRosterNpcStates(roster: readonly string[] = STORY_NPC_ROSTER): NpcCountryState[] {
+  return roster.map(id => {
+    const def = getNpcDef(id);
+    if (!def) throw new Error(`[npcCountries] STORY_NPC_ROSTER 含池外 id: ${id}`);
+    return makeNpcState(def);
+  });
+}

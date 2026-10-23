@@ -1,7 +1,7 @@
 import { RESOURCE_IDS } from '../data/resourceRegistry';
 import type { ResourceId, ModifierTargetKey } from '../data/resourceRegistry';
 import type { ModifierInstance, BuildingDef, BuildingInstance, PolicyNode, RoyalDecree, CourtEvent, CourtEventContext, NpcCountryState } from '../data/schema';
-import { makeInitialNpcStates, getNpcDef, selectNpcsForGame } from '../data/npcCountries';
+import { makeInitialNpcStates, getNpcDef, selectNpcsForGame, makeRosterNpcStates } from '../data/npcCountries';
 import {
   tryTrade,
   trySendEnvoy,
@@ -2436,6 +2436,11 @@ export class GameStore implements IStateEventEmitter {
       const cal = dayToCalendar(this.state.currentDay);
       this.state.activeModifiers = applySeasonTransition(this.state.activeModifiers, cal.season);
     }
+  }
+
+  /** story 固定 roster 注入（PLAN#2 接线·c1023-06）：story 立国用固定名单（8 国池全量）；sandbox 仍走 startNewGameNpcs 种子随机。 */
+  startStoryRosterNpcs(): void {
+    this.state.npcCountries = makeRosterNpcStates();
   }
 
   /**
