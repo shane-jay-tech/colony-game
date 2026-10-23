@@ -16,7 +16,6 @@ function makeState(over: Record<string, unknown> = {}): Record<string, unknown> 
     activeModifiers: [],
     savedAt: 1_000,
     lastSeenTimestamp: 2_000,
-    lastTickTimestamp: 0,
     paused: false,
     ...over,
   };
@@ -31,7 +30,7 @@ describe('snapshotDigest', () => {
     expect(await snapshotDigest(a as never)).toBe(await snapshotDigest(reordered as never));
   });
 
-  it('②剔除键单独变异 ⇒ digest 不变（savedAt/lastSeen/paused/lastTick 四键逐一）', async () => {
+  it('②剔除键单独变异 ⇒ digest 不变（savedAt/lastSeen/paused 三键逐一；c1023-14 起 lastTick 出列）', async () => {
     const base = await snapshotDigest(makeState() as never);
     for (const k of DIGEST_EXCLUDED_KEYS) {
       const mutated = makeState({ [k]: k === 'paused' ? true : 999_999_999 });

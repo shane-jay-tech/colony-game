@@ -633,7 +633,6 @@ describe('GameStore.replaceState / setLastSeenNow', () => {
       lastSeenTimestamp: 0,
       paused: false,
       speed: 2 as const,
-      lastTickTimestamp: 0,
       currentDay: 50,
       rngSeed: 7,
       worldMap: allPlainMap(8, 8),

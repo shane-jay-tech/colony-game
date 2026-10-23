@@ -512,7 +512,6 @@ export function deserialize(blob: unknown): GameState {
     speed,
     worldMap,
     paused: false,
-    lastTickTimestamp: 0,
     // v0.9：旧存档没有 panelCollapsed —— 默认全展开，玩家可手动折叠
     panelCollapsed: (s.panelCollapsed && typeof s.panelCollapsed === 'object'
       && typeof (s.panelCollapsed as { left?: unknown }).left === 'boolean'

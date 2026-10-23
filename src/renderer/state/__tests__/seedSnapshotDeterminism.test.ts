@@ -114,8 +114,7 @@ describe('V2 随机源无隐式系统时间', () => {
 
     expect(firstDivergence(fa, fb)).toBe(null);
     expect(a.getState().lastSeenTimestamp).toBe(b.getState().lastSeenTimestamp); // 未被动过
-    // 明文 state 里的两个时间戳字段只能由显式 API 写（tickDay 不写；lastTickTimestamp 全仓无写入者）
-    expect(a.getState().lastTickTimestamp).toBe(0);
+    // c1023-14：lastTickTimestamp 死字段已删（全仓无写入者）——墙钟免疫面只余 lastSeenTimestamp 一键
   });
 
   it('rng 句柄本身与墙钟无关：同 seed 两实例逐位一致，且连跑两次取值不漂移', () => {
@@ -216,15 +215,15 @@ describe('V1 同 seed＋输入＋版本 ⇒ 同快照，且差异可定位', () 
     const env = serialize(st) as unknown as { state: Record<string, unknown> };
     const persisted = new Set(Object.keys(env.state));
     const liveKeys = Object.keys(st);
-    // 实测：信封 state 比明文 state 少 2 个顶层键（paused／lastTickTimestamp），
-    // 其余逐一对应 ⇒ 快照身份串应以明文 state 为准，存档侧差异可直接点名到这两个键。
+    // 实测（c1023-14 后）：信封 state 比明文 state 少 1 个顶层键（paused），
+    // 其余逐一对应 ⇒ 快照身份串应以明文 state 为准，存档侧差异可直接点名到这个键。
     expect(persisted.size).toBeLessThan(liveKeys.length);
     for (const k of persisted) expect(liveKeys, `信封键 ${k} 不在明文 state 里`).toContain(k);
     const missing = liveKeys.filter(k => !persisted.has(k));
     expect(missing.length).toBeGreaterThan(0);   // 信封确为真子集
-    // 实测（本班现取，否证了"存档吞掉 rngSeed"这一猜测）：信封只丢 2 个顶层键，
+    // 实测（本班现取，否证了"存档吞掉 rngSeed"这一猜测）：信封只丢 1 个顶层键，
     // 且 rngSeed **是**持久化的 ⇒ "同一存档 ⇒ 同一后续随机轨迹"成立。
-    expect(missing.sort()).toEqual(['lastTickTimestamp', 'paused']);
+    expect(missing.sort()).toEqual(['paused']);
     expect(persisted.has('rngSeed')).toBe(true);
     for (const k of persisted) expect(liveKeys, `信封键 ${k} 不在明文 state 里`).toContain(k);
   });
@@ -239,7 +238,7 @@ describe('V1 同 seed＋输入＋版本 ⇒ 同快照，且差异可定位', () 
     expect(a.getState().currentDay).toBe(before.day);
     // 随机源不注入：读档后再跑 10 日的**驱动面**（种子态＋资源＋人口＋建筑数）
     // 与"从未中断"的同 seed 进程逐位一致。
-    // ⚠ 不比全字段：serialize 的信封 state 少 2 个顶层键（paused／lastTickTimestamp），
+    // ⚠ 不比全字段：serialize 的信封 state 少 1 个顶层键（paused；c1023-14 前另有 lastTickTimestamp），
     //   摊平后会**整体串位**（实测首个错位出现在 index 52：左 tutorialStepId vs 右 lastEventDay），
     //   那种"差异"是键集差不是随机数差 ⇒ 这里只比驱动面，全字段等价交 result L2 裁。
     const uninterrupted = makeSeededStore(SEED);
@@ -253,7 +252,7 @@ describe('V1 同 seed＋输入＋版本 ⇒ 同快照，且差异可定位', () 
     expect(drive(a.getState())).toBe(drive(uninterrupted.getState()));
     // 并把"丢字段"这件事本身钉成断言（差异可定位到字段名的最小面）
     // deserialize 会把明文 state 的**全部**键补齐（含默认值）⇒ "读档丢字段"不成立；
-    // 少掉的 2 个键只存在于信封里，读档时按默认值回填（paused 复位等）。
+    // 少掉的 1 个键只存在于信封里，读档时按默认值回填（paused 复位等）。
     const dropped = Object.keys(a.getState()).filter(k => !(k in restored)).sort();
     expect(dropped).toEqual([]);
     expect('rngSeed' in restored).toBe(true); // 种子随存档复原 ⇒ 同存档可续跑同轨迹

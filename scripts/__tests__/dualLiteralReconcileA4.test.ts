@@ -6,13 +6,14 @@
  * 事故形态（设计稿 §A4 原话），当场红。
  *
  * 豁免清单（**禁止静默扩容**，新豁免必须注来历）：
- *   paused / lastTickTimestamp —— deserialize 侧的运行时初值、不在 serialize 的 state 面
- *   （c927-22 设计稿 §二 census 原判：「paused／lastTickTimestamp 是 deserialize 侧的运行时初值、
- *    不在 serialize 的 state 面」；两键由 GameScene 每帧写、不落盘）。
+ *   paused —— deserialize 侧的运行时初值、不在 serialize 的 state 面
+ *   （c927-22 设计稿 §二 census 原判；paused 由 GameScene 每帧写、不落盘）。
+ *   c1023-14：lastTickTimestamp 死字段删除（全仓无写入者，serialize 本就不落盘）——
+ *   豁免清单随笔收窄为 1 键（历史双键豁免自此退役）。
  *
  * 计数漂移注：设计稿 §A4 记「现值 49/51」（9/24 快照：deserialize 非运行时 49 / serialize 51）；
- * 本班现取 serialize=51、deserialize=53（−2 豁免＝51 非运行时）⇒ 两面非运行时键集**相等**，
- * 较设计稿时代 deserialize 侧 +2（9/24 后新字段两侧同步进、无破口），对账不变量成立。
+ * 本班现取 serialize=52、deserialize=53（−1 豁免＝52 非运行时）⇒ 两面非运行时键集**相等**，
+ * 较设计稿时代 deserialize 侧 +1（9/24 后新字段两侧同步进、lastTickTimestamp 出清），对账不变量成立。
  */
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -20,8 +21,8 @@ import { describe, expect, it } from 'vitest';
 
 const SAVELOAD_PATH = resolve(__dirname, '../../src/renderer/state/saveLoad.ts');
 
-/** 豁免清单（运行时键；来历见文件头注，扩容须注来历）。 */
-const EXEMPT_RUNTIME_KEYS = ['paused', 'lastTickTimestamp'] as const;
+/** 豁免清单（运行时键；来历见文件头注，扩容须注来历）。c1023-14：lastTickTimestamp 出列。 */
+const EXEMPT_RUNTIME_KEYS = ['paused'] as const;
 
 /** 设计稿时代计数（9/24 快照，漂移说明用；现值断言在用例内）。 */
 const DESIGN_SNAPSHOT = { serialize: 51, deserializeNonRuntime: 49 } as const;
@@ -76,9 +77,9 @@ describe('A4 双字面量对账（serialize state ↔ deserialize gameState）',
   const src = readFileSync(SAVELOAD_PATH, 'utf8');
   const { serializeKeys, deserializeKeys } = loadLiterals(src);
 
-  it('serialize state 字面量 52 键、deserialize gameState 54 键（现值；c1007-30 +lastPlayerActionDay，漂移注见文件头）', () => {
+  it('serialize state 字面量 52 键、deserialize gameState 53 键（现值；c1023-14 lastTickTimestamp 死字段出列 −1，漂移注见文件头）', () => {
     expect(serializeKeys).toHaveLength(52);
-    expect(deserializeKeys).toHaveLength(54);
+    expect(deserializeKeys).toHaveLength(53);
     expect(DESIGN_SNAPSHOT.serialize).toBe(51); // 设计稿快照为 9/24 时点；现值 52＝c1007-30 字段迁移 +1（漂移注）
   });
 

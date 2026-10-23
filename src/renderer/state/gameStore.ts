@@ -215,7 +215,6 @@ export interface GameState {
   lastSeenTimestamp: number;
   paused: boolean;
   speed: 0 | 1 | 2 | 3;
-  lastTickTimestamp: number;
   currentDay: number;
   rngSeed: number;
   worldMap: WorldMap;
@@ -333,7 +332,6 @@ function makeDefaultState(): GameState {
     lastSeenTimestamp: 0,
     paused: false,
     speed: 1,
-    lastTickTimestamp: 0,
     currentDay: 0,
     rngSeed: seed,
     worldMap: generateMap({ width: DEFAULT_MAP_SIZE, height: DEFAULT_MAP_SIZE, seed }),

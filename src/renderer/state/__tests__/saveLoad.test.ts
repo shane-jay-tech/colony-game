@@ -22,7 +22,6 @@ function makeGameState(): GameState {
     lastSeenTimestamp: 12345678,
     paused: false,
     speed: 1,
-    lastTickTimestamp: 0,
     currentDay: 42,
     rngSeed: 999,
     worldMap: generateMap({ width: 16, height: 16, seed: 999 }),
@@ -80,7 +79,22 @@ describe('serialize + deserialize round-trip', () => {
     expect(restored.rngSeed).toBe(original.rngSeed);
     expect(restored.speed).toBe(original.speed);
     expect(restored.paused).toBe(false);
-    expect(restored.lastTickTimestamp).toBe(0);
+  });
+
+  // c1023-14（c1014-06 遗留·c1007-36 随批项）：lastTickTimestamp 死字段删除后的旧档兼容钉。
+  // 该字段从未入档（serialize 不落盘、全仓无写入者，c927-22 census + seedSnapshotDeterminism 双证），
+  // 故「旧档」＝任何在档存档形态：信封无此键 ⇒ deserialize 须成功且不复活该键。
+  it('旧档兼容：信封无 lastTickTimestamp 字段 → deserialize 成功且状态完好、键不复活', () => {
+    const original = makeGameState();
+    const env = structuredClone(serialize(original)) as { state: Record<string, unknown> };
+    delete env.state.lastTickTimestamp; // 旧档形态显式化（现值 serialize 本就不写此键）
+    expect(Object.keys(env.state)).not.toContain('lastTickTimestamp');
+
+    const restored = deserialize(env as unknown) as GameState;
+    expect(restored.currentDay).toBe(original.currentDay);
+    expect(restored.rngSeed).toBe(original.rngSeed);
+    expect(restored.resources).toEqual(original.resources);
+    expect((restored as unknown as Record<string, unknown>).lastTickTimestamp).toBeUndefined();
   });
 
   it('roundtrips worldMap tiles + resourceNodes (Slice C)', () => {

@@ -1,7 +1,8 @@
 // snapshotDigest（c1004-08 设计稿官方 API 落码，l1007-13 施工）
 // 确定性比对摘要（防漂移）：同 seed 同输入 ⇒ 同指纹。与 c927-22 防篡改校验和用途不同。
-// 剔除墙钟/瞬态键四枚：savedAt/lastSeenTimestamp/lastTickTimestamp/paused（逐键理由见
-// docs/insights/colony-snapshot-digest-design-20261006.md §二）。
+// 剔除墙钟/瞬态键三枚：savedAt/lastSeenTimestamp/paused（逐键理由见
+// docs/insights/colony-snapshot-digest-design-20261006.md §二；lastTickTimestamp 死字段
+// 已随 c1023-14 删除，剔出名单——字段本体不在 state 即无变异面）。
 // canonicalJson = 键排序递归 + 数组保序（杜绝 JSON.stringify 键序抖动）。
 // SHA-256 走 WebCrypto crypto.subtle（主/渲染进程双可用，零新依赖）。
 
@@ -10,7 +11,6 @@ import type { GameState } from './gameStore';
 export const DIGEST_EXCLUDED_KEYS: ReadonlySet<string> = new Set([
   'savedAt',
   'lastSeenTimestamp',
-  'lastTickTimestamp',
   'paused',
   // 瞬态计数族（c1004-05 已登记 saveLoad 零登记的 private 字段不在 state 内，无需剔；
   // grainNegativeDays 属**持久游戏态**（断粮计数），保留参与摘要）
