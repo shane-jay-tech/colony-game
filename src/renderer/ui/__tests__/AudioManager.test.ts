@@ -93,3 +93,19 @@ describe('AudioManager 同帧去重（c1011-01）', () => {
     expect(soundPlay).toHaveBeenCalledTimes(2);
   });
 });
+
+// c1023-08：去重窗跨生命周期隔离钉（c1011-14 缺口 4）——lastSfxAt 是实例字段，
+// 场景 restart（destroy→new）后同 key 立即播必须出声：窗不跨实例。
+describe('AudioManager 去重窗跨生命周期（c1023-08）', () => {
+  beforeEach(() => resetMocks());
+
+  it('destroy→new→同 key 立即播＝出声（窗不跨实例）', () => {
+    const first = makeManager(['sfx_chime']);
+    first.mgr.playSfx('sfx_chime', 0.4);
+    first.mgr.destroy();
+
+    const second = makeManager(['sfx_chime']); // 新实例即使 50ms 内重建也不受旧窗拦截
+    second.mgr.playSfx('sfx_chime', 0.4);
+    expect(second.soundPlay).toHaveBeenCalledTimes(1);
+  });
+});
