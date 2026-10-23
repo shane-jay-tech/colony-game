@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ART_MANIFEST, BUILDING_ART, GENERAL_ART, EVENT_ART, TERRAIN_ART,
+  ART_MANIFEST, BUILDING_ART, GENERAL_ART, EVENT_ART, TERRAIN_ART, SCATTER_ART,
   getArtByCategory, isArtAvailable, NO_OWN_ART } from '../artManifest';
 import { BUILDINGS } from '../buildings';
 
@@ -35,8 +35,13 @@ describe('Phase D art manifest', () => {
     expect(TERRAIN_ART).toHaveLength(5);
   });
 
-  it('total manifest = 55 assets (UI 6 条已删 + 地形 5 型)', () => {
-    expect(ART_MANIFEST).toHaveLength(35 + 5 + 10 + 5);
+  it('scatter assets = 8 (c1023-10 权威化入表，c918-09 bush_dry 退役后现值)', () => {
+    expect(SCATTER_ART).toHaveLength(8);
+    expect(SCATTER_ART.every(a => a.category === 'scatter' && a.key.startsWith('scatter_'))).toBe(true);
+  });
+
+  it('total manifest = 63 assets (c1023-10 起 scatter 8 项入账：35+5+10+5+8)', () => {
+    expect(ART_MANIFEST).toHaveLength(35 + 5 + 10 + 5 + 8);
   });
 
   it('all keys are unique', () => {
@@ -62,6 +67,7 @@ describe('Phase D art manifest', () => {
   it('getArtByCategory filters correctly', () => {
     expect(getArtByCategory('building')).toHaveLength(35);
     expect(getArtByCategory('terrain')).toHaveLength(5);
+    expect(getArtByCategory('scatter')).toHaveLength(8); // c1023-10
   });
 
   it('isArtAvailable checks loaded set', () => {
@@ -72,9 +78,10 @@ describe('Phase D art manifest', () => {
 
   // c921-01 翻桩：旧断言「required 全 false（素材尚未制作）」已过期——53 键素材实存。
   // 新契约：required=true ⇔ 该键 path 在 public/ 下实存（禁止 required=true 而文件不存在）。
-  it('required = 素材实存（c921-01：53 true / 2 待补）', () => {
+  // c1023-10：scatter 8 项入账（全实存全 required）→ 61 true / 2 待补。
+  it('required = 素材实存（c921-01：53 true / 2 待补；c1023-10 起 61 true / 2 待补）', () => {
     const required = ART_MANIFEST.filter(a => a.required);
-    expect(required).toHaveLength(53);
+    expect(required).toHaveLength(61);
     for (const a of required) {
       expect(existsSync(join(PUBLIC, a.path))).toBe(true);
     }

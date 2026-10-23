@@ -7,6 +7,8 @@
  * 纯数据，便于 playtest 调密度（改这里一处即可）。素材 key = 'scatter_' + id（见 gen_scatter_art.py）。
  */
 
+import { SCATTER_ART } from './artManifest';
+
 export interface ScatterSlot {
   /** 该插槽放一个散布物的概率 0..1 */
   prob: number;
@@ -59,9 +61,11 @@ export const RIVER_EDGE: ScatterSlot = {
 
 export const SCATTER_KEY_PREFIX = 'scatter_';
 
-/** 全部可能用到的散布素材 id（BootScene 据此尝试加载；缺则跳过）。 */
-export const ALL_SCATTER_IDS: readonly string[] = [
-  'tree_pine', 'tree_locust', 'tree_mulberry', 'tree_willow',
-  'rock_boulder', 'bush_shrub',
-  'reed_clump', 'grass_tuft',
-];
+// c1023-10（c1011-11 残余①）：清单权威化——8 键本体移至 artManifest.SCATTER_ART（manifest 为
+// boot 加载权威源，PLAN#2 末条），此处改为派生别名（去 scatter_ 前缀的 id 列表），消费面
+// （散布池对账/particles/art-coverage 脚本）零改动跟随。散布素材增减只改 artManifest 一处。
+
+/** 全部可能用到的散布素材 id（= artManifest.SCATTER_ART 键去前缀；BootScene 加载亦自该表派生）。 */
+export const ALL_SCATTER_IDS: readonly string[] = SCATTER_ART.map(a =>
+  a.key.startsWith(SCATTER_KEY_PREFIX) ? a.key.slice(SCATTER_KEY_PREFIX.length) : a.key,
+);

@@ -68,13 +68,14 @@ describe('a46 terrain naming consistency', () => {
 // c-18：清单等价断言补测——四类 category（building/general/event/ui）与 ART_MANIFEST 的派生一致性。
 // c930-20 修复：:147/:151 引用了 scatterArtUrl/eventArtUrl（BootScene 抽出的同源模板），
 // 但提交时漏加 import ⇒ 本件 147:114 处 ReferenceError（收集期即挂）。补回具名。
-import { ART_MANIFEST, EVENT_ART, scatterArtUrl, eventArtUrl } from '../artManifest';
+// c1023-10：scatterArtUrl 引用面随 scatter 权威化退役（SCATTER_ART 直取 path），import 同步摘除。
+import { ART_MANIFEST, EVENT_ART, eventArtUrl } from '../artManifest';
 import { EVENTS } from '../../data/events';
 
 describe('c18 manifest equivalence', () => {
-  it('① ART_MANIFEST 并集=各类之和（无幽灵条目）', () => {
+  it('① ART_MANIFEST 并集=各类之和（无幽灵条目；c1023-10 起 scatter 类目入账）', () => {
     expect(ART_MANIFEST.length).toBe(
-      BUILDING_ART.length + GENERAL_ART.length + EVENT_ART.length + TERRAIN_ART.length
+      BUILDING_ART.length + GENERAL_ART.length + EVENT_ART.length + TERRAIN_ART.length + SCATTER_ART.length
     );
   });
 
@@ -122,7 +123,7 @@ describe('c18 manifest equivalence', () => {
 // 其键名在此**逐名锁定**并各配一条正向断言，新增漂移不可能靠放宽判据藏进去。
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ALL_SCATTER_IDS } from '../scatterConfig';
+import { SCATTER_ART } from '../artManifest';
 
 const PUBLIC_DIR = resolve(process.cwd(), 'public');
 
@@ -146,7 +147,7 @@ function urlOnDisk(url: string): boolean {
 const LOAD_SOURCES: Array<{ site: string; items: Array<{ key: string; url: string }> }> = [
   { site: 'building: getBootLoadList(building)', items: getBootLoadList('building') },
   { site: 'terrain: TERRAIN_ART 直取 asset.path', items: TERRAIN_ART.map(a => ({ key: a.key, url: a.path })) },
-  { site: 'scatter: 硬编码模板 art/scatter/<id>.webp', items: ALL_SCATTER_IDS.map(id => ({ key: `scatter_${id}`, url: scatterArtUrl(id) })) },
+  { site: 'scatter: SCATTER_ART 直取 asset.path（c1023-10 权威化）', items: SCATTER_ART.map(a => ({ key: a.key, url: a.path })) },
   { site: 'general: getBootLoadList(general)', items: getBootLoadList('general') },
   { site: 'event: 硬编码模板 art/events/<name>.webp', items: EVENT_ART.map(a => ({
     key: a.key,

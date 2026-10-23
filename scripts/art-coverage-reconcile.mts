@@ -12,10 +12,12 @@
 //      `if (declared === undefined || NO_OWN_ART_KEYS.has(item.key)) continue;` ⇒ 只出现在一侧的键被静默跳过；
 //      且 ② 只遍历 LOAD_SOURCES ⇒ 「manifest 声明了、却没有任何加载源消费」的死项**永远看不到**。
 //      两向都漏 ⇒ 覆盖率这一维在 HEAD 上零守卫。本脚本正是把这两个方向各数一遍。
-//   2) 本仓**明摆着有两个事实源**，且源码自己承认：`BootScene.ts` 的 scatter 循环上方注释
-//      「h912-11：manifest 无 scatter 类目，保留原清单」。ART_MANIFEST 的键集与 boot 实际加载的键集
-//      因此天然不等，差集必须有名字、有归属、有人看——否则「manifest 是权威源」只是句自述。
-//   3) 判据形态**不适合做成 vitest 断言**：一侧为空、另一侧非空是**注册在案的正常态**（见 E2 的 scatter 例外）。
+//   2) 本仓曾明摆着有两个事实源（BootScene scatter 循环上方注释「h912-11：manifest 无 scatter
+//      类目，保留原清单」；c921-01 报告第四节登记在案）——**c1023-10 已收口**：清单入
+//      ART_MANIFEST.SCATTER_ART，BootScene 直取加载。本脚本的双向差集读数自此应恒为 0，
+//      留作「manifest 是权威源」这句自述的常年在证。
+//   3) 判据形态**不适合做成 vitest 断言**：一侧为空、另一侧非空曾是**注册在案的正常态**（E2 的
+//      scatter 例外；c1023-10 后该集恒空）。写成用例，下次红了的最低成本动作是"往例外集里加个键"；
 //      写成用例，下次红了的最低成本动作是"往例外集里加个键"；写成打印器＋`--check` 退出码，
 //      读数可以原样进晨报/文档，例外集要不要扩由人裁。故此件与 `scripts/domain-counts.mts` 同型
 //      （打印器＋只影响退出码的 `--check`），不做成第 4 条用例。
@@ -32,8 +34,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { ART_MANIFEST, EVENT_ART, TERRAIN_ART, eventArtUrl, getBootLoadList, scatterArtUrl } from '../src/renderer/data/artManifest';
-import { ALL_SCATTER_IDS } from '../src/renderer/data/scatterConfig';
+import { ART_MANIFEST, EVENT_ART, SCATTER_ART, TERRAIN_ART, eventArtUrl, getBootLoadList } from '../src/renderer/data/artManifest';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const GUARD_TEST = join(ROOT, 'src', 'renderer', 'data', '__tests__', 'bootLoadList.test.ts');
@@ -47,7 +48,7 @@ const manifestKeys = new Set(manifest.map((a) => a.key));
 const LOAD_SOURCES: Array<{ site: string; items: Array<{ key: string; url: string }> }> = [
   { site: 'building: getBootLoadList(building)', items: getBootLoadList('building') },
   { site: 'terrain: TERRAIN_ART 直取 asset.path', items: TERRAIN_ART.map((a) => ({ key: a.key, url: a.path })) },
-  { site: 'scatter: 硬编码模板 art/scatter/<id>.webp', items: ALL_SCATTER_IDS.map((id) => ({ key: `scatter_${id}`, url: scatterArtUrl(id) })) },
+  { site: 'scatter: SCATTER_ART 直取 asset.path（c1023-10 权威化）', items: SCATTER_ART.map((a) => ({ key: a.key, url: a.path })) },
   { site: 'general: getBootLoadList(general)', items: getBootLoadList('general') },
   { site: 'event: 硬编码模板 art/events/<name>.webp', items: EVENT_ART.map((a) => ({
     key: a.key,
@@ -55,10 +56,11 @@ const LOAD_SOURCES: Array<{ site: string; items: Array<{ key: string; url: strin
   })) },
 ];
 
-// E2 例外登记（**唯一**一条，且按集合派生而非逐名硬写）：
-// scatter 类目刻意不进 ART_MANIFEST（BootScene 注释自述），故加载侧键必然单边存在。
-// 用 ALL_SCATTER_IDS 派生 ⇒ 散布图增减时例外集自动跟随，不会靠"改判据"保绿。
-const REGISTERED_ONE_SIDED = new Set(ALL_SCATTER_IDS.map((id) => `scatter_${id}`));
+// E2 例外登记（历史唯一一条，按集合派生而非逐名硬写）：
+// c1023-10 起 scatter 类目已入 ART_MANIFEST（SCATTER_ART 8 项，BootScene 直取加载）——
+// 本例外集**恒空**（键已双侧登记），保留派生式作回归哨：若权威化被回退（清单移出 manifest），
+// 「加载了却没登记」会自动落回本集并复活 B 向读数，不需改判据。
+const REGISTERED_ONE_SIDED = new Set(SCATTER_ART.map((a) => a.key));
 
 const consumed = new Set(LOAD_SOURCES.flatMap((s) => s.items.map((i) => i.key)));
 // 方向 A：manifest → 加载面（声明了却没人加载＝死项，判据要求恒 0，无例外）

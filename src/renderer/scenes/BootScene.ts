@@ -2,8 +2,7 @@ import Phaser from 'phaser';
 import { validateStaticData } from '@/data';
 import { REGISTRY_KEYS, registryGet } from '../ui/registry';
 import { ALL_BGM_KEYS, SFX_KEYS } from '../state/audioDirector';
-import { ALL_SCATTER_IDS as SCATTER_IDS } from '../data/scatterConfig';
-import { EVENT_ART, TERRAIN_ART, getBootLoadList, scatterArtUrl, eventArtUrl } from '../data/artManifest';
+import { EVENT_ART, TERRAIN_ART, SCATTER_ART, getBootLoadList, eventArtUrl } from '../data/artManifest';
 
 /**
  * BootScene：
@@ -52,11 +51,10 @@ export class BootScene extends Phaser.Scene {
       this.load.image(asset.key, asset.path);
     }
     // W4：2.5D 散布素材（树/石/灌木/芦苇；缺则 MapRenderer 跳过散布）。
-    // h912-11：manifest 无 scatter 类目，保留原清单。
-    // c921-02：散布 9 图已整批转码为 .webp（原 png 已按授权删除，回滚件在 D:/attic/colony-art-backup-20260920/）——此处的硬编码路径同步改指，
-    // 属「manifest 之外的第二事实源」，改扩展名时必须与本行一起改（c921-01 报告第四节已登记）。
-    for (const id of SCATTER_IDS) {
-      this.load.image(`scatter_${id}`, scatterArtUrl(id));
+    // c1023-10（c1011-11 残余①·PLAN#2 末条）：清单改由 manifest 派生（SCATTER_ART 8 项，同
+    // terrain/event 直取模式）——「manifest 之外的第二事实源」登记（c921-01 报告第四节）随本笔销项。
+    for (const asset of SCATTER_ART) {
+      this.load.image(asset.key, asset.path);
     }
     // 2026-06-19：将领立绘（军务面板）+ 事件插画（朝议弹窗/结局）。缺图静默 → 回退文字。
     // h912-11 批次一：将领加载清单改由 artManifest.GENERAL_ART 派生（键=portrait_${id}，

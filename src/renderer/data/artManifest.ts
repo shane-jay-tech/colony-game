@@ -1,6 +1,6 @@
 /**
  * Phase D 美术资产清单。
- * 定义所有需要的美术资源（建筑/将领/事件/UI/地形），
+ * 定义所有需要的美术资源（建筑/将领/事件/UI/地形/散布），
  * BootScene 按此清单预加载；未就绪的资源 fallback 到沙印/色块。
  *
  * 资产文件约定（c921-01 改指实存文件；c921-02 整批转码后统一为 public/art/<类别>/*.webp）：
@@ -8,6 +8,7 @@
  *   - 将领：art/generals/{id}.webp (512×768 半身)
  *   - 事件：art/events/{name}.webp (800×450 场景)
  *   - 地形：art/terrain/{type}.webp (tileable 128×128)
+ *   - 散布：art/scatter/{id}.webp (c1023-10 权威化入表，PLAN#2 末条收口)
  *   - 例外：无自有素材的两型建筑（bld_tin_mine / bld_hemp_field）保持 Phase D 占位口径，
  *     path 仍是 assets/buildings/{id}.webp（方案 B：待补素材，required=false，见 NO_OWN_ART）。
  * 口径：path 一律相对 public/；除上述两型外，每条 path 都由 tmp/art-exists-check.mts 逐键断言实存。
@@ -16,7 +17,7 @@
 export interface ArtAssetDef {
   key: string;
   path: string;
-  category: 'building' | 'general' | 'event' | 'ui' | 'terrain';
+  category: 'building' | 'general' | 'event' | 'ui' | 'terrain' | 'scatter';
   required: boolean;
 }
 
@@ -105,6 +106,22 @@ export const TERRAIN_ART: ArtAssetDef[] = [
   { key: 'terrain_river', path: 'art/terrain/river.webp', category: 'terrain', required: true },
 ];
 
+// ====================== Scatter (8, c1023-10 权威化入表) ======================
+// c1023-10（c1011-11 残余①·PLAN#2 末条最后一公里）：散布素材清单自此以 manifest 为唯一权威。
+// 此前 8 键清单硬编码在 scatterConfig.ALL_SCATTER_IDS（c921-01 登记的「manifest 之外的第二事实源」），
+// BootScene 以模板拼接加载；现改本表直供（同 terrain/event 模式），scatterConfig.ALL_SCATTER_IDS
+// 改为自本表派生（去 scatter_ 前缀）——散布素材增减只改这里一处。
+// rock_cluster 不在表（n916d-22 缺盘移除，B-152；rock_boulder 顶替，现态见 scatterAssets 守卫③）。
+export const SCATTER_ART: ArtAssetDef[] = [
+  'tree_pine', 'tree_locust', 'tree_mulberry', 'tree_willow',
+  'rock_boulder', 'bush_shrub', 'reed_clump', 'grass_tuft',
+].map(id => ({
+  key: `scatter_${id}`,
+  path: scatterArtUrl(id),
+  category: 'scatter' as const,
+  required: true, // 8 path 均 public/art/scatter/ 实存（scatterAssets 守卫①逐键断言）
+}));
+
 // ====================== Full manifest ======================================
 
 export const ART_MANIFEST: ArtAssetDef[] = [
@@ -112,6 +129,7 @@ export const ART_MANIFEST: ArtAssetDef[] = [
   ...GENERAL_ART,
   ...EVENT_ART,
   ...TERRAIN_ART,
+  ...SCATTER_ART,
 ];
 
 export function getArtByCategory(category: ArtAssetDef['category']): ArtAssetDef[] {
@@ -124,7 +142,8 @@ export function getArtByCategory(category: ArtAssetDef['category']): ArtAssetDef
 // URL 约定说明（c921-02 更正）：仓库真实落盘为 public/art/<类别>/<id>.webp（c921-02 整批转码；
 // 原 png 已按授权删除、回滚件在 D:/attic/colony-art-backup-20260920/），本表 path 字段与下方 URL 模板**同义且同扩展名**（仅 NO_OWN_ART 两型保留占位）。
 // 派生仍只取「键与顺序」（+ 复用表），URL 模板保留在此以免多层派生。
-// 地形/散布/音频 manifest 地形已等价描述（c918-04：TERRAIN_ART 5 型指向实存 art/terrain/*；c921-02 转码后为 .webp）；散布/音频 manifest 未等价描述，仍由 BootScene 保留。
+// 地形/散布 manifest 已等价描述（c918-04：TERRAIN_ART 5 型；c1023-10：SCATTER_ART 8 项，BootScene 同模式派生加载）；
+// 音频 manifest 未等价描述，仍由 BootScene 保留（ALL_BGM_KEYS/SFX_KEYS 自 audioDirector 单源 import，非重复清单）。
 
 export interface BootLoadItem {
   key: string;
