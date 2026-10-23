@@ -23,6 +23,11 @@ import { computeProductionTick, type DailyRateRow } from './productionSystem';
 import {
   RESOURCE_CAP_BASE, resourceCapFor, clampResourceValue, applyResourceDeltas, dailyRatesSnapshot,
 } from './domains/resourceDomain';
+// c1023-02：域二（人口/社会）逻辑外迁——纯计算件收进 domains/populationDomain，GameStore 保持薄委托
+import {
+  housingCapFor, employedLaborOf, idleLaborOf, recruitToClasses, shrinkClasses,
+  tryStartConversion, populationTickStep, starvationTickStep, classNeedsGaps,
+} from './domains/populationDomain';
 import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
 import { tryAdoptDecree, tickActiveDecree, type AdoptDecreeResult } from './decreeSystem';
 import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from './eventEngine';
@@ -35,7 +40,6 @@ import {
   isDualZero, chooseCrisisKind, planUnrestEffects, planCessionMoraleDrop, planTribute,
   CRISIS_GRACE_DAYS, CRISIS_RECOVER_DAYS, VASSAL_REDEEM_GOLD, type CrisisKind,
 } from './crisis';
-import { computePopulationGrowth, sumHousingCapacity } from './population';
 import { BALANCE, getBalanceConfig } from '../data/balanceConfig';
 import {
   npcMilitaryGrowthStep, evaluatePlayerStrength, computeNpcAlliances, computeNpcActions,
@@ -62,7 +66,7 @@ import {
   clampSentiment, shouldForceWrathDemand,
 } from './publicSentiment';
 import {
-  computeClassNeedState, populationFulfillment, buildingFulfillmentFactor,
+  buildingFulfillmentFactor,
 } from './classNeeds';
 import {
   WARINESS_BASELINE, WARINESS_DRIFT_PER_DAY, WARINESS_COALITION_THRESHOLD,
@@ -77,8 +81,8 @@ import {
 } from './endgameEscalation';
 import type { GameStateEventMap } from './stateEvents';
 import type { PopulationClasses, PopulationClass, ConversionOrder } from '../data/populationClass';
-import { createDefaultPopulation, totalPopulation, CONVERSION_DAYS, CONVERSION_REQUIRES, POPULATION_CLASSES, DEFAULT_STARVATION } from '../data/populationClass';
-import { computeClassOccupation, getIdleByClass, canAffordClass, tickConversionQueue, applyConversion, applyStarvation, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
+import { createDefaultPopulation, totalPopulation } from '../data/populationClass';
+import { computeClassOccupation, getIdleByClass, tickConversionQueue, applyConversion, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
 import { type FactionState, createFactionState, tickFaction, resolveDemand, scheduleFactionEvent } from './factionSystem';
 import { FACTION_NAMES } from '../data/factions';
 import { type MegaProjectProgress, tickProject, getProjectReward, canAffordPhase } from './megaProjectSystem';
@@ -482,24 +486,19 @@ export class GameStore implements IStateEventEmitter {
   // shallow copy of resources dict; ~8 keys, cheap enough for per-frame use (Slice E Critical)
   getResources(): Readonly<Partial<Record<ResourceId, number>>> { return Object.freeze({ ...this.state.resources }); }
   /** 当前住房上限（人口可增长到的最大值）= 基数 + working 建筑 housingCapacity，经 country_population_cap modifier 聚合。
-   *  与 runPopulationTick 同口径，供 HUD 把"民"显示为 现有/上限（纪元式）。 */
+   *  与 runPopulationTick 同口径，供 HUD 把"民"显示为 现有/上限（纪元式）。
+   *  c1023-02：主体外迁 housingCapFor。 */
   getHousingCap(): number {
-    const popCfg = getBalanceConfig(this.state.mode).population;
-    const base = popCfg.baseHousingCap + sumHousingCapacity(this.state.buildings, getBuildingDef);
-    return Math.round(applyModifiers(base, 'country_population_cap', this.state.activeModifiers));
+    return housingCapFor(this.state.mode, this.state.buildings, this.state.activeModifiers);
   }
-  /** 占用制：在役建筑(constructing+working)占用的劳力总和 = Σ def.cost.people。paused/derelict 不占编制。 */
+  /** 占用制：在役建筑(constructing+working)占用的劳力总和 = Σ def.cost.people。paused/derelict 不占编制。
+   *  c1023-02：主体外迁 employedLaborOf。 */
   getEmployedLabor(): number {
-    let total = 0;
-    for (const b of this.state.buildings) {
-      if (b.status !== 'constructing' && b.status !== 'working') continue;
-      total += getBuildingDef(b.defId)?.cost.people ?? 0;
-    }
-    return total;
+    return employedLaborOf(this.state.buildings);
   }
   /** 占用制：闲置劳力 = 总人口 − 已占用，clamp≥0。HUD 显示"民 闲置/总人口"，建造门槛用它。 */
   getIdleLabor(): number {
-    return Math.max(0, (this.state.resources['people'] ?? 0) - this.getEmployedLabor());
+    return idleLaborOf(this.state.resources['people'] ?? 0, this.getEmployedLabor());
   }
   /** B-0：各阶层当前人口 */
   getPopulationClasses(): Readonly<PopulationClasses> { return { ...this.state.populationClasses }; }
@@ -509,19 +508,16 @@ export class GameStore implements IStateEventEmitter {
   getIdleByClass() { return getIdleByClass(this.state.populationClasses, this.getClassOccupation()); }
   /** B-0：转化队列 */
   getConversionQueue(): readonly ConversionOrder[] { return this.state.conversionQueue; }
-  /** B-0：发起阶层转化。返回 false = 条件不满足 */
+  /** B-0：发起阶层转化。返回 false = 条件不满足。c1023-02：主体外迁 tryStartConversion。 */
   startConversion(from: PopulationClass, to: PopulationClass, count: number): boolean {
-    const key = `${from}->${to}`;
-    const reqBuilding = CONVERSION_REQUIRES[key];
-    if (reqBuilding) {
-      const hasBuilding = this.state.buildings.some(b => b.defId === reqBuilding && b.status === 'working');
-      if (!hasBuilding) return false;
-    }
-    const occ = this.getClassOccupation();
-    if (!canAffordClass(this.state.populationClasses, occ, from, count)) return false;
-    this.state.conversionQueue.push({ from, to, count, daysRemaining: CONVERSION_DAYS });
-    this.state.populationClasses[from] -= count;
-    return true;
+    return tryStartConversion(
+      {
+        buildings: this.state.buildings,
+        populationClasses: this.state.populationClasses,
+        conversionQueue: this.state.conversionQueue,
+      },
+      from, to, count,
+    );
   }
   /** 分阶段：建筑是否在当前阶段已解锁。
    *  条件一：tier 对应国格门槛（T1→grade0, T2→grade1, T3→grade2, T4→grade3）
@@ -707,25 +703,9 @@ export class GameStore implements IStateEventEmitter {
     }
   }
 
-  /** 自动招募：将闲置人口从其他阶层转入目标阶层，优先从农民抽调。 */
+  /** 自动招募：将闲置人口从其他阶层转入目标阶层，优先从农民抽调。c1023-02：主体外迁 recruitToClasses。 */
   private autoRecruitToClass(targetCls: PopulationClass, needed: number): void {
-    if (needed <= 0) return;
-    const occ = this.getClassOccupation();
-    const alreadyIdle = Math.max(0, this.state.populationClasses[targetCls] - occ[targetCls]);
-    let deficit = needed - alreadyIdle;
-    if (deficit <= 0) return;
-    const sourceOrder: PopulationClass[] = (['farmer', 'worker', 'soldier', 'scholar'] as const)
-      .filter(c => c !== targetCls) as unknown as PopulationClass[];
-    for (const src of sourceOrder) {
-      if (deficit <= 0) break;
-      const srcIdle = Math.max(0, this.state.populationClasses[src] - occ[src]);
-      const transfer = Math.min(deficit, srcIdle);
-      if (transfer > 0) {
-        this.state.populationClasses[src] -= transfer;
-        this.state.populationClasses[targetCls] += transfer;
-        deficit -= transfer;
-      }
-    }
+    recruitToClasses(this.state.populationClasses, this.getClassOccupation(), targetCls, needed);
   }
 
   setSpeed(s: 0 | 1 | 2 | 3): void {
@@ -1399,13 +1379,9 @@ export class GameStore implements IStateEventEmitter {
   }
 
   getPlayerMorale(): number { return this.state.playerMorale; }
-  /** A2：各阶层当前未满足的需求名（供人口面板显示缺口）。 */
+  /** A2：各阶层当前未满足的需求名（供人口面板显示缺口）。c1023-02：主体外迁 classNeedsGaps。 */
   getClassNeedsGaps(): Record<PopulationClass, string[]> {
-    const out = {} as Record<PopulationClass, string[]>;
-    for (const cls of POPULATION_CLASSES) {
-      out[cls] = computeClassNeedState(cls, this.state.buildings, this.state.resources).unmet;
-    }
-    return out;
+    return classNeedsGaps(this.state.buildings, this.state.resources);
   }
   /** 现行怨愤 = 明文状态 + country_wrath modifier 累加（让朝令/事件能推动米值），clamp 0..100。 */
   getPublicWrath(): number {
@@ -2559,85 +2535,43 @@ export class GameStore implements IStateEventEmitter {
   /**
    * BUG-A：负增长（超住房上限的"无家可归"流失）唯一出口——从农→工→兵→士级联扣减、不扣穿 0。
    * 与 applyStarvation 的 STARVATION_ORDER 同序，保证负增长口径单一、不分裂。返回实际扣减数。
+   * c1023-02：主体外迁 shrinkClasses。
    */
   private shrinkPopulationClasses(n: number): number {
-    let remaining = Math.floor(n);
-    let removed = 0;
-    for (const cls of POPULATION_CLASSES) {
-      if (remaining <= 0) break;
-      const take = Math.min(this.state.populationClasses[cls], remaining);
-      if (take > 0) {
-        this.state.populationClasses[cls] -= take;
-        remaining -= take;
-        removed += take;
-      }
-    }
-    return removed;
+    return shrinkClasses(this.state.populationClasses, n);
   }
 
   /**
    * 每日：有余粮 + 未满住房上限 → 人口渐增。缺粮减员**不在此**（由 runStarvationTick 独家负责，
    * 避免双重扣减）。余粮正反馈：粮储够的天数越多增长越快，封顶 ×1.5。
+   * c1023-02：主体外迁 populationTickStep（库存/阶层副作用经 io 回调保留在 store，emit 归位）。
    */
   private runPopulationTick(): void {
-    const people = this.state.resources['people'] ?? 0;
-    const grainStock = this.state.resources['grain'] ?? 0;
-    // §8.1 双表：按模式取人口参数（故事用 STORY_BALANCE 覆盖）
-    const popCfg = getBalanceConfig(this.state.mode).population;
-    // A-3：季节 modifier 影响人口增长率（夏 +50%）
-    const growthMul = applyModifiers(1, 'country_population_growth', this.state.activeModifiers);
-    // A2：民足系数（阶层需求满足度加权）影响人口增长——缺安居/市集/营伍会压慢生养
-    const fulfillMul = populationFulfillment(
-      this.state.populationClasses,
-      this.state.buildings,
-      this.state.resources,
-    );
-    // 余粮正反馈（2026-06-17）：surplusDays = 存粮 / 当日阶层粮耗；够 1 日 ×1.0、3 日 ×1.2、≥6 日 ×1.5。
-    // 缺粮时不起作用（computePopulationGrowth 会判 idle）。给"攒粮"一个正向回报，也加速中后期。
-    const grainPerDay = computeClassConsumption(this.state.populationClasses).totalGrain;
-    // 无消耗者（grainPerDay=0）按基准、不额外奖励，避免"撤掉所有消耗以刷满加成"（DeepSeek 复审 ID-R3）
-    const surplusDays = grainPerDay > 0 ? grainStock / grainPerDay : 1;
-    const surplusMul = Math.max(1, Math.min(1.5, 1 + (surplusDays - 1) * 0.1));
-    const totalMul = growthMul * surplusMul * fulfillMul;
-    const effectiveCfg = totalMul === 1 ? popCfg : {
-      ...popCfg,
-      // 季节(growthMul) + 余粮(surplusMul) 共同加速"百分比增长"；但保底 minDailyGrowth 只随季节、
-      // 不被余粮抬高，否则夏季囤粮时保底被放大到 2.7/天、开局几天就撞顶（DeepSeek 复审 ID-R4）。
-      growthRatePerDay: popCfg.growthRatePerDay * totalMul,
-      minDailyGrowth: popCfg.minDailyGrowth * growthMul,
-    };
-    const housingCap = this.getHousingCap();
-    const result = computePopulationGrowth(
+    const outcome = populationTickStep(
       {
-        people, housingCap, grainStock, carry: this.state.populationCarry,
-        minimumPopulation: DEFAULT_STARVATION.minimumPopulation,
-        dailyConsumption: grainPerDay, // 仅"够喂当前人口的真余粮"才触发超限回落，防与饥荒双扣
+        mode: this.state.mode,
+        resources: this.state.resources,
+        populationClasses: this.state.populationClasses,
+        buildings: this.state.buildings,
+        activeModifiers: this.state.activeModifiers,
+        populationCarry: this.state.populationCarry,
+        housingCap: this.getHousingCap(),
       },
-      effectiveCfg,
+      {
+        addPeople: (delta, reason) => {
+          // ID-1：addResource 内部 clamp 到 [0,9999]，用"调用前后的实际差值"同步阶层
+          const before = this.state.resources['people'] ?? 0;
+          this.addResource('people', delta, reason);
+          return (this.state.resources['people'] ?? 0) - before;
+        },
+        setPeopleClamped: (v) => this.setResourceClamped('people', v),
+        shrinkClasses: (n) => this.shrinkPopulationClasses(n),
+      },
     );
-    this.state.populationCarry = result.carry;
+    this.state.populationCarry = outcome.carry;
     // 趋势快照（运行时）——供 HUD 顶栏箭头 + 详情面板"今日约 +X"
-    this.lastPopReason = result.reason;
-    this.lastPopRawNet = result.rawNet;
-    if (result.peopleDelta !== 0) {
-      // ID-1 修复：addResource 内部 clamp 到 [0,9999]，故用"调用前后的实际差值"同步阶层，
-      // 不能直接用 result.peopleDelta（否则 clamp 掉的部分会经 classTotal 回写、绕过 9999 上限）。
-      const before = this.state.resources['people'] ?? 0;
-      this.addResource('people', result.peopleDelta, 'population');
-      const actual = (this.state.resources['people'] ?? 0) - before;
-      if (actual > 0) {
-        // B-0：新增人口全部归入 farmer（最基础阶层）
-        this.state.populationClasses.farmer += actual;
-      } else if (actual < 0) {
-        // BUG-A：超上限回落，从农→工→兵→士级联扣减（统一出口，不只扣 farmer）
-        this.shrinkPopulationClasses(-actual);
-      }
-    }
-    // B-0：同步 populationClasses 总和 → resources.people（防漂移）；经 setResourceClamped，不绕过 [0,9999]
-    const classTotal = totalPopulation(this.state.populationClasses);
-    if (classTotal !== (this.state.resources['people'] ?? 0)) {
-      this.setResourceClamped('people', classTotal);
-    }
+    this.lastPopReason = outcome.reason;
+    this.lastPopRawNet = outcome.rawNet;
   }
 
   /**
@@ -2682,46 +2616,26 @@ export class GameStore implements IStateEventEmitter {
     }
   }
 
-  /** B-0：缺粮饥饿减员（宽限 5 日 → 温和 2% → 15 日后严重 5%） */
+  /** B-0：缺粮饥饿减员（宽限 5 日 → 温和 2% → 15 日后严重 5%）。c1023-02：主体外迁 starvationTickStep。 */
   private runStarvationTick(): void {
-    const grainBefore = this.state.resources['grain'] ?? 0;
-    const consumption = computeClassConsumption(this.state.populationClasses);
-    // BUG-B（2026-06-19）：人口每日真实吃粮——此前只比较不扣库存，导致粮食爆仓(粮9999)、
-    // 粮食几乎无消耗。现真实扣减（addResource 已 clamp≥0，扣到 0 即止）。
-    if (consumption.totalGrain > 0) {
-      this.addResource('grain', -consumption.totalGrain, 'consumption');
-    }
-    // 缺口判定用"扣前库存 grainBefore"：用扣后会被 clamp 到 0 而误判永久缺粮。
-    if (grainBefore < consumption.totalGrain) {
-      this.state.grainNegativeDays += 1;
-    } else {
-      this.state.grainNegativeDays = 0;
-    }
-    // P3（2026-06-19）：中后期供养闭环——工要布、兵要铜、士要钱。此前 computeClassConsumption 算了却不扣
-    // → 布/铜囤到爆仓、阶层资源无意义。现真实扣减形成消耗出口。短缺**非致命**（不像缺粮饿死）：扣到 0 即止，
-    // 仅按是否短缺给轻微民心下滑（-1/日，可随补给恢复），提示玩家"该建蚕桑/铸造、给士发俸"。
-    let supplyShort = false;
-    for (const [res, need] of [['cloth', consumption.totalCloth], ['bronze', consumption.totalBronze], ['gold', consumption.totalGold]] as const) {
-      if (need > 0) {
-        const before = this.state.resources[res] ?? 0;
-        this.addResource(res, -need, 'consumption');
-        if (before < need) supplyShort = true;
-      }
-    }
-    if (supplyShort) {
-      this.state.playerMorale = Math.max(0, this.state.playerMorale - 1);
-    }
-    if (this.state.grainNegativeDays <= 0) return;
-    // 缺口造成的减员由 applyStarvation 独家负责；此处只扣粮、不额外减员，杜绝双扣。
-    const result = applyStarvation(this.state.populationClasses, this.state.grainNegativeDays);
-    if (result.peopleLost > 0) {
-      this.state.populationClasses = result.pop;
-      this.addResource('people', -result.peopleLost, 'starvation');
-    }
-    if (result.moralePenalty > 0) {
-      this.adjustMorale(-result.moralePenalty, 'starvation');
-      this.adjustWrath(2, 'starvation');
-    }
+    const out = starvationTickStep(
+      {
+        resources: this.state.resources,
+        populationClasses: this.state.populationClasses,
+        grainNegativeDays: this.state.grainNegativeDays,
+      },
+      {
+        addResource: (id, delta, reason) => this.addResource(id, delta, reason),
+        adjustMorale: (delta, reason) => this.adjustMorale(delta, reason),
+        adjustWrath: (delta, reason) => this.adjustWrath(delta, reason),
+        moraleShortPenalty: () => {
+          // 原 runStarvationTick 直写（不发 MORALE_CHANGED）；民心与 adjustMorale 读同一 state，次序保真
+          this.state.playerMorale = Math.max(0, this.state.playerMorale - 1);
+        },
+      },
+    );
+    this.state.grainNegativeDays = out.grainNegativeDays;
+    this.state.populationClasses = out.populationClasses;
   }
 
   // ============== Phase1：可翻身低谷（无 Game Over） ==============
