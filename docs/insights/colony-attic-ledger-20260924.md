@@ -137,3 +137,16 @@ $ sha256sum public/audio/sfx_click.wav public/audio/sfx_warn.wav
 - 未跑 type-check／vitest（并发纪律，且本单零代码改动无从验证）。
 - 遗留给主班：①§3 三个漂移点的回写（在**根仓** `docs/WORKSPACE-MAP.md`，非 colony）；②§5 草稿落盘属人工；
   ③512 vs 548 两口径择一；④"只进不出"规矩是否要显式定义三种出口（§4）；⑤§6 旁证发现是否单开一单。
+
+## 8. 停产件标注列（c1023-13 增补 · 2026-10-23｜防对账再报孤儿）
+
+> c1011-18 遗留：attic×生产面对账曾把 `art/scatter/bush_dry.png` 报「attic 孤儿」——它实为 c923-18
+> 停产件的 attic 留痕（历史弃件留痕，非备份缺口）。本节即 c1011-18 所建议的「attic 清单停产件标注列」：
+> 未来对账先查本表，命中者归「停产留痕」，不再报孤儿。**bush_dry 起步**，新停产件随批追加。
+
+| attic 件（colony-art-backup-20260920/ 下相对路径） | 停产件 | 停产批次与出口 | 对账处置 |
+|---|---|---|---|
+| `art/scatter/bush_dry.png` | 是 | c918-09 删 scatter 键 → c923-18 人工授权 A+B 出口（删 public 孤儿 webp＋`gen_scatter_art.py` 停产该图）；原件已删、attic 留痕即正确归宿，`scatterDiskReconcile.test.ts:11` 在册 | 停产留痕，不报孤儿 |
+
+- 复跑自证（c1023-13，2026-10-23，D:\attic 侧零写入）：attic png 62 件＝配对 61＋停产留痕 1＋真孤儿 0；
+  空标注对照基线真孤儿=1（复现 c1011-18 误报态，证标注因果）。日志 `tmp/c1023-13/reconcile-*.log`（repo tmp 面不入 git）。
