@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -151,7 +150,9 @@ def main() -> int:
             j = f.result()
             print(f"  [{'done' if j.saved else 'fail'}] {j.id} ({j.elapsed_s:.0f}s) -> {j.saved or j.error}")
 
-    manifest = base / f"manifest_portraits_{int(time.time())}.json"
+    # c1023-11：稳定名覆盖写（c1011-11 遗留：时间戳快照随每次生成累积无清理策略）——
+    # 固定 manifest_portraits.json，新一轮覆盖旧轮；快照史由 git 历史承接。
+    manifest = base / "manifest_portraits.json"
     manifest.write_text(json.dumps(
         [{"id": j.id, "saved": j.saved, "error": j.error} for (j, size, od) in jobs], indent=2, ensure_ascii=False),
         encoding="utf-8")
