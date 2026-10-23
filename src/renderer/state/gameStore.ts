@@ -6,8 +6,6 @@ import {
   tryTrade,
   trySendEnvoy,
   tryDeclareWar,
-  computeTradeTick,
-  computeStanceDrift,
   type DiplomacyResult,
 } from './diplomacySystem';
 import type { WorldMap } from '../data/mapSchema';
@@ -28,6 +26,11 @@ import {
   housingCapFor, employedLaborOf, idleLaborOf, recruitToClasses, shrinkClasses,
   tryStartConversion, populationTickStep, starvationTickStep, classNeedsGaps,
 } from './domains/populationDomain';
+// c1023-03：域三（军事/外交）逻辑外迁——纯计算件收进 domains/militaryDomain，GameStore 保持薄委托
+import {
+  availableSoldiersOf, militaryPowerOf, bestDefenseUnit, diplomacyDayTick,
+  clampNpcVitals, diplomacyRenownModifier, diplomacyWarinessAdjust,
+} from './domains/militaryDomain';
 import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
 import { tryAdoptDecree, tickActiveDecree, type AdoptDecreeResult } from './decreeSystem';
 import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from './eventEngine';
@@ -92,7 +95,7 @@ import {
   type MilitaryContext, getAvailableUnitTypes, computeArmyStrength, computeDefenseStrength,
   canLaunchExpedition, createExpedition, tickExpedition, resolveBattle, computeNoInterceptLoss,
 } from './militarySystem';
-import { UNIT_DEFS, type ActiveExpedition, type ExpeditionConfig, type DefenseAlert, type UnitType } from '../data/military';
+import { type ActiveExpedition, type ExpeditionConfig, type DefenseAlert, type UnitType } from '../data/military';
 import {
   recruitGeneral as recruitGeneralFn, dismissGeneral as dismissGeneralFn, deployGeneral as deployGeneralFn,
   returnGeneral as returnGeneralFn, computeGeneralBonus, tickLoyalty, applyBattleResult, getGeneralDef, canRecruit,
@@ -1489,10 +1492,8 @@ export class GameStore implements IStateEventEmitter {
     if (!result.ok) return result;
     const npcState = this.findNpcState(npcId)!;
     Object.assign(npcState, result.stateDelta);
-    // stance / militaryPower / renown clamp（防溢出）
-    npcState.stance = Math.max(-100, Math.min(100, npcState.stance));
-    npcState.militaryPower = Math.max(0, Math.min(500, npcState.militaryPower));
-    npcState.renown = Math.max(0, Math.min(200, npcState.renown));
+    // stance / militaryPower / renown clamp（防溢出）——c1023-03 外迁 clampNpcVitals
+    clampNpcVitals(npcState);
     if (Object.keys(result.resourceDeltas).length > 0) {
       this.applyDayDeltas(result.resourceDeltas);
     }
@@ -1504,22 +1505,12 @@ export class GameStore implements IStateEventEmitter {
     }
     // renown 通过临时 modifier 加（因为 renown 走 modifier 聚合）
     if (result.playerDeltas.renown !== undefined && result.playerDeltas.renown !== 0) {
-      this.addModifier({
-        id: `mod_diplomacy_renown_${kind}_${npcId}_${this.state.currentDay}`,
-        name: kind === 'trade' ? '通商之誉' : kind === 'envoy' ? '使节之誉' : '征伐之誉',
-        category: 'diplomacy',
-        stackable: true,
-        effects: [{ target: 'country_renown', op: 'add', value: result.playerDeltas.renown }],
-        visualBadge: null,
-        remainingDays: -1,
-        description: result.message,
-        descPlain: result.message,
-      });
+      this.addModifier(diplomacyRenownModifier(kind, npcId, this.state.currentDay, result.playerDeltas.renown, result.message));
     }
     this.emitter.emit(STATE_EVENTS.DIPLOMACY_ACTION, { npcId, kind, result });
-    // B1：宣战升警惕、通商/出使降警惕（放在结算之后，UI 读终态）
-    if (kind === 'war') this.adjustWariness(WARINESS_DELTAS.declareWar, '兴师宣战');
-    else this.adjustWariness(WARINESS_DELTAS.peaceAction, kind === 'trade' ? '通商睦邻' : '遣使修好');
+    // B1：宣战升警惕、通商/出使降警惕（放在结算之后，UI 读终态）——c1023-03 外迁映射
+    const wariness = diplomacyWarinessAdjust(kind);
+    this.adjustWariness(wariness.delta, wariness.reason);
     return result;
   }
 
@@ -1552,33 +1543,14 @@ export class GameStore implements IStateEventEmitter {
     return this.applyDiplomacyResult(npcId, result, 'war');
   }
 
-  /** 每日：通商节拍 + stance 漂移；放在 tickDay 末尾跑 */
+  /** 每日：通商节拍 + stance 漂移；放在 tickDay 末尾跑。c1023-03：主体外迁 diplomacyDayTick。 */
   private runDiplomacyTick(): void {
-    const playerRenown = this.getPlayerRenown();
-    const aggregateDeltas: Partial<Record<ResourceId, number>> = {};
-    let tradeIncomeFired = false;
-    for (const npcState of this.state.npcCountries) {
-      const def = getNpcDef(npcState.id);
-      if (!def) continue;
-      // 通商
-      const tick = computeTradeTick(def, npcState);
-      Object.assign(npcState, tick.stateDelta);
-      for (const [k, v] of Object.entries(tick.resourceDeltas) as [ResourceId, number | undefined][]) {
-        if (v === undefined || v === 0) continue;
-        aggregateDeltas[k] = (aggregateDeltas[k] ?? 0) + v;
-        tradeIncomeFired = true;
-      }
-      // stance 漂移
-      const drift = computeStanceDrift(def, npcState, playerRenown);
-      if (drift !== 0) {
-        npcState.stance = Math.max(-100, Math.min(100, npcState.stance + drift));
-      }
+    const outcome = diplomacyDayTick(this.state.npcCountries, this.getPlayerRenown());
+    if (Object.keys(outcome.deltas).length > 0) {
+      this.applyDayDeltas(outcome.deltas);
     }
-    if (Object.keys(aggregateDeltas).length > 0) {
-      this.applyDayDeltas(aggregateDeltas);
-    }
-    if (tradeIncomeFired) {
-      this.emitter.emit(STATE_EVENTS.TRADE_TICK, { deltas: aggregateDeltas });
+    if (outcome.tradeIncomeFired) {
+      this.emitter.emit(STATE_EVENTS.TRADE_TICK, { deltas: outcome.deltas });
     }
   }
 
@@ -1906,24 +1878,23 @@ export class GameStore implements IStateEventEmitter {
     };
   }
 
-  /** 可调遣的兵 = 兵阶层 − 已在出征中的兵（防重复派同一批）。 */
+  /** 可调遣的兵 = 兵阶层 − 已在出征中的兵（防重复派同一批）。c1023-03：主体外迁 availableSoldiersOf。 */
   private availableSoldiers(): number {
-    const onExpedition = this.state.activeExpeditions.reduce(
-      (s, e) => s + Object.values(e.config.units).reduce((a, n) => a + (n ?? 0), 0), 0);
-    return Math.max(0, this.state.populationClasses.soldier - onExpedition);
+    return availableSoldiersOf(this.state.populationClasses.soldier, this.state.activeExpeditions);
   }
 
-  /** 常备军力：基础征召 + 兵阶层×可用最强兵种攻击×最强将领指挥，再经 country_military_power modifier。
-   *  让"兵阶层 + 军事建筑 + 将领"真正驱动军力（此前是与之无关的标量）。 */
+  /**
+   * 常备军力：基础征召 + 兵阶层×可用最强兵种攻击×最强将领指挥，再经 country_military_power modifier。
+   * 让"兵阶层 + 军事建筑 + 将领"真正驱动军力（此前是与之无关的标量）。
+   * c1023-03：主体外迁 militaryPowerOf。
+   */
   computeCurrentMilitaryPower(): number {
-    const soldiers = this.state.populationClasses.soldier;
-    const available = getAvailableUnitTypes(this.militaryContext());
-    const bestAtk = available.length
-      ? Math.max(...available.map(u => UNIT_DEFS[u].attack))
-      : UNIT_DEFS.militia.attack;
-    const bestCmd = this.state.generals.reduce((m, g) => Math.max(m, getGeneralDef(g.id)?.command ?? 0), 0);
-    const raw = 20 + soldiers * bestAtk * (1 + bestCmd / 100); // 20=无常备兵时的乡勇守土基数
-    return Math.round(applyModifiers(raw, 'country_military_power', this.state.activeModifiers));
+    return militaryPowerOf(
+      this.state.populationClasses.soldier,
+      this.militaryContext(),
+      this.state.generals,
+      this.state.activeModifiers,
+    );
   }
 
   getGenerals(): readonly GeneralState[] { return this.state.generals; }
@@ -2065,10 +2036,8 @@ export class GameStore implements IStateEventEmitter {
       return;
     }
     // 守军以"现有最强可用兵种"列阵（而非恒按民兵），让练兵场/马厩等防御也增益。
-    const available = getAvailableUnitTypes(this.militaryContext());
-    const bestDef: UnitType = available.length
-      ? available.reduce((a, b) => (UNIT_DEFS[b].defense > UNIT_DEFS[a].defense ? b : a))
-      : 'militia';
+    // c1023-03：选型段外迁 bestDefenseUnit。
+    const bestDef: UnitType = bestDefenseUnit(this.militaryContext());
     const myDef = computeDefenseStrength({ [bestDef]: soldiers }, 80);
     const r = resolveBattle(myDef, alert.npcStrength, soldiers, rng, true);
     if (r.unitsLost > 0) this.killSoldiers(r.unitsLost);
