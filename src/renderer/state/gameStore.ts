@@ -16,7 +16,7 @@ import { canPlace } from './placementSystem';
 import type { MapBounds, PlacementResult } from './placementSystem';
 import { generateMap } from './mapGen';
 import { WorldMapAccessor } from './worldMap';
-import { computeProductionTick, type DailyRateRow } from './productionSystem';
+import { type DailyRateRow } from './productionSystem';
 // c1023-01：域一（经济/资源）逻辑外迁——纯计算件收进 domains/resourceDomain，GameStore 保持薄委托
 import {
   RESOURCE_CAP_BASE, resourceCapFor, clampResourceValue, applyResourceDeltas, dailyRatesSnapshot,
@@ -31,6 +31,12 @@ import {
   availableSoldiersOf, militaryPowerOf, bestDefenseUnit, diplomacyDayTick,
   clampNpcVitals, diplomacyRenownModifier, diplomacyWarinessAdjust,
 } from './domains/militaryDomain';
+// c1023-04：域四（建设/生产）逻辑外迁——纯计算件收进 domains/constructionDomain，GameStore 保持薄委托
+import {
+  buildingUnlocked, buildingUnlockInfo, policyUnlocked, normalizeUpgradeTargets,
+  costUnaffordable, chargeBuildingCost, buildingRefundDeltas, cedableBuildings as cedableWorkingBuildings,
+  constructionSpeedMultiplier, advanceConstruction, productionTick as productionTickCore,
+} from './domains/constructionDomain';
 import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
 import { tryAdoptDecree, tickActiveDecree, type AdoptDecreeResult } from './decreeSystem';
 import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from './eventEngine';
@@ -68,9 +74,7 @@ import {
   WRATH_PASSIVE_DECAY_PER_DAY, PRAISE_MORALE_THRESHOLD, PRAISE_MORALE_FALLBACK,
   clampSentiment, shouldForceWrathDemand,
 } from './publicSentiment';
-import {
-  buildingFulfillmentFactor,
-} from './classNeeds';
+
 import {
   WARINESS_BASELINE, WARINESS_DRIFT_PER_DAY, WARINESS_COALITION_THRESHOLD,
   WARINESS_DELTAS, warinessBand, clampWariness, type WarinessBand,
@@ -84,8 +88,7 @@ import {
 } from './endgameEscalation';
 import type { GameStateEventMap } from './stateEvents';
 import type { PopulationClasses, PopulationClass, ConversionOrder } from '../data/populationClass';
-import { createDefaultPopulation, totalPopulation } from '../data/populationClass';
-import { computeClassOccupation, getIdleByClass, tickConversionQueue, applyConversion, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
+import { createDefaultPopulation, totalPopulation } from '../data/populationClass';import { computeClassOccupation, getIdleByClass, tickConversionQueue, applyConversion, computeClassConsumption, type ClassOccupation } from './populationClassSystem';
 import { type FactionState, createFactionState, tickFaction, resolveDemand, scheduleFactionEvent } from './factionSystem';
 import { FACTION_NAMES } from '../data/factions';
 import { type MegaProjectProgress, tickProject, getProjectReward, canAffordPhase } from './megaProjectSystem';
@@ -522,46 +525,29 @@ export class GameStore implements IStateEventEmitter {
       from, to, count,
     );
   }
-  /** 分阶段：建筑是否在当前阶段已解锁。
-   *  条件一：tier 对应国格门槛（T1→grade0, T2→grade1, T3→grade2, T4→grade3）
-   *  条件二：upgradeRequires 全满足（国策/前置建筑）。 */
-  isBuildingUnlocked(def: BuildingDef): boolean {
-    const requiredGrade = Math.max(0, def.tier - 1);
-    if (this.state.grade < requiredGrade) return false;
-    if (def.upgradeRequires.length === 0) return true;
-    const adopted = this.getAdoptedPolicyIds();
+  /** c1023-04：解锁判定共用输入快照（原三方法各自内联组装的同一组集合同源化）。 */
+  private unlockInput() {
     const built = new Set(this.state.buildings.filter(b => b.status === 'working').map(b => b.defId));
-    const decrees = new Set(this.state.completedDecreeIds);
-    return def.upgradeRequires.every(req => adopted.has(req) || built.has(req) || decrees.has(req));
-  }
-  /**
-   * 建筑解锁详情（供 BuildPanel 区分展示，解决"国策采纳了但建筑没出现、玩家以为没生效"）：
-   *  - buildable：可建（= isBuildingUnlocked true）
-   *  - grade_locked：前置(国策/前置建筑/朝令)已满足，但国格不够 → 灰显 + "需晋X"提示
-   *  - prereq_locked：前置未满足 → 仍隐藏（不剧透后期内容）
-   */
-  getBuildingUnlockInfo(def: BuildingDef): { state: 'buildable' | 'grade_locked' | 'prereq_locked'; reason: string } {
-    const requiredGrade = Math.max(0, def.tier - 1);
-    const adopted = this.getAdoptedPolicyIds();
-    const built = new Set(this.state.buildings.filter(b => b.status === 'working').map(b => b.defId));
-    const decrees = new Set(this.state.completedDecreeIds);
-    const prereqMet = def.upgradeRequires.length === 0
-      || def.upgradeRequires.every(req => adopted.has(req) || built.has(req) || decrees.has(req));
-    if (!prereqMet) return { state: 'prereq_locked', reason: '' };
-    if (this.state.grade < requiredGrade) {
-      const gname = gradeDefAt(requiredGrade)?.name ?? `国格${requiredGrade}`;
-      return { state: 'grade_locked', reason: `需晋「${gname}」` };
-    }
-    return { state: 'buildable', reason: '' };
+    return {
+      grade: this.state.grade,
+      adoptedPolicyIds: this.getAdoptedPolicyIds(),
+      builtWorkingDefIds: built,
+      completedDecreeIds: new Set(this.state.completedDecreeIds),
+    };
   }
 
-  /** 分阶段：国策是否已解锁（国格门槛 + prerequisites 全部已采纳）。 */
+  /** 分阶段：建筑是否在当前阶段已解锁。c1023-04：主体外迁 buildingUnlocked。 */
+  isBuildingUnlocked(def: BuildingDef): boolean {
+    return buildingUnlocked(this.unlockInput(), def);
+  }
+  /** 建筑解锁详情（供 BuildPanel 区分展示）。c1023-04：主体外迁 buildingUnlockInfo。 */
+  getBuildingUnlockInfo(def: BuildingDef): { state: 'buildable' | 'grade_locked' | 'prereq_locked'; reason: string } {
+    return buildingUnlockInfo(this.unlockInput(), def);
+  }
+
+  /** 分阶段：国策是否已解锁（国格门槛 + prerequisites 全部已采纳）。c1023-04：主体外迁 policyUnlocked。 */
   isPolicyUnlocked(def: PolicyNode): boolean {
-    const requiredGrade = Math.max(0, def.tier - 1);
-    if (this.state.grade < requiredGrade) return false;
-    if (def.prerequisites.length === 0) return true;
-    const adopted = this.getAdoptedPolicyIds();
-    return def.prerequisites.every(p => adopted.has(p));
+    return policyUnlocked(this.unlockInput(), def);
   }
   getLastSeenTimestamp(): number { return this.state.lastSeenTimestamp; }
   getWorldMap(): WorldMapAccessor { return this.worldMapAccessor; }
@@ -783,15 +769,8 @@ export class GameStore implements IStateEventEmitter {
       this.autoRecruitToClass(cls, requiredPeople);
     }
 
-    const deltas: Partial<Record<ResourceId, number>> = {};
-    for (const id of RESOURCE_IDS) {
-      if (id === 'people') continue; // 民=占用制劳力，不作为造价消耗（占用由 employedLabor 计算）
-      const amount = def.cost[id];
-      if (amount === undefined || amount === 0) continue;
-      const current = this.state.resources[id] ?? 0;
-      this.setResourceClamped(id, current - amount);
-      deltas[id] = -amount;
-    }
+    // c1023-04：扣费循环外迁 chargeBuildingCost（people 不作造价消耗，占用由 employedLabor 计算）
+    const deltas = chargeBuildingCost(this.state.resources, def.cost, (id, v) => this.setResourceClamped(id, v));
 
     const building: BuildingInstance = {
       defId: def.id,
@@ -836,9 +815,8 @@ export class GameStore implements IStateEventEmitter {
     // c1012-01 案a：upgradesTo 数组化——取首目标（现数据各建筑 ≤1 目标；
     // 多目标选择交互属数据增长后续，非本单面）。
     // 迁移例：旧标量形态（外部内容/旧夹具）在此归一为单元素数组——读写两侧兼容。
-    const rawTargets = fromDef.upgradesTo;
-    const upgradeTargets: string[] =
-      rawTargets == null ? [] : Array.isArray(rawTargets) ? rawTargets : [rawTargets];
+    // c1023-04：归一式外迁 normalizeUpgradeTargets。
+    const upgradeTargets = normalizeUpgradeTargets(fromDef);
     if (upgradeTargets.length === 0) return { ok: false, reason: 'no_upgrade_path' };
     const targetId = upgradeTargets[0];
     const toDef = targetId === undefined ? undefined : getBuildingDef(targetId);
@@ -875,26 +853,12 @@ export class GameStore implements IStateEventEmitter {
       }
     }
 
-    // 资源：升级专用 cost；未给则回退到 toDef.cost
+    // 资源：升级专用 cost；未给则回退到 toDef.cost（c1023-04：预检/扣费外迁 costUnaffordable / chargeBuildingCost）
     const cost = toDef.upgradeCost ?? toDef.cost;
-    for (const id of RESOURCE_IDS) {
-      if (id === 'people') continue; // 民=占用制劳力，升级不消耗人口
-      const need = cost[id];
-      if (need === undefined || need === 0) continue;
-      if ((this.state.resources[id] ?? 0) < need) {
-        return { ok: false, reason: 'insufficient_resources' };
-      }
+    if (costUnaffordable(this.state.resources, cost)) {
+      return { ok: false, reason: 'insufficient_resources' };
     }
-
-    const deltas: Partial<Record<ResourceId, number>> = {};
-    for (const id of RESOURCE_IDS) {
-      if (id === 'people') continue; // 民=占用制劳力，升级不消耗人口
-      const need = cost[id];
-      if (need === undefined || need === 0) continue;
-      const cur = this.state.resources[id] ?? 0;
-      this.setResourceClamped(id, cur - need);
-      deltas[id] = -need;
-    }
+    const deltas = chargeBuildingCost(this.state.resources, cost, (id, v) => this.setResourceClamped(id, v));
 
     inst.upgradingTo = toDef.id;
     inst.constructionProgress = 0;
@@ -918,19 +882,8 @@ export class GameStore implements IStateEventEmitter {
     if (!removed) return false;
     this.state.buildings.splice(idx, 1);
     const def = getBuildingDef(removed.defId);
-    const deltas: Partial<Record<ResourceId, number>> = {};
-    if (def) {
-      for (const id of RESOURCE_IDS) {
-        if (id === 'people') continue; // 占用制：民没被消耗，不返还
-        const amount = def.cost[id];
-        if (!amount || amount <= 0) continue;
-        const refund = Math.floor(amount * 0.5);
-        if (refund <= 0) continue;
-        const cur = this.state.resources[id] ?? 0;
-        this.setResourceClamped(id, cur + refund);
-        deltas[id] = refund;
-      }
-    }
+    // c1023-04：半价返还外迁 buildingRefundDeltas（50% 非民材料；占用制民不返还）
+    const deltas = buildingRefundDeltas(def?.cost);
     if (Object.keys(deltas).length > 0) {
       this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_refund' });
     }
@@ -1007,19 +960,12 @@ export class GameStore implements IStateEventEmitter {
   }
 
   private runConstructionPhase(): void {
-    // A-3：季节影响建筑工期（春 +20% 速度 / 冬 -33% 速度）— 仅有在建时才算
-    const hasConstructing = this.state.buildings.some(b => b.status === 'constructing');
-    const constructionSpeedMul = hasConstructing
-      ? applyModifiers(1, 'building_construction_speed', this.state.activeModifiers)
-      : 1;
-    for (const b of this.state.buildings) {
-      if (b.status !== 'constructing') continue;
-      const isUpgrade = !!b.upgradingTo;
-      // 升级用 target def 的 upgradeTime；新建用 def.constructionTime
-      const targetDef = isUpgrade ? getBuildingDef(b.upgradingTo!) : getBuildingDef(b.defId);
-      if (!targetDef) continue;
-      const time = isUpgrade ? (targetDef.upgradeTime ?? 1) : targetDef.constructionTime;
-      const finishUpgrade = (): void => {
+    // A-3：季节影响建筑工期（春 +20% 速度 / 冬 -33% 速度）— 仅有在建时才算。
+    // c1023-04：乘数与推进循环外迁 constructionSpeedMultiplier / advanceConstruction（完工收尾经 io 回调）。
+    const constructionSpeedMul = constructionSpeedMultiplier(this.state.buildings, this.state.activeModifiers);
+    advanceConstruction(this.state.buildings, constructionSpeedMul, {
+      onCompleted: (b) => this.emitter.emit(STATE_EVENTS.BUILDING_COMPLETED, b),
+      finishUpgrade: (b, targetDef) => {
         const oldDefId = b.defId;
         b.defId = b.upgradingTo!;
         b.tier = targetDef.tier;
@@ -1035,24 +981,8 @@ export class GameStore implements IStateEventEmitter {
         this.emitter.emit(STATE_EVENTS.BUILDING_UPGRADED, {
           instance: b, fromDefId: oldDefId, toDefId: b.defId,
         });
-      };
-      // ct<=0 means instant build (degenerate static-content case); complete in this tick
-      if (time <= 0) {
-        b.constructionProgress = 100;
-        b.status = 'working';
-        if (isUpgrade) finishUpgrade();
-        else this.emitter.emit(STATE_EVENTS.BUILDING_COMPLETED, b);
-        continue;
-      }
-      b.constructionProgress += (100 / time) * constructionSpeedMul;
-      // 浮点累加可能停在 99.9999 而少建一天；以 99.999 为闸门兜底（DeepSeek findings）
-      if (b.constructionProgress >= 99.999) {
-        b.constructionProgress = 100;
-        b.status = 'working';
-        if (isUpgrade) finishUpgrade();
-        else this.emitter.emit(STATE_EVENTS.BUILDING_COMPLETED, b);
-      }
-    }
+      },
+    });
   }
 
   private runCalendarEventsPhase(
@@ -1072,20 +1002,13 @@ export class GameStore implements IStateEventEmitter {
     }
   }
 
-  /** 当日产出 / 维护开销 → 资源 deltas（grain 等） */
+  /** 当日产出 / 维护开销 → 资源 deltas（grain 等）。c1023-04：组装外迁 productionTickCore。 */
   private runProductionTick(): void {
-    // A2：每栋建筑按自己阶层的需求满足度打折（缺市集的工匠低效）
-    const factorFor = (defId: string): number => buildingFulfillmentFactor(
-      getBuildingDef(defId)?.classType,
+    const result = productionTickCore(
       this.state.buildings,
       this.state.resources,
-    );
-    const result = computeProductionTick(
-      this.state.buildings,
-      getBuildingDef,
       this.state.activeModifiers,
       this.state.productionCarry,
-      factorFor,
     );
     // 把本 tick 的小数残差留到下一 tick（Slice G hardening 分数累加器）
     this.state.productionCarry = result.fractionalCarry;
@@ -2636,14 +2559,11 @@ export class GameStore implements IStateEventEmitter {
     }
   }
 
-  /** 核心建筑（不可被割让）：基本民生。 */
-  private static readonly CORE_BUILDING_IDS = new Set(['bld_farm', 'bld_well', 'bld_house']);
+  /** 核心建筑（不可被割让）→ c1023-04 已外迁 domains/constructionDomain（CORE_BUILDING_IDS，值不变）。 */
 
-  /** 可被割让的 working 非核心建筑（最近建的在数组末尾）。 */
+  /** 可被割让的 working 非核心建筑（最近建的在数组末尾）。c1023-04：主体外迁 cedableWorkingBuildings。 */
   private cedableBuildings(): BuildingInstance[] {
-    return this.state.buildings.filter(
-      b => b.status === 'working' && !GameStore.CORE_BUILDING_IDS.has(b.defId),
-    );
+    return cedableWorkingBuildings(this.state.buildings);
   }
 
   /** 是否存在军力远超玩家(≥2×)的敌对 NPC——可逼为附庸。 */
