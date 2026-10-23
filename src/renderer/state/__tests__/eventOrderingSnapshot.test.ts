@@ -292,16 +292,19 @@ describe('ad32 ④ 不依赖对象枚举顺序', () => {
     const hits = [...new Set(stateAndDataSources()
       .filter((f) => /Object\.(keys|entries|values)\s*\(/.test(f.src))
       .map((f) => f.rel))].sort();
-    // 现状 9 件，逐一都是"顺序无关"用法（求和 / 判空 / 计数 / 建注册表后另配显式序表；
+    // 现状 10 件，逐一都是"顺序无关"用法（求和 / 判空 / 计数 / 建注册表后另配显式序表；
     // snapshotDigest.ts=键排序规范化后哈希，c1014-06 收编同笔加入；
     // domains/militaryDomain.ts=c1023-03 拆分批 3——原 gameStore.ts runDiplomacyTick 的
     // `Object.entries(tick.resourceDeltas)` 求和用法逐字搬移（聚合增量消费仍走 applyDayDeltas
-    // 的 RESOURCE_IDS 显式序），非新增模式，人工 review 后随批改钉）。
-    // 谁新增第 10 件，本用例即红 ⇒ 逼一次"这个枚举序会不会流进快照或结算"的人工 review。
+    // 的 RESOURCE_IDS 显式序），非新增模式，人工 review 后随批改钉；
+    // domains/turnDomain.ts=c1023-05 拆分批 5——原 runDecreeTick 的
+    // `Object.entries(advance.costDeltas)` 聚合同款逐字搬移，同口径随批改钉。
+    // 谁新增第 11 件，本用例即红 ⇒ 逼一次"这个枚举序会不会流进快照或结算"的人工 review。
     expect(hits).toEqual([
       'data/buildingRegistry.ts',
       'data/modifierValidator.ts',
       'state/domains/militaryDomain.ts',
+      'state/domains/turnDomain.ts',
       'state/gameStore.ts',
       'state/megaProjectSystem.ts',
       'state/militarySystem.ts',

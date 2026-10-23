@@ -37,14 +37,19 @@ import {
   costUnaffordable, chargeBuildingCost, buildingRefundDeltas, cedableBuildings as cedableWorkingBuildings,
   constructionSpeedMultiplier, advanceConstruction, productionTick as productionTickCore,
 } from './domains/constructionDomain';
+// c1023-05：域五（回合/系统）逻辑外迁——纯计算件收进 domains/turnDomain，GameStore 保持薄委托
+import {
+  expireModifiersStep, seasonTransitionStep, advanceDecrees,
+  computeCountryMetrics, buildGradeInput as buildGradeInputStep,
+} from './domains/turnDomain';
 import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
-import { tryAdoptDecree, tickActiveDecree, type AdoptDecreeResult } from './decreeSystem';
+import { tryAdoptDecree, type AdoptDecreeResult } from './decreeSystem';
 import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from './eventEngine';
 import { applyModifiers, aggregateModifiers } from './modifierAggregator';
 import type { CountryMetrics } from './dslEval';
 import { createRng } from './rng';
 import { evaluateGrade, type GradeInput } from './countryGrade';
-import { gradeDefAt, MAX_GRADE, DIPLO_FLAG_ALL_FRIENDLY } from '../data/countryGrades';
+import { gradeDefAt, MAX_GRADE } from '../data/countryGrades';
 import {
   isDualZero, chooseCrisisKind, planUnrestEffects, planCessionMoraleDrop, planTribute,
   CRISIS_GRACE_DAYS, CRISIS_RECOVER_DAYS, VASSAL_REDEEM_GOLD, type CrisisKind,
@@ -934,28 +939,27 @@ export class GameStore implements IStateEventEmitter {
     }));
   }
 
+  /** c1023-05：到期判定外迁 expireModifiersStep；条件写回与 MODIFIER_REMOVED emit 次序保真。 */
   private runModifierExpiryPhase(): void {
-    for (const m of this.state.activeModifiers) {
-      if (m.remainingDays > 0) m.remainingDays -= 1;
-    }
-    const expired = this.state.activeModifiers.filter(m => m.remainingDays === 0);
-    if (expired.length > 0) {
-      this.state.activeModifiers = this.state.activeModifiers.filter(m => m.remainingDays !== 0);
-      for (const m of expired) {
+    const out = expireModifiersStep(this.state.activeModifiers);
+    if (out.expired.length > 0) {
+      this.state.activeModifiers = out.kept;
+      for (const m of out.expired) {
         this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id: m.id });
       }
     }
   }
 
+  /** c1023-05：换季核外迁 seasonTransitionStep；MODIFIER_REMOVED/ADDED emit 次序保真。 */
   private runSeasonTransitionPhase(
     calBefore: ReturnType<typeof dayToCalendar>,
     calAfter: ReturnType<typeof dayToCalendar>,
   ): void {
     // A-3：季节切换优先于 construction/production，保证新季节第一天就生效
     if (calAfter.season === calBefore.season) return;
-    const removed = this.state.activeModifiers.filter(isSeasonModifier);
-    this.state.activeModifiers = applySeasonTransition(this.state.activeModifiers, calAfter.season);
-    for (const m of removed) this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id: m.id });
+    const out = seasonTransitionStep(this.state.activeModifiers, calAfter.season);
+    this.state.activeModifiers = out.next;
+    for (const id of out.removedIds) this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id });
     this.emitter.emit(STATE_EVENTS.MODIFIER_ADDED, { id: `season_modifier_${calAfter.season}` });
   }
 
@@ -1020,66 +1024,33 @@ export class GameStore implements IStateEventEmitter {
 
   /**
    * 推进 active decrees；阶段到期 → 应用 modifier / 扣下阶 cost / stall 处理。
+   * c1023-05：推进核外迁 advanceDecrees（有序 ops：modifier 增删与 DECREE_* 事件按 decree 遍历序保真）。
    *
    * 关键不变量（DeepSeek 二审 #4）：循环开始前对 resources 取一次快照，每个 decree
-   * 都基于同一份快照评估 affordability；扣费 deltas 累积到末尾一次性应用。这样多个
-   * decree 同日推进时不再依赖 activeDecrees 的插入顺序——任意一个 decree 是否能
-   * advance 只取决于"日初资源 vs 自己一阶 cost"。
+   * 都基于同一份快照评估 affordability；扣费 deltas 累积到末尾一次性应用。
    */
   private runDecreeTick(): void {
-    const next: { id: string; currentStage: number; daysElapsed: number }[] = [];
-    // 快照：所有 decree 同步评估的资源基准
-    const resourcesSnapshot = { ...this.state.resources };
-    const accumulatedDeltas: Partial<Record<ResourceId, number>> = {};
-    for (const rec of this.state.activeDecrees) {
-      const def = this.decrees.find(d => d.id === rec.id);
-      if (!def) {
-        // 未知 decree（数据丢失 / 已被移除）：保留但不推进，避免崩溃
-        next.push(rec);
-        continue;
-      }
-      const advance = tickActiveDecree(def, rec, resourcesSnapshot);
-      if (advance === null) {
-        // 未到期 OR 仍 stalled：daysElapsed +1（stall 状态下也累加，纯纯诊断用）
-        next.push({ ...rec, daysElapsed: rec.daysElapsed + 1 });
-        continue;
-      }
-
-      // 仅当 applyEffects=true 时才发 modifier 增删（防止 stall 重复 apply）
-      if (advance.applyEffects) {
-        for (const id of advance.modifiersToRemove) {
-          this.removeModifier(id);
+    const out = advanceDecrees(this.state.activeDecrees, this.decrees, { ...this.state.resources });
+    for (const op of out.ops) {
+      if (op.kind === 'removeModifier') {
+        this.removeModifier(op.id);
+      } else if (op.kind === 'addModifier') {
+        this.addModifier(op.modifier);
+      } else if (op.kind === 'completed') {
+        // v1.0 #2：记入 completedDecreeIds（去重），给链路解锁用
+        if (!this.state.completedDecreeIds.includes(op.decreeId)) {
+          this.state.completedDecreeIds.push(op.decreeId);
         }
-        this.addModifier(advance.modifier);
+        this.emitter.emit(STATE_EVENTS.DECREE_COMPLETED, { decreeId: op.decreeId, fromStage: op.fromStage });
+      } else if (op.kind === 'stalled') {
+        this.emitter.emit(STATE_EVENTS.DECREE_STALLED, { decreeId: op.decreeId, stage: op.stage });
+      } else {
+        this.emitter.emit(STATE_EVENTS.DECREE_ADVANCED, { decreeId: op.decreeId, fromStage: op.fromStage, toStage: op.toStage });
       }
-
-      if (advance.next === null) {
-        // decree 完成 — v1.0 #2：记入 completedDecreeIds，给链路解锁用
-        if (!this.state.completedDecreeIds.includes(rec.id)) {
-          this.state.completedDecreeIds.push(rec.id);
-        }
-        this.emitter.emit(STATE_EVENTS.DECREE_COMPLETED, { decreeId: rec.id, fromStage: advance.fromStage });
-        continue; // 不 push 进 next（从 active 列表移除）
-      }
-
-      if (advance.didStall) {
-        // 首次卡住：保留 record（daysElapsed 推到 stage.days+1 sentinel），不扣 cost
-        next.push({ id: rec.id, currentStage: advance.next.currentStage, daysElapsed: advance.next.daysElapsed });
-        this.emitter.emit(STATE_EVENTS.DECREE_STALLED, { decreeId: rec.id, stage: advance.next.currentStage });
-        continue;
-      }
-
-      // 正常 advance（含从 stall 中恢复的"补 advance"）：把下阶 cost 累积到末尾再应用
-      for (const [k, v] of Object.entries(advance.costDeltas) as [ResourceId, number | undefined][]) {
-        if (v === undefined) continue;
-        accumulatedDeltas[k] = (accumulatedDeltas[k] ?? 0) + v;
-      }
-      next.push({ id: rec.id, currentStage: advance.next.currentStage, daysElapsed: advance.next.daysElapsed });
-      this.emitter.emit(STATE_EVENTS.DECREE_ADVANCED, { decreeId: rec.id, fromStage: advance.fromStage, toStage: advance.next.currentStage });
     }
-    this.state.activeDecrees = next;
-    if (Object.keys(accumulatedDeltas).length > 0) {
-      this.applyDayDeltas(accumulatedDeltas);
+    this.state.activeDecrees = out.next;
+    if (Object.keys(out.accumulatedDeltas).length > 0) {
+      this.applyDayDeltas(out.accumulatedDeltas);
     }
   }
 
@@ -1152,36 +1123,17 @@ export class GameStore implements IStateEventEmitter {
     this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, { eventId: this.state.pendingEventId });
   }
 
-  /** 用当前 state + activeModifiers 算 DSL/事件采样所需的国家级指标快照 */
+  /** 用当前 state + activeModifiers 算 DSL/事件采样所需的国家级指标快照。c1023-05：主体外迁 computeCountryMetrics。 */
   private computeMetrics(): CountryMetrics {
-    const cal = dayToCalendar(this.state.currentDay);
-    // Phase1：people 现在会真实增长 → population 直接取裸 people 资源（不再经 country_population_cap
-    // 聚合，后者改作"住房上限"用于人口增长门槛，见 population.ts / runPopulationTick）。
-    const population = this.state.resources['people'] ?? 0;
-    const morale = applyModifiers(50, 'country_morale', this.state.activeModifiers);
-    const wrath = clampSentiment(
-      this.state.publicWrath + aggregateModifiers('country_wrath', this.state.activeModifiers).addSum,
-    );
-    const militaryPower = applyModifiers(0, 'country_military_power', this.state.activeModifiers);
-    // RNG：每次 metrics 推进一步 rngSeed，保证 day-to-day 不同。
-    // 用箭头包裹以防 createRng 实现被换成需要 this 的形式（DeepSeek 防御）。
-    const rngHandle = createRng(this.state.rngSeed ^ this.state.currentDay);
-    const sf = this.state.storyFlags;
-    return {
+    return computeCountryMetrics({
+      currentDay: this.state.currentDay,
       resources: this.state.resources,
-      population,
-      morale,
-      wrath,
-      militaryPower,
-      year: cal.year,
-      season: cal.season,
-      dayOfYear: this.state.currentDay % 120,
-      rng: () => rngHandle.next(),
+      activeModifiers: this.state.activeModifiers,
+      publicWrath: this.state.publicWrath,
+      rngSeed: this.state.rngSeed,
       grade: this.state.grade,
-      storyChapter: sf ? sf.chapter : -1,
-      storyPowerAxis: sf ? sf.powerAxis : 0,
-      storyResourceAxis: sf ? sf.resourceAxis : 0,
-    };
+      storyFlags: this.state.storyFlags,
+    });
   }
 
   /** 玩家点 choice 或 timeout 自动 0：清掉 pendingEventId + 应用 effects + 写 history */
@@ -1525,30 +1477,18 @@ export class GameStore implements IStateEventEmitter {
     });
   }
 
-  /** NPC 邦交"友好"阈值：stance ≥ 20（与 stanceLabel 的"友好"档一致） */
-  private static readonly NPC_FRIENDLY_STANCE = 20;
+  /** NPC 邦交"友好"阈值 → c1023-05 已外迁 domains/turnDomain（NPC_FRIENDLY_STANCE，值不变）。 */
 
-  /** 收集国格判定所需快照（人口口径与 computeMetrics 一致）。 */
+  /** 收集国格判定所需快照（人口口径与 computeMetrics 一致）。c1023-05：主体外迁 buildGradeInputStep。 */
   private buildGradeInput(): GradeInput {
-    // Phase1：国格人口门槛用裸 people（与 computeMetrics 一致）；country_population_cap 改作住房上限。
-    const population = this.state.resources['people'] ?? 0;
-    const builtDefIds = new Set<string>();
-    for (const b of this.state.buildings) {
-      if (b.status === 'working') builtDefIds.add(b.defId);
-    }
-    const diplomacyFlags = new Set<string>();
-    if (this.state.npcCountries.length > 0
-      && this.state.npcCountries.every(n => n.stance >= GameStore.NPC_FRIENDLY_STANCE)) {
-      diplomacyFlags.add(DIPLO_FLAG_ALL_FRIENDLY);
-    }
-    return {
-      population,
+    return buildGradeInputStep({
+      people: this.state.resources['people'] ?? 0,
       resources: this.state.resources,
-      builtDefIds,
+      buildings: this.state.buildings,
+      npcCountries: this.state.npcCountries,
       adoptedPolicyIds: this.getAdoptedPolicyIds(),
-      completedDecreeIds: new Set(this.state.completedDecreeIds),
-      diplomacyFlags,
-    };
+      completedDecreeIds: this.state.completedDecreeIds,
+    });
   }
 
   /** 每日：综合门槛 + 标志成就都满足 → 晋一级国格（一次最多 +1，不降级）。 */
