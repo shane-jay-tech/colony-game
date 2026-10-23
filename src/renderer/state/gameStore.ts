@@ -18,7 +18,11 @@ import { canPlace } from './placementSystem';
 import type { MapBounds, PlacementResult } from './placementSystem';
 import { generateMap } from './mapGen';
 import { WorldMapAccessor } from './worldMap';
-import { computeProductionTick, computeDailyRates, type DailyRateRow } from './productionSystem';
+import { computeProductionTick, type DailyRateRow } from './productionSystem';
+// c1023-01：域一（经济/资源）逻辑外迁——纯计算件收进 domains/resourceDomain，GameStore 保持薄委托
+import {
+  RESOURCE_CAP_BASE, resourceCapFor, clampResourceValue, applyResourceDeltas, dailyRatesSnapshot,
+} from './domains/resourceDomain';
 import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
 import { tryAdoptDecree, tickActiveDecree, type AdoptDecreeResult } from './decreeSystem';
 import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from './eventEngine';
@@ -634,8 +638,7 @@ export class GameStore implements IStateEventEmitter {
   }
   listenerCount(event: string): number { return this.emitter.listenerCount(event); }
 
-  /** 资源存储上限基数（无仓廪时）。 */
-  private static readonly RESOURCE_CAP_BASE = 9999;
+  /** 资源存储上限基数（无仓廪时）→ c1023-01 已外迁 domains/resourceDomain（RESOURCE_CAP_BASE，值不变）。 */
 
   /**
    * 资源存储上限。BUG-B（2026-06-19）：接线 bld_granary 的"储量上限 +50%"死功能——
@@ -643,13 +646,7 @@ export class GameStore implements IStateEventEmitter {
    * people 不走此路（其真实约束是住房上限 getHousingCap），仅用基数防溢出。
    */
   getResourceCap(id: ResourceId): number {
-    if (id === 'people') return GameStore.RESOURCE_CAP_BASE;
-    let granaries = 0;
-    for (const b of this.state.buildings) {
-      if (b.status === 'working' && b.defId === 'bld_granary') granaries++;
-    }
-    const mul = Math.min(3, 1 + granaries * 0.5);
-    return Math.round(GameStore.RESOURCE_CAP_BASE * mul);
+    return resourceCapFor(id, this.state.buildings);
   }
 
   /**
@@ -662,7 +659,9 @@ export class GameStore implements IStateEventEmitter {
   private _nanDropWarned = new Set<ResourceId>();
 
   private setResourceClamped(id: ResourceId, value: number): void {
-    if (Number.isNaN(value)) {
+    // c1023-01：钳制换算外迁 clampResourceValue（NaN→null）；告警去重与库存写入仍在此（副作用归 store）
+    const clamped = clampResourceValue(value, this.getResourceCap(id));
+    if (clamped === null) {
       // c1006-02（c1004-20 三选·推荐组合①）：NaN 增量静默丢弃点补 warn（带去重护栏：
       // 同 id 首条后静默，防上游 bug 持续时每 tick 刷屏）。
       if (!this._nanDropWarned.has(id)) {
@@ -672,7 +671,7 @@ export class GameStore implements IStateEventEmitter {
       }
       return;
     }
-    this.state.resources[id] = Math.min(this.getResourceCap(id), Math.max(0, Math.floor(value)));
+    this.state.resources[id] = clamped;
   }
 
   /**
@@ -681,19 +680,13 @@ export class GameStore implements IStateEventEmitter {
    * 给 HUD 供需面板（ProductionPanel）用——生产面板即主战场（戴森球/纪元 1800 供需表启示）。
    */
   getDailyRates(): Partial<Record<ResourceId, DailyRateRow>> {
-    const factorFor = (defId: string): number => buildingFulfillmentFactor(
-      getBuildingDef(defId)?.classType,
-      this.state.buildings,
-      this.state.resources,
-    );
-    const cls = computeClassConsumption(this.state.populationClasses);
-    return computeDailyRates(
-      this.state.buildings,
-      getBuildingDef,
-      this.state.activeModifiers,
-      { grain: cls.totalGrain, cloth: cls.totalCloth, bronze: cls.totalBronze, gold: cls.totalGold },
-      factorFor,
-    );
+    // c1023-01：主体外迁 dailyRatesSnapshot（与生产 tick 同源口径不变）
+    return dailyRatesSnapshot({
+      buildings: this.state.buildings,
+      populationClasses: this.state.populationClasses,
+      resources: this.state.resources,
+      activeModifiers: this.state.activeModifiers,
+    });
   }
 
   addResource(id: ResourceId, amount: number, reason?: string): void {
@@ -963,12 +956,8 @@ export class GameStore implements IStateEventEmitter {
   }
 
   applyDayDeltas(deltas: Partial<Record<ResourceId, number>>): void {
-    for (const id of RESOURCE_IDS) {
-      const delta = deltas[id];
-      if (delta === undefined) continue;
-      const current = this.state.resources[id] ?? 0;
-      this.setResourceClamped(id, current + delta);
-    }
+    // c1023-01：遍历循环外迁 applyResourceDeltas（序/跳过语义逐字保持）；RESOURCES_CHANGED 仍在此发
+    applyResourceDeltas(this.state.resources, deltas, (id, v) => this.setResourceClamped(id, v));
     this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas });
   }
 
