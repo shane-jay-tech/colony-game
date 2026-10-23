@@ -15,6 +15,9 @@ import { sceneClassMock } from '../../ui/__tests__/fakeScene';
 import { GameStore } from '../../state/gameStore';
 import type { IEventEmitter } from '../../state/gameStore';
 import type { WorldMap } from '../../data/mapSchema';
+import { NPC_POOL } from '../../data/npcCountries';
+import { BALANCE, STORY_BALANCE } from '../../data/balanceConfig';
+import type { ResourceId } from '../../data/resourceRegistry';
 
 const { registryStore } = sceneClassMock;
 
@@ -99,5 +102,44 @@ describe('IntroScene 立邦真实链路', () => {
 
     expect(registryStore.get(REGISTRY_KEYS.introDone)).toBeUndefined();
     expect(sceneClassMock.sceneStart).not.toHaveBeenCalled();
+  });
+
+  // c1023-07（c1011-14 缺口2·立国序列）：story 立国后 mode=story＋序章 flags＋随机 4 国含蛮夷＋故事资源覆盖。
+  // IntroScene.tryStart 的接线序列 = startStoryMode → startNewGameNpcs（c1011-09 材料指名的缺口形态）。
+  it('立国序列断言：story 立国后 mode/序章 flags/随机 4 国含蛮夷/故事资源覆盖沙盒基线，接线次序 story→npcs', () => {
+    const store = makeStore();
+    // 模拟 main.ts Slice E：沙盒基线先行发放，证故事表是真覆盖而非「初始恰好为 0」
+    for (const [id, amount] of Object.entries(BALANCE.startingResources)) {
+      if (amount && amount > 0) store.addResource(id as ResourceId, amount);
+    }
+    const storySpy = vi.spyOn(store, 'startStoryMode');
+    const npcsSpy = vi.spyOn(store, 'startNewGameNpcs');
+    const scene = makeReadyScene(store);
+    (scene as unknown as { tryStart: () => void }).tryStart();
+
+    // ① mode=story + 序章 storyFlags（chapter 0、未统一）
+    expect(store.getMode()).toBe('story');
+    const flags = store.getStoryFlags();
+    expect(flags).not.toBeNull();
+    expect(flags!.chapter).toBe(0);
+    expect(flags!.unified).toBe(false);
+
+    // ② 随机阵容：4 国、全出自 8 国池、含 ≥1 蛮夷（tribal，现池即 npc_rong）
+    const npcs = store.getNpcCountries();
+    expect(npcs.length).toBe(4);
+    const poolIds = new Set(NPC_POOL.map(d => d.id));
+    expect(npcs.every(n => poolIds.has(n.id))).toBe(true);
+    const tribalIds = NPC_POOL.filter(d => d.archetype === 'tribal').map(d => d.id);
+    expect(npcs.some(n => tribalIds.includes(n.id))).toBe(true);
+
+    // ③ 故事双表覆盖：STORY_BALANCE.startingResources 全数落地（沙盒基线被改写）
+    const res = store.getResources();
+    for (const [id, v] of Object.entries(STORY_BALANCE.startingResources)) {
+      expect(res[id as ResourceId]).toBe(v);
+    }
+    expect(res.grain).not.toBe(BALANCE.startingResources.grain); // 320 vs 250——覆盖确已发生
+
+    // ④ 接线次序：startStoryMode 先于 startNewGameNpcs（同一 tryStart 序列内）
+    expect(storySpy.mock.invocationCallOrder[0]!).toBeLessThan(npcsSpy.mock.invocationCallOrder[0]!);
   });
 });
