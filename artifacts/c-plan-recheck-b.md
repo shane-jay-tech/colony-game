@@ -38,7 +38,7 @@
 | :58 五族测试（story/sandbox 组成、save/load UI、typed registry、tick 相位序、renderer 计算） | 全在役且本班增强：story/sandbox 组成＝IntroScene.test＋**storyNpcRoster.test（本班新增 5 例）**；save/load UI＝SaveLoadPanel.test；typed registry＝registry.test；相位序＝dayPipeline.test；renderer 计算＝viewportMath/cameraMath | ✓ |
 | :59 scene/composition 冒烟（listener 清理或 registry 接线） | IntroSceneShutdown/ModeSelectSceneShutdown/GameSceneLifecycle＋registry.test | ✓ |
 | :60 START_HERE/架构注记与现值同步 | **README 两偏离已修**（c1025-06 落地）：R1 国策 23→39 已改现值、R2 加速键改符号化描述（speedKeyHandler1-3/keydown-ONE/TWO/THREE，防再漂）；四域外同名漂移仍待裁（域外文档不属该单获批行集）。START_HERE 主体符（R7-R12） | ✓（README 两偏离清零 c1025-06；域外漂移在册） |
-| :61 type-check/unit/build/`git diff --check` | verify＝type-check+test+test:perf 本班 pre-commit 全量绿 ×5；`git diff --check` 本单 fresh 跑 rc=0；`npm run build` 键在位（electron-vite build）——重构建本班未复跑（离线预算限界，键与 c930-29 十键普查为证） | ✓（build 未复跑注记） |
+| :61 type-check/unit/build/`git diff --check` | verify＝type-check+test+test:perf 本班 pre-commit 全量绿 ×5；`git diff --check` 本单 fresh 跑 rc=0；`npm run build` 已复跑（c1025-07）：exit=0、三段全绿（main/preload/renderer ✓ built ×3、renderer 137 模块 7.86s），产物 dist/ 在 .gitignore 未入库——五批拆分＋story 三批后构建面核验通过 | ✓（c1025-07 销项） |
 
 ## 五、#7 GitHub backup（4 条）
 
