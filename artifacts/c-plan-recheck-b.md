@@ -44,9 +44,9 @@
 
 | 条款（PLAN 行） | 现值实测 | 判定 |
 |---|---|---|
-| :65-:66 gh CLI＋private repo 建立 | origin＝`github.com/shane-jay-tech/colony-game.git` 已配（git remote -v 实查）；private 属性离线不可证（本班禁联网） | ◐（离线限界） |
-| :67 push snapshot＋hardening branch | c1011-08 读数「origin 双远端分支在」；本班 5 笔新提交**未 push**（禁令守约），远端落后本地 | ◐（本地领先 5 笔，待授权 push） |
-| :68 draft PR | 离线不可证（远端 PR 面需联网） | ◐（离线限界） |
+| :65-:66 gh CLI＋private repo 建立 | origin＝`github.com/shane-jay-tech/colony-game.git` 已配（c1025-08 复测在列，fetch/push 双配置）；private 属性离线不可证——**收口：以「用户提供」注记**（禁联网限界内不可证属永久态，用户一句确认即可闭环，非待执行缺口） | ✓（origin ✓＋private 用户提供口径收口 c1025-08） |
+| :67 push snapshot＋hardening branch | **历史 5 笔已清**（2026-10-25 放行前 ahead=0 实测——六仓 push 全平为 gen1025 规划前提）；现值 ahead=5＝**c1025 执行班新产物**（7bf926c/e66c512/bde01b2/3d7b0e1/3a5549c，执行班禁 push 守约），交棒主班 push | ✓（历史款已清 c1025-08 核；新 5 笔＝本班在途交棒非残留） |
+| :68 draft PR | 离线不可证（远端 PR 面需联网）——同 :65-:66 口径**收口：用户提供**（用户在 GitHub 页面一句确认即可，非待执行缺口） | ✓（用户提供口径收口 c1025-08） |
 
 ## 六、Proof Commands＋Completion Criteria 总览
 
