@@ -42,6 +42,8 @@ import {
   expireModifiersStep, seasonTransitionStep, advanceDecrees,
   computeCountryMetrics, buildGradeInput as buildGradeInputStep,
 } from './domains/turnDomain';
+// c1025-01：story 批 1/3 —— NPC 动态日 tick 编排/结算体外迁 domains/storyDomain，GameStore 保持薄委托（io 回调）
+import { npcDynamicsTickStep } from './domains/storyDomain';
 import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
 import { tryAdoptDecree, type AdoptDecreeResult } from './decreeSystem';
 import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from './eventEngine';
@@ -55,12 +57,7 @@ import {
   CRISIS_GRACE_DAYS, CRISIS_RECOVER_DAYS, VASSAL_REDEEM_GOLD, type CrisisKind,
 } from './crisis';
 import { BALANCE, getBalanceConfig } from '../data/balanceConfig';
-import {
-  npcMilitaryGrowthStep, evaluatePlayerStrength, computeNpcAlliances, computeNpcActions,
-  NPC_MP_GROWTH_INTERVAL, NPC_MP_CAP,
-} from './npcDynamics';
 import { checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand, checkEnding, SUBJUGATE_MP_THRESHOLD, type EndingId } from './storyDriver';
-import { actFor, type ActDef } from '../data/actTimeline';
 import {
   ULTIMATUM_WRATH_THRESHOLD, ULTIMATUM_DAYS, ULTIMATUM_RECOVER_WRATH,
   ULTIMATUM_EXPLOSION_WRATH_RESET, shouldStartUltimatum, shouldLiftUltimatum,
@@ -81,7 +78,7 @@ import {
 } from './publicSentiment';
 
 import {
-  WARINESS_BASELINE, WARINESS_DRIFT_PER_DAY, WARINESS_COALITION_THRESHOLD,
+  WARINESS_BASELINE,
   WARINESS_DELTAS, warinessBand, clampWariness, type WarinessBand,
 } from './wariness';
 import {
@@ -109,7 +106,6 @@ import {
   returnGeneral as returnGeneralFn, computeGeneralBonus, tickLoyalty, applyBattleResult, getGeneralDef, canRecruit,
 } from './generalSystem';
 import { type GeneralState, GENERAL_POOL } from '../data/generals';
-import { computeNpcDecision, type NpcDecision } from './diplomacyExpanded';
 import { getExcludedPolicyId, POLICY_EXCLUSION_GROUPS } from '../data/policyExclusions';
 
 export interface IEventEmitter {
@@ -2242,120 +2238,34 @@ export class GameStore implements IStateEventEmitter {
 
   /**
    * 每日：NPC 军力随季成长 + 玩家强弱驱动合纵/骚扰/内斗。
-   * 行动结算（扣玩家资源/军力/民心、NPC 互削）在此，纯函数只给意图。
+   * c1025-01：编排/结算主体外迁 npcDynamicsTickStep（domains/storyDomain）；副作用经 io 回调
+   * 保留在此，emit 次序逐字保真；瞬态 lastActId 与标量 playerMilitaryPower/worldWariness 经 outcome 写回。
    */
   private runNpcDynamicsTick(): void {
-    const npcs = this.state.npcCountries;
-
-    // P2 三幕时间轴：按当前日取幕；幕切换时发 banner（一局至多两次），幕参数喂给结盟/犯边概率。
-    // 放在空 NPC 早退之前：即使无邻邦（读档/故事序章）幕也照常推进。
-    const act: ActDef = actFor(this.state.currentDay);
-    if (act.id !== this.lastActId) {
-      this.lastActId = act.id;
-      this.emitter.emit(STATE_EVENTS.ACT_CHANGED, {
-        id: act.id, name: act.name, subtitle: act.subtitle, day: this.state.currentDay,
-      });
-    }
-
-    if (npcs.length === 0) return;
-
-    let changed = false;
-
-    // 1) 军力成长：每 NPC_MP_GROWTH_INTERVAL 日按 archetype 加一档
-    if (this.state.currentDay > 0 && this.state.currentDay % NPC_MP_GROWTH_INTERVAL === 0) {
-      for (const s of npcs) {
-        const def = getNpcDef(s.id);
-        if (!def) continue;
-        const next = Math.min(NPC_MP_CAP, s.militaryPower + npcMilitaryGrowthStep(def.archetype));
-        if (next !== s.militaryPower) { s.militaryPower = next; changed = true; }
-      }
-    }
-
-    // 2) 玩家强弱档
-    const tier = evaluatePlayerStrength({
-      grade: this.state.grade,
-      militaryPower: this.state.playerMilitaryPower,
-      renown: this.getPlayerRenown(),
-      population: this.state.resources['people'] ?? 0,
-    });
-
-    const rngHandle = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0x5eed) >>> 0);
-    const rng = (): number => rngHandle.next();
-
-    // 3) 合纵结盟（玩家 strong 时形成、否则解散）
-    // B1：警惕值 ≥ 阈值时即使玩家非强档，列国也同仇敌忾（按强档合纵）——张力提前可读。
-    const warinessTier = tier !== 'strong' && this.state.worldWariness >= WARINESS_COALITION_THRESHOLD
-      ? 'strong'
-      : tier;
-    const alliancePatch = computeNpcAlliances(npcs, getNpcDef, warinessTier, rng, act.params);
-    for (const s of npcs) {
-      const next = alliancePatch[s.id];
-      if (next && (next.length !== s.allyIds.length || next.some((id, i) => id !== s.allyIds[i]))) {
-        s.allyIds = next;
-        changed = true;
-      }
-    }
-
-    // B-3: NPC AI 决策（30天一次简单规则：攻击/求贸/求盟/合纵）
-    for (const s of npcs) {
-      const otherNpcs = npcs.filter(n => n.id !== s.id);
-      const decision = computeNpcDecision(
-        s, this.state.playerMilitaryPower, otherNpcs, this.state.currentDay, rngHandle,
-      );
-      if (decision) {
-        s.lastActionDay = this.state.currentDay;
-        changed = true;
-      }
-    }
-
-    // 4) NPC 行动（骚扰 / 联军压境 / 内斗）
-    const actions = computeNpcActions(npcs, getNpcDef, tier, this.state.currentDay, rng, act.params);
-    for (const act of actions) {
-      const actor = npcs.find(n => n.id === act.actorId);
-      if (!actor) continue;
-      actor.lastActionDay = this.state.currentDay;
-      changed = true;
-
-      // 对玩家资源劫掠
-      if (act.resourceRaid) {
-        for (const [rid, v] of Object.entries(act.resourceRaid) as [ResourceId, number][]) {
-          if (v) this.addResource(rid, v, 'npc_action');
-        }
-      }
-      // 对玩家军力 / 民心
-      if (act.playerMilitaryDelta) {
-        this.state.playerMilitaryPower = Math.max(0, Math.min(500, this.state.playerMilitaryPower + act.playerMilitaryDelta));
-      }
-      if (act.playerMoraleDelta) {
-        this.adjustMorale(act.playerMoraleDelta, `npc_${act.kind}`);
-      }
-      if (act.playerWrathDelta) {
-        this.adjustWrath(act.playerWrathDelta, `npc_${act.kind}`);
-      }
-      // NPC 互削
-      if (act.kind === 'npc_vs_npc' && act.targetId && act.targetMilitaryDelta) {
-        const target = npcs.find(n => n.id === act.targetId);
-        if (target) target.militaryPower = Math.max(10, target.militaryPower + act.targetMilitaryDelta);
-      }
-
-      const actorName = getNpcDef(act.actorId)?.name ?? act.actorId;
-      const targetName = act.targetId ? (getNpcDef(act.targetId)?.name ?? act.targetId) : '';
-      const text = act.kind === 'npc_vs_npc'
-        ? `「${actorName}」兴兵伐「${targetName}」`
-        : `「${actorName}」${act.summary}`;
-      this.emitter.emit(STATE_EVENTS.NPC_ACTION, { kind: act.kind, actorName, targetName, text });
-    }
-
-    // B1：太平日子警惕值每日向基线回落（静默漂移，不发事件——面板每天随 DAY_TICK 刷新）
-    if (this.state.worldWariness > WARINESS_BASELINE) {
-      this.state.worldWariness = Math.max(WARINESS_BASELINE, this.state.worldWariness - WARINESS_DRIFT_PER_DAY);
-      changed = true;
-    } else if (this.state.worldWariness < WARINESS_BASELINE) {
-      this.state.worldWariness = Math.min(WARINESS_BASELINE, this.state.worldWariness + WARINESS_DRIFT_PER_DAY);
-      changed = true;
-    }
-
-    if (changed) this.emitter.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined);
+    const out = npcDynamicsTickStep(
+      {
+        npcCountries: this.state.npcCountries,
+        currentDay: this.state.currentDay,
+        grade: this.state.grade,
+        playerMilitaryPower: this.state.playerMilitaryPower,
+        renown: this.getPlayerRenown(),
+        people: this.state.resources['people'] ?? 0,
+        rngSeed: this.state.rngSeed,
+        worldWariness: this.state.worldWariness,
+        lastActId: this.lastActId,
+      },
+      {
+        addResource: (id, delta, reason) => this.addResource(id, delta, reason),
+        adjustMorale: (delta, reason) => this.adjustMorale(delta, reason),
+        adjustWrath: (delta, reason) => this.adjustWrath(delta, reason),
+        emitActChanged: (payload) => this.emitter.emit(STATE_EVENTS.ACT_CHANGED, payload),
+        emitNpcAction: (payload) => this.emitter.emit(STATE_EVENTS.NPC_ACTION, payload),
+        emitNpcDynamicsTick: () => this.emitter.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined),
+      },
+    );
+    this.lastActId = out.lastActId;
+    this.state.playerMilitaryPower = out.playerMilitaryPower;
+    this.state.worldWariness = out.worldWariness;
   }
 
   // ============== Phase1：人口增长 ==============
