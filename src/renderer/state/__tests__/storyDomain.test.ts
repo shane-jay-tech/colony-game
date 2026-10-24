@@ -5,8 +5,8 @@
  * 用真实注册表 id（npc_qi/npc_jin/...），与 store 侧 getNpcDef 同源。
  */
 import { describe, it, expect } from 'vitest';
-import { npcDynamicsTickStep, storyTickStep, advanceChapterStep, pushStoryAxisStep, type NpcDynamicsIo } from '../domains/storyDomain';
-import type { NpcCountryState } from '../../data/schema';
+import { npcDynamicsTickStep, storyTickStep, advanceChapterStep, pushStoryAxisStep, eventTickStep, triggerRelicStep, resolveEventStep, type NpcDynamicsIo } from '../domains/storyDomain';
+import type { NpcCountryState, CourtEvent } from '../../data/schema';
 import type { StoryFlags } from '../gameStore';
 import { actFor } from '../../data/actTimeline';
 
@@ -225,5 +225,138 @@ describe('pushStoryAxisStep（story 批 2/3 域直测）', () => {
     pushStoryAxisStep('sandbox', flags(), { power: 100 }, { emitNarration: (p) => { log.push(p.text); } });
     pushStoryAxisStep('story', flags(), undefined, { emitNarration: (p) => { log.push(p.text); } });
     expect(log).toEqual([]);
+  });
+});
+
+// ============== c1025-03：事件采样/采纳编排域直测 ==============
+
+function ev(id: string, over: Partial<CourtEvent> = {}): CourtEvent {
+  return {
+    id, tags: ['中'], triggers: [{ condition: 'random', value: 100 }],
+    contexts: [{ condition: 'default', title: id, desc: '', descPlain: '' }],
+    ...over,
+  };
+}
+
+function eventIo(log: string[]) {
+  return {
+    resolveEvent: (ci: number) => { log.push(`RESOLVE:${ci}`); },
+    setPending: (id: string, day: number) => { log.push(`SET_PENDING:${id}@${day}`); },
+    emitTriggered: (p: { eventId: string }) => { log.push(`TRIGGERED:${p.eventId}`); },
+    tryTriggerRelic: () => { log.push('TRY_RELIC'); },
+    computeMetrics: () => { log.push('METRICS'); return {} as never; },
+  };
+}
+
+function evInput(over: Partial<Parameters<typeof eventTickStep>[0]> = {}) {
+  return {
+    events: [] as CourtEvent[],
+    pendingEventId: null as string | null,
+    pendingEventDayStart: null as number | null,
+    currentDay: 100,
+    lastEventDay: 1,
+    storyFlags: null as StoryFlags | null,
+    grain: 100, gold: 100, people: 100,
+    crisisActive: false,
+    npcCountries: [] as NpcCountryState[],
+    rngSeed: 42,
+    eventHistory: [] as string[],
+    ...over,
+  };
+}
+
+describe('eventTickStep（story 批 3/3 域直测）', () => {
+  it('挂起事件超时：resolveEvent(0) 回调', () => {
+    const log: string[] = [];
+    eventTickStep(evInput({
+      events: [ev('e1', { defaultTimeoutDays: 3 })],
+      pendingEventId: 'e1', pendingEventDayStart: 90,
+    }), eventIo(log));
+    expect(log).toEqual(['RESOLVE:0']);
+  });
+
+  it('anti-combo fast path（daysSinceLast < 8 且 < forceMax）：零动作零 METRICS', () => {
+    const log: string[] = [];
+    eventTickStep(evInput({ events: [ev('e1')], lastEventDay: 98 }), eventIo(log));
+    expect(log).toEqual([]);
+  });
+
+  it('故事模式剧情事件直触：setPending 先于 TRIGGERED（次序钉）', () => {
+    const log: string[] = [];
+    const sf = flags({ chapter: 2 });
+    const story = ev('ev_story_a', { tags: ['故事'], triggers: [{ condition: 'story_chapter == 2' }] });
+    eventTickStep(evInput({ events: [story], storyFlags: sf, lastEventDay: 1 }), eventIo(log));
+    expect(log).toEqual(['SET_PENDING:ev_story_a@100', 'TRIGGERED:ev_story_a']);
+  });
+
+  it('已触发的剧情事件不重复挂起（storyEventsTriggered 防重复）', () => {
+    const log: string[] = [];
+    const sf = flags({ chapter: 2, storyEventsTriggered: ['ev_story_a'] });
+    const story = ev('ev_story_a', { tags: ['故事'], triggers: [{ condition: 'story_chapter == 2' }] });
+    eventTickStep(evInput({ events: [story], storyFlags: sf, lastEventDay: 1 }), eventIo(log));
+    expect(log).not.toContain('SET_PENDING:ev_story_a@100');
+  });
+});
+
+describe('triggerRelicStep（story 批 3/3 域直测）', () => {
+  it('有空闲古迹：setPending+TRIGGERED 次序钉；全完成：零动作', () => {
+    const log: string[] = [];
+    triggerRelicStep([{ id: 'r1', done: false, stage: 0 }], 55, {
+      setPending: (id, d) => { log.push(`SET:${id}@${d}`); },
+      emitTriggered: (p) => { log.push(`EMIT:${p.eventId}`); },
+    });
+    expect(log).toEqual(['SET:relic_r1_s0@55', 'EMIT:relic_r1_s0']);
+    const log2: string[] = [];
+    triggerRelicStep([{ id: 'r1', done: true, stage: 3 }], 55, {
+      setPending: (id, d) => { log2.push(`SET:${id}@${d}`); },
+      emitTriggered: (p) => { log2.push(`EMIT:${p.eventId}`); },
+    });
+    expect(log2).toEqual([]);
+  });
+});
+
+describe('resolveEventStep（story 批 3/3 域直测）', () => {
+  function rsIo(log: string[]) {
+    return {
+      applyRelicChoice: (s: number, st: number, ci: number) => { log.push(`RELIC:${s}/${st}/${ci}`); },
+      removeModifier: (rid: string) => { log.push(`RM_MOD:${rid}`); },
+      addModifier: () => { log.push('ADD_MOD'); },
+      pushStoryAxis: () => { log.push('AXIS'); },
+      emitResolved: (p: { eventId: string; applied: boolean }) => { log.push(`RESOLVED:${p.eventId}:${p.applied}`); },
+      clearPending: () => { log.push('CLEAR'); },
+    };
+  }
+
+  it('无挂起（id=null）：早退，冷却返回 NaN 语义（store 不更新）', () => {
+    const log: string[] = [];
+    const out = resolveEventStep({ events: [], pendingEventId: null, currentDay: 10, eventHistory: [], storyFlags: null, choiceIdx: 0 }, rsIo(log));
+    expect(log).toEqual([]);
+    expect(Number.isNaN(out.lastEventDay)).toBe(true);
+  });
+
+  it('坏 id：CLEAR→RESOLVED(applied:false)，冷却=当日', () => {
+    const log: string[] = [];
+    const out = resolveEventStep({ events: [ev('e1')], pendingEventId: 'ghost', currentDay: 10, eventHistory: [], storyFlags: null, choiceIdx: 0 }, rsIo(log));
+    expect(log).toEqual(['CLEAR', 'RESOLVED:ghost:false']);
+    expect(out.lastEventDay).toBe(10);
+  });
+
+  it('relic id（def 在事件表）：CLEAR→RELIC 分派，不走 modifier/history 面', () => {
+    const log: string[] = [];
+    resolveEventStep({ events: [ev('relic_r1_s0')], pendingEventId: 'relic_r1_s0', currentDay: 10, eventHistory: [], storyFlags: null, choiceIdx: 2 }, rsIo(log));
+    expect(log).toEqual(['CLEAR', 'RELIC:1/0/2']);
+  });
+
+  it('正常抉择：history/故事进度直写＋AXIS＋RESOLVED(true)', () => {
+    const log: string[] = [];
+    const sf = flags({ chapter: 2 });
+    const e = ev('e_decide', { tags: ['抉择', '故事'], choices: [{ text: '甲', textPlain: '甲', effects: [], removeEffects: [] }] });
+    const history: string[] = [];
+    resolveEventStep({ events: [e], pendingEventId: 'e_decide', currentDay: 10, eventHistory: history, storyFlags: sf, choiceIdx: 0 }, rsIo(log));
+    expect(history).toEqual(['e_decide']);
+    expect(sf.storyEventsTriggered).toContain('e_decide');
+    expect(log[log.length - 1]).toBe('RESOLVED:e_decide:true');
+    expect(log).toContain('AXIS');
+    expect(log.indexOf('CLEAR')).toBe(0);
   });
 });

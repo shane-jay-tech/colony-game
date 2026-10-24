@@ -44,10 +44,10 @@ import {
 } from './domains/turnDomain';
 // c1025-01/02：story 批 1-2/3 —— NPC 动态日 tick 与 story 导演件族（runStoryTick/advanceStoryChapter/pushStoryAxis）
 // 编排/结算体外迁 domains/storyDomain，GameStore 保持薄委托（io 回调）
-import { npcDynamicsTickStep, storyTickStep, advanceChapterStep, pushStoryAxisStep } from './domains/storyDomain';
+import { npcDynamicsTickStep, storyTickStep, advanceChapterStep, pushStoryAxisStep, eventTickStep, triggerRelicStep, resolveEventStep } from './domains/storyDomain';
 import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
 import { tryAdoptDecree, type AdoptDecreeResult } from './decreeSystem';
-import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from './eventEngine';
+import { selectContext } from './eventEngine';
 import { applyModifiers, aggregateModifiers } from './modifierAggregator';
 import type { CountryMetrics } from './dslEval';
 import { createRng } from './rng';
@@ -65,7 +65,6 @@ import {
   shouldExplodeUltimatum, ultimatumDaysLeft,
 } from './ultimatum';
 import { computeScoreCard, type ScoreCard } from './scoreCard';
-import { assessNationState, shouldSampleEvent, filterEventsByState, DEFAULT_TEMPO_CONFIG, type NationStateInput } from './eventTempo';
 import { applySeasonTransition, isSeasonModifier } from './seasonSystem';
 import { createBreathingState, tickBreathingToast, tickBreathingBulletin, type BreathingState, type BreathingContext } from './breathingSystem';
 import { checkHistorian, type HistorianContext } from './historianSystem';
@@ -1049,73 +1048,46 @@ export class GameStore implements IStateEventEmitter {
     }
   }
 
-  /** 朝议事件采样 + 超时回退 */
+  /** 朝议事件采样 + 超时回退。c1025-03：主体外迁 eventTickStep（domains/storyDomain）；pending 经 io.setPending 原位写（先于 emit）。 */
   private runEventTick(): void {
-    if (this.state.pendingEventId !== null) {
-      // 已有挂起事件：检查是否超时
-      const def = this.events.find(e => e.id === this.state.pendingEventId);
-      if (def && this.state.pendingEventDayStart !== null) {
-        const elapsed = this.state.currentDay - this.state.pendingEventDayStart;
-        if (checkEventTimeout(def, elapsed) === 'pick0') {
-          this.resolveEvent(0);
-        }
-      }
-      return;
-    }
-    if (this.events.length === 0) return;
-    // A-7：状态驱动事件节奏（替代固定 minDaysBetween）
-    const daysSinceLast = this.state.currentDay - this.state.lastEventDay;
-    // Fast path: skip state assessment during anti-combo window (unless force-trigger)
-    if (daysSinceLast < DEFAULT_TEMPO_CONFIG.antiComboDays && daysSinceLast < DEFAULT_TEMPO_CONFIG.forceMaxDays) return;
-
-    // P2 修正：故事模式剧情事件「无挂起即触发」（设计 §storyEvents 注释原意）——
-    // 只守 8 日防连击底线，不受沙盒 25-50 日状态节奏拖累；否则每章 5 事件要 200+ 天才凑齐，
-    // 七卷合计近 2000 天，故事节奏被沙盒节拍拖垮（无头试玩实测暴露）。
-    if (this.state.storyFlags && this.state.storyFlags.chapter >= 1 && this.state.storyFlags.ending === null) {
-      const chapter = this.state.storyFlags.chapter;
-      const nextStory = this.events.find(ev =>
-        ev.tags.includes('故事')
-        && ev.triggers.some(t => t.condition === `story_chapter == ${chapter}`)
-        && !this.state.storyFlags!.storyEventsTriggered.includes(ev.id)
-      );
-      if (nextStory) {
-        this.state.pendingEventId = nextStory.id;
-        this.state.pendingEventDayStart = this.state.currentDay;
-        this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, { eventId: nextStory.id });
-        return;
-      }
-    }
-    const grain = this.state.resources['grain'] ?? 0;
-    const grainCap = Math.max(1, (this.state.resources['people'] ?? 20) * 5);
-    const nationInput: NationStateInput = {
-      crisisActive: this.state.crisisActive,
-      npcCountries: this.state.npcCountries,
-      grainCapacityRatio: grain / grainCap,
-      goldAmount: this.state.resources['gold'] ?? 0,
-    };
-    const nationState = assessNationState(nationInput);
-    // Discriminant 0x1F4E9 separates tempo stream from event-selection stream (avoids correlation)
-    const tempoRng = createRng(this.state.rngSeed ^ (this.state.currentDay * 7919) ^ 0x1F4E9);
-    const decision = shouldSampleEvent(daysSinceLast, nationState, tempoRng.next(), DEFAULT_TEMPO_CONFIG);
-    if (!decision.shouldSample) return;
-    // 按状态过滤事件池
-    const filteredEvents = filterEventsByState(this.events, nationState);
-    if (filteredEvents.length === 0) return;
-    const metrics = this.computeMetrics();
-    const id = sampleEventTrigger(filteredEvents, this.state.eventHistory, metrics);
-    if (id === null) { this.tryTriggerRelic(); return; }
-    this.state.pendingEventId = id;
-    this.state.pendingEventDayStart = this.state.currentDay;
-    this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, { eventId: id });
+    eventTickStep(
+      {
+        events: this.events,
+        pendingEventId: this.state.pendingEventId,
+        pendingEventDayStart: this.state.pendingEventDayStart,
+        currentDay: this.state.currentDay,
+        lastEventDay: this.state.lastEventDay,
+        storyFlags: this.state.storyFlags,
+        grain: this.state.resources['grain'] ?? 0,
+        gold: this.state.resources['gold'] ?? 0,
+        people: this.state.resources['people'] ?? 0,
+        crisisActive: this.state.crisisActive,
+        npcCountries: this.state.npcCountries,
+        rngSeed: this.state.rngSeed,
+        eventHistory: this.state.eventHistory,
+      },
+      {
+        resolveEvent: (choiceIdx) => this.resolveEvent(choiceIdx),
+        setPending: (eventId, dayStart) => {
+          this.state.pendingEventId = eventId;
+          this.state.pendingEventDayStart = dayStart;
+        },
+        emitTriggered: (payload) => this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, payload),
+        tryTriggerRelic: () => this.tryTriggerRelic(),
+        computeMetrics: () => this.computeMetrics(),
+      },
+    );
   }
 
-  /** C1：普通朝议无戏时，唤起下一个空闲古迹阶段（与朝议共用一条叙事流，互不抢占）。 */
+  /** C1：普通朝议无戏时，唤起下一个空闲古迹阶段（与朝议共用一条叙事流，互不抢占）。c1025-03：主体外迁 triggerRelicStep。 */
   private tryTriggerRelic(): void {
-    const readyRelic = this.state.relicSites.find(s => !s.done);
-    if (!readyRelic) return;
-    this.state.pendingEventId = `relic_${readyRelic.id}_s${readyRelic.stage}`;
-    this.state.pendingEventDayStart = this.state.currentDay;
-    this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, { eventId: this.state.pendingEventId });
+    triggerRelicStep(this.state.relicSites, this.state.currentDay, {
+      setPending: (eventId, dayStart) => {
+        this.state.pendingEventId = eventId;
+        this.state.pendingEventDayStart = dayStart;
+      },
+      emitTriggered: (payload) => this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, payload),
+    });
   }
 
   /** 用当前 state + activeModifiers 算 DSL/事件采样所需的国家级指标快照。c1023-05：主体外迁 computeCountryMetrics。 */
@@ -1131,40 +1103,33 @@ export class GameStore implements IStateEventEmitter {
     });
   }
 
-  /** 玩家点 choice 或 timeout 自动 0：清掉 pendingEventId + 应用 effects + 写 history */
+  /** 玩家点 choice 或 timeout 自动 0：清掉 pendingEventId + 应用 effects + 写 history。
+   *  c1025-03：主体外迁 resolveEventStep（domains/storyDomain）；公共签名保持，pending 清空经 io 原位、冷却起点经 outcome。 */
   resolveEvent(choiceIdx: number): void {
-    const id = this.state.pendingEventId;
-    if (id === null) return;
-    const def = this.events.find(e => e.id === id);
-    this.state.pendingEventId = null;
-    this.state.pendingEventDayStart = null;
-    // 事件冷却起点：本次结算日（含找不到 def 的清理路径，避免坏 id 绕过冷却）
-    this.state.lastEventDay = this.state.currentDay;
-    if (!def) {
-      // 静态数据找不到：仅清理状态
-      this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, { eventId: id, choiceIdx, applied: false });
-      return;
+    const out = resolveEventStep(
+      {
+        events: this.events,
+        pendingEventId: this.state.pendingEventId,
+        currentDay: this.state.currentDay,
+        eventHistory: this.state.eventHistory,
+        storyFlags: this.state.storyFlags,
+        choiceIdx,
+      },
+      {
+        applyRelicChoice: (siteIdx, stageIdx, ci) => this.applyRelicChoice(siteIdx, stageIdx, ci),
+        removeModifier: (rid) => this.removeModifier(rid),
+        addModifier: (mod) => this.addModifier(mod),
+        pushStoryAxis: (delta) => this.pushStoryAxis(delta),
+        emitResolved: (payload) => this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, payload),
+        clearPending: () => {
+          this.state.pendingEventId = null;
+          this.state.pendingEventDayStart = null;
+        },
+      },
+    );
+    if (Number.isFinite(out.lastEventDay)) {
+      this.state.lastEventDay = out.lastEventDay;
     }
-    // C1：古迹合成事件走专用结算（一次性资源/民心/怨愤，不经永久 modifier）
-    const relicMatch = /^relic_r(\d+)_s(\d+)$/.exec(id);
-    if (relicMatch) {
-      this.applyRelicChoice(Number(relicMatch[1]), Number(relicMatch[2]), choiceIdx);
-      return;
-    }
-    const result = applyEventChoice(def, choiceIdx);
-    for (const rid of result.modifiersToRemove) {
-      this.removeModifier(rid);
-    }
-    if (result.modifierToAdd) {
-      this.addModifier(result.modifierToAdd);
-    }
-    this.state.eventHistory.push(id);
-    this.pushStoryAxis(def.choices?.[choiceIdx]?.storyAxisDelta); // Phase2：抉择悄悄推双轴
-    // Phase3：'故事' 标签事件解决后记入进度（章节目标 advanceGoal 据此判定解锁）
-    if (this.state.storyFlags && def.tags.includes('故事') && !this.state.storyFlags.storyEventsTriggered.includes(id)) {
-      this.state.storyFlags.storyEventsTriggered.push(id);
-    }
-    this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, { eventId: id, choiceIdx, applied: true });
   }
 
   /** C1：结算一次古迹抉择并推进阶段；最后一阶段完成发 RELIC_RESOLVED。 */

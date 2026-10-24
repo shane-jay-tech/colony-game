@@ -25,6 +25,10 @@ import {
 import { chapterAt, chapterGoalMet } from '../../data/storyChapters';
 import { getBulletinsForChapter, getHistorianComment } from '../../data/storyGoals';
 import type { StoryFlags } from '../gameStore';
+import type { CourtEvent } from '../../data/schema';
+import type { CountryMetrics } from '../dslEval';
+import { sampleEventTrigger, applyEventChoice, checkEventTimeout } from '../eventEngine';
+import { assessNationState, shouldSampleEvent, filterEventsByState, DEFAULT_TEMPO_CONFIG, type NationStateInput } from '../eventTempo';
 
 export interface NpcDynamicsInput {
   npcCountries: NpcCountryState[];
@@ -331,4 +335,173 @@ export function pushStoryAxisStep(
       : '民间流言：贫富之间，一时各执一词。';
     io.emitNarration({ text });
   }
+}
+
+// ============== c1025-03：事件采样/采纳编排残余段（runEventTick / tryTriggerRelic / resolveEvent 主体外迁） ==============
+
+export interface EventTickInput {
+  events: readonly CourtEvent[];
+  pendingEventId: string | null;
+  pendingEventDayStart: number | null;
+  currentDay: number;
+  lastEventDay: number;
+  storyFlags: StoryFlags | null;
+  /** resources 切片（grain/gold/people——NationStateInput 构成）。 */
+  grain: number;
+  gold: number;
+  people: number;
+  crisisActive: boolean;
+  npcCountries: NpcCountryState[];
+  rngSeed: number;
+  /** 采样防重复用（原 this.state.eventHistory）。 */
+  eventHistory: string[];
+}
+
+export interface EventTickIo {
+  /** 超时回退（原 `this.resolveEvent(0)` 公共方法回调）。 */
+  resolveEvent(choiceIdx: number): void;
+  /** 挂起事件写入（原 state 直写；**必须在 emitTriggered 之前调用**——EventModal 在事件回调里读 getPendingEventId()）。 */
+  setPending(eventId: string, dayStart: number): void;
+  emitTriggered(payload: { eventId: string }): void;
+  /** 普通朝议无戏时的古迹回退（原 `this.tryTriggerRelic()`）。 */
+  tryTriggerRelic(): void;
+  /** 原采样序内取指标快照（过滤后调用，保序）。 */
+  computeMetrics(): CountryMetrics;
+}
+
+/**
+ * 朝议事件采样 + 超时回退（原 runEventTick 主体，逐字搬运）：
+ * 挂起超时→resolveEvent(0)；anti-combo fast path；故事模式剧情事件「无挂起即触发」
+ * （只守 8 日防连击底线，不受沙盒节奏拖累）；状态节奏采样（tempo 流与选事件流分离 0x1F4E9）。
+ */
+export function eventTickStep(input: EventTickInput, io: EventTickIo): void {
+  if (input.pendingEventId !== null) {
+    // 已有挂起事件：检查是否超时
+    const def = input.events.find(e => e.id === input.pendingEventId);
+    if (def && input.pendingEventDayStart !== null) {
+      const elapsed = input.currentDay - input.pendingEventDayStart;
+      if (checkEventTimeout(def, elapsed) === 'pick0') {
+        io.resolveEvent(0);
+      }
+    }
+    return;
+  }
+  if (input.events.length === 0) return;
+  // A-7：状态驱动事件节奏（替代固定 minDaysBetween）
+  const daysSinceLast = input.currentDay - input.lastEventDay;
+  // Fast path: skip state assessment during anti-combo window (unless force-trigger)
+  if (daysSinceLast < DEFAULT_TEMPO_CONFIG.antiComboDays && daysSinceLast < DEFAULT_TEMPO_CONFIG.forceMaxDays) return;
+
+  // P2 修正：故事模式剧情事件「无挂起即触发」（设计 §storyEvents 注释原意）——
+  // 只守 8 日防连击底线，不受沙盒 25-50 日状态节奏拖累；否则每章 5 事件要 200+ 天才凑齐，
+  // 七卷合计近 2000 天，故事节奏被沙盒节拍拖垮（无头试玩实测暴露）。
+  if (input.storyFlags && input.storyFlags.chapter >= 1 && input.storyFlags.ending === null) {
+    const chapter = input.storyFlags.chapter;
+    const nextStory = input.events.find(ev =>
+      ev.tags.includes('故事')
+      && ev.triggers.some(t => t.condition === `story_chapter == ${chapter}`)
+      && !input.storyFlags!.storyEventsTriggered.includes(ev.id)
+    );
+    if (nextStory) {
+      io.setPending(nextStory.id, input.currentDay);
+      io.emitTriggered({ eventId: nextStory.id });
+      return;
+    }
+  }
+  const grain = input.grain;
+  const grainCap = Math.max(1, input.people * 5);
+  const nationInput: NationStateInput = {
+    crisisActive: input.crisisActive,
+    npcCountries: input.npcCountries,
+    grainCapacityRatio: grain / grainCap,
+    goldAmount: input.gold,
+  };
+  const nationState = assessNationState(nationInput);
+  // Discriminant 0x1F4E9 separates tempo stream from event-selection stream (avoids correlation)
+  const tempoRng = createRng(input.rngSeed ^ (input.currentDay * 7919) ^ 0x1F4E9);
+  const decision = shouldSampleEvent(daysSinceLast, nationState, tempoRng.next(), DEFAULT_TEMPO_CONFIG);
+  if (!decision.shouldSample) return;
+  // 按状态过滤事件池
+  const filteredEvents = filterEventsByState(input.events, nationState);
+  if (filteredEvents.length === 0) return;
+  const metrics = io.computeMetrics();
+  const id = sampleEventTrigger(filteredEvents, input.eventHistory, metrics);
+  if (id === null) { io.tryTriggerRelic(); return; }
+  io.setPending(id, input.currentDay);
+  io.emitTriggered({ eventId: id });
+}
+
+/** C1：普通朝议无戏时，唤起下一个空闲古迹阶段（与朝议共用一条叙事流，互不抢占）（原 tryTriggerRelic 主体）。
+ *  setPending 先于 emitTriggered（同 eventTickStep 次序口径）。 */
+export function triggerRelicStep(
+  relicSites: { id: string; done: boolean; stage: number }[],
+  currentDay: number,
+  io: { setPending(eventId: string, dayStart: number): void; emitTriggered(payload: { eventId: string }): void },
+): void {
+  const readyRelic = relicSites.find(s => !s.done);
+  if (!readyRelic) return;
+  const pendingEventId = `relic_${readyRelic.id}_s${readyRelic.stage}`;
+  io.setPending(pendingEventId, currentDay);
+  io.emitTriggered({ eventId: pendingEventId });
+}
+
+export interface ResolveEventIo {
+  /** C1 古迹合成事件走专用结算（relic_rX_sY 形态，留在 GameStore）。 */
+  applyRelicChoice(siteIdx: number, stageIdx: number, choiceIdx: number): void;
+  removeModifier(modifierId: string): void;
+  addModifier(mod: NonNullable<ReturnType<typeof applyEventChoice>['modifierToAdd']>): void;
+  pushStoryAxis(delta: { power?: number; production?: number } | undefined): void;
+  emitResolved(payload: { eventId: string; choiceIdx: number; applied: boolean }): void;
+  /** 挂起清空（原 def 查找后直写两位 null；**必须在 emitResolved 之前**——modal 在回调里读 pending）。 */
+  clearPending(): void;
+}
+
+/**
+ * 玩家点 choice 或 timeout 自动 0：清掉 pendingEventId + 应用 effects + 写 history
+ * （原 resolveEvent 主体，逐字搬运；公共签名留在 GameStore）。
+ * eventHistory / storyFlags 直写（可变引用同址）；pending 清空与冷却起点经 outcome 写回。
+ */
+export function resolveEventStep(
+  input: {
+    events: readonly CourtEvent[];
+    pendingEventId: string | null;
+    currentDay: number;
+    eventHistory: string[];
+    storyFlags: StoryFlags | null;
+    choiceIdx: number;
+  },
+  io: ResolveEventIo,
+): { lastEventDay: number } {
+  const id = input.pendingEventId;
+  if (id === null) return { lastEventDay: NaN };
+  const def = input.events.find(e => e.id === id);
+  io.clearPending();
+  // 事件冷却起点：本次结算日（含找不到 def 的清理路径，避免坏 id 绕过冷却）
+  const lastEventDay = input.currentDay;
+  if (!def) {
+    // 静态数据找不到：仅清理状态
+    io.emitResolved({ eventId: id, choiceIdx: input.choiceIdx, applied: false });
+    return { lastEventDay };
+  }
+  // C1：古迹合成事件走专用结算（一次性资源/民心/怨愤，不经永久 modifier）
+  const relicMatch = /^relic_r(\d+)_s(\d+)$/.exec(id);
+  if (relicMatch) {
+    io.applyRelicChoice(Number(relicMatch[1]), Number(relicMatch[2]), input.choiceIdx);
+    return { lastEventDay };
+  }
+  const result = applyEventChoice(def, input.choiceIdx);
+  for (const rid of result.modifiersToRemove) {
+    io.removeModifier(rid);
+  }
+  if (result.modifierToAdd) {
+    io.addModifier(result.modifierToAdd);
+  }
+  input.eventHistory.push(id);
+  io.pushStoryAxis(def.choices?.[input.choiceIdx]?.storyAxisDelta); // Phase2：抉择悄悄推双轴
+  // Phase3：'故事' 标签事件解决后记入进度（章节目标 advanceGoal 据此判定解锁）
+  if (input.storyFlags && def.tags.includes('故事') && !input.storyFlags.storyEventsTriggered.includes(id)) {
+    input.storyFlags.storyEventsTriggered.push(id);
+  }
+  io.emitResolved({ eventId: id, choiceIdx: input.choiceIdx, applied: true });
+  return { lastEventDay };
 }
