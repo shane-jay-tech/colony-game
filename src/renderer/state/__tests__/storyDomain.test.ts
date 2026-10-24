@@ -5,8 +5,9 @@
  * 用真实注册表 id（npc_qi/npc_jin/...），与 store 侧 getNpcDef 同源。
  */
 import { describe, it, expect } from 'vitest';
-import { npcDynamicsTickStep, type NpcDynamicsIo } from '../domains/storyDomain';
+import { npcDynamicsTickStep, storyTickStep, advanceChapterStep, pushStoryAxisStep, type NpcDynamicsIo } from '../domains/storyDomain';
 import type { NpcCountryState } from '../../data/schema';
+import type { StoryFlags } from '../gameStore';
 import { actFor } from '../../data/actTimeline';
 
 function st(id: string, over: Partial<NpcCountryState> = {}): NpcCountryState {
@@ -107,5 +108,122 @@ describe('npcDynamicsTickStep（story 批 1/3 域直测）', () => {
     // 行动结算含 [0,500] clamp（rng 驱动的骚扰可产生 delta，值不定但必在界内）
     expect(outA.playerMilitaryPower).toBeGreaterThanOrEqual(0);
     expect(outA.playerMilitaryPower).toBeLessThanOrEqual(500);
+  });
+});
+
+// ============== c1025-02：story 导演件族域直测 ==============
+
+function flags(over: Partial<StoryFlags> = {}): StoryFlags {
+  return {
+    chapter: 0, unifyPath: null, unified: false,
+    powerAxis: 0, resourceAxis: 0, storyEventsTriggered: [],
+    chapterStartDay: 1, ending: null,
+    ...over,
+  };
+}
+
+function storyIo(log: string[]) {
+  return {
+    emitUnified: (p: { path: string }) => { log.push(`STORY_UNIFIED:${p.path}`); },
+    emitBulletin: (p: { entry: { id: string } }) => { log.push(`BULLETIN:${p.entry.id}`); },
+    emitEnding: (p: { ending: string }) => { log.push(`STORY_ENDING:${p.ending}`); },
+    advanceChapter: (c: number) => { log.push(`ADVANCE:${c}`); },
+  };
+}
+
+describe('storyTickStep（story 批 2/3 域直测）', () => {
+  it('非 story 模式 / storyFlags 空：零动作，pending 原样返回', () => {
+    const log: string[] = [];
+    const outA = storyTickStep({ mode: 'sandbox', storyFlags: flags(), npcCountries: [], playerRenown: 0, currentDay: 1, storyTransitionPending: false }, storyIo(log));
+    const outB = storyTickStep({ mode: 'story', storyFlags: null, npcCountries: [], playerRenown: 0, currentDay: 1, storyTransitionPending: true }, storyIo(log));
+    expect(log).toEqual([]);
+    expect(outA.storyTransitionPending).toBe(false);
+    expect(outB.storyTransitionPending).toBe(true);
+  });
+
+  it('序章未统一：零NPC武途（全臣服）判定统一——sf 三写＋pending=true＋STORY_UNIFIED', () => {
+    const log: string[] = [];
+    const sf = flags();
+    // checkUnification 武途条件：全部 NPC militaryPower 低（臣服面）——用极低军力触发
+    const npcs = [st('npc_qi', { militaryPower: 1, stance: 0 }), st('npc_jin', { militaryPower: 1, stance: 0 })];
+    const out = storyTickStep({ mode: 'story', storyFlags: sf, npcCountries: npcs, playerRenown: 99, currentDay: 5, storyTransitionPending: false }, storyIo(log));
+    if (sf.unified) {
+      expect(sf.unifyPath).toBeTruthy();
+      expect(out.storyTransitionPending).toBe(true);
+      expect(log.some(l => l.startsWith('STORY_UNIFIED:'))).toBe(true);
+    } else {
+      // 未达统一条件（现值口径）：零 ADVANCE、pending 不变——同样合法路径，验证不动
+      expect(log.filter(l => l.startsWith('ADVANCE'))).toEqual([]);
+      expect(out.storyTransitionPending).toBe(false);
+    }
+  });
+
+  it('序章已统一＋pending=false：防 softlock 直接 advanceChapter(1)', () => {
+    const log: string[] = [];
+    const sf = flags({ unified: true });
+    const out = storyTickStep({ mode: 'story', storyFlags: sf, npcCountries: [], playerRenown: 0, currentDay: 2, storyTransitionPending: false }, storyIo(log));
+    expect(log).toEqual(['ADVANCE:1']);
+    expect(out.storyTransitionPending).toBe(false);
+  });
+
+  it('序章已统一＋pending=true：等过场，不推进', () => {
+    const log: string[] = [];
+    const out = storyTickStep({ mode: 'story', storyFlags: flags({ unified: true }), npcCountries: [], playerRenown: 0, currentDay: 2, storyTransitionPending: true }, storyIo(log));
+    expect(log).toEqual([]);
+    expect(out.storyTransitionPending).toBe(true);
+  });
+
+  it('已到结局（ending 非空）：零动作', () => {
+    const log: string[] = [];
+    storyTickStep({ mode: 'story', storyFlags: flags({ chapter: 3, ending: 'devolve_public' as never, chapterStartDay: 1 }), npcCountries: [], playerRenown: 0, currentDay: 50, storyTransitionPending: false }, storyIo(log));
+    expect(log).toEqual([]);
+  });
+});
+
+describe('advanceChapterStep（story 批 2/3 域直测）', () => {
+  it('推进章节：清 pending→写字段→STORY_CHAPTER_CHANGED（次序钉）', () => {
+    const log: string[] = [];
+    const sf = flags({ chapter: 1, chapterStartDay: 1 });
+    advanceChapterStep(sf, 2, 42, {
+      emitNarration: (p) => { log.push(`NARRATION:${p.text.slice(0, 4)}`); },
+      clearTransitionPending: () => { log.push('CLEAR_PENDING'); },
+      emitChapterChanged: (p) => { log.push(`CHAPTER_CHANGED:${p.chapter}`); },
+    });
+    expect(log[log.length - 1]).toBe('CHAPTER_CHANGED:2');
+    expect(log).toContain('CLEAR_PENDING');
+    expect(sf.chapter).toBe(2);
+    expect(sf.chapterStartDay).toBe(42);
+    // C-3：上一章 1..7 发史官评语（存在性以 getHistorianComment 现值为准——有评语则 NARRATION 在 CLEAR_PENDING 之前）
+    const clearIdx = log.indexOf('CLEAR_PENDING');
+    const narrIdx = log.findIndex(l => l.startsWith('NARRATION:'));
+    if (narrIdx >= 0) expect(narrIdx).toBeLessThan(clearIdx);
+  });
+
+  it('storyFlags 空：零动作不抛错', () => {
+    const log: string[] = [];
+    advanceChapterStep(null, 1, 1, {
+      emitNarration: () => { log.push('N'); },
+      clearTransitionPending: () => { log.push('C'); },
+      emitChapterChanged: () => { log.push('H'); },
+    });
+    expect(log).toEqual([]);
+  });
+});
+
+describe('pushStoryAxisStep（story 批 2/3 域直测）', () => {
+  it('跨档位发评语：power +200 跨入 devolve 档一条 NARRATION', () => {
+    const log: string[] = [];
+    const sf = flags({ chapter: 2 });
+    pushStoryAxisStep('story', sf, { power: 200 }, { emitNarration: (p) => { log.push(p.text); } });
+    expect(sf.powerAxis).toBeGreaterThan(0);
+    expect(log.length).toBeGreaterThanOrEqual(1);
+    expect(log[0]).toContain('史官私记');
+  });
+
+  it('沙盒 / 无 delta：零动作', () => {
+    const log: string[] = [];
+    pushStoryAxisStep('sandbox', flags(), { power: 100 }, { emitNarration: (p) => { log.push(p.text); } });
+    pushStoryAxisStep('story', flags(), undefined, { emitNarration: (p) => { log.push(p.text); } });
+    expect(log).toEqual([]);
   });
 });

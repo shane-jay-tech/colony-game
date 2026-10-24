@@ -19,6 +19,12 @@ import {
 } from '../npcDynamics';
 import { computeNpcDecision } from '../diplomacyExpanded';
 import { WARINESS_BASELINE, WARINESS_DRIFT_PER_DAY, WARINESS_COALITION_THRESHOLD } from '../wariness';
+import {
+  checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand, checkEnding, type EndingId,
+} from '../storyDriver';
+import { chapterAt, chapterGoalMet } from '../../data/storyChapters';
+import { getBulletinsForChapter, getHistorianComment } from '../../data/storyGoals';
+import type { StoryFlags } from '../gameStore';
 
 export interface NpcDynamicsInput {
   npcCountries: NpcCountryState[];
@@ -174,4 +180,155 @@ export function npcDynamicsTickStep(input: NpcDynamicsInput, io: NpcDynamicsIo):
   if (changed) io.emitNpcDynamicsTick();
 
   return { lastActId, playerMilitaryPower, worldWariness };
+}
+
+// ============== c1025-02：story 导演件族（runStoryTick / advanceStoryChapter / pushStoryAxis 主体外迁） ==============
+
+export interface StoryTickInput {
+  mode: 'sandbox' | 'story';
+  storyFlags: StoryFlags | null;
+  npcCountries: NpcCountryState[];
+  playerRenown: number;
+  currentDay: number;
+  /** store 私有瞬态（不持久化）：序章统一后等 GameScene 过场，期间不重复推进。 */
+  storyTransitionPending: boolean;
+}
+
+export interface StoryTickIo {
+  emitUnified(payload: { path: 'martial' | 'cultural' }): void;
+  emitBulletin(payload: { entry: { id: string; text: string; textPlain: string } }): void;
+  emitEnding(payload: { ending: EndingId }): void;
+  /** 调用 GameStore 公共方法 advanceStoryChapter（防 softlock 恢复与章节推进两处）。 */
+  advanceChapter(chapter: number): void;
+}
+
+export interface StoryTickOutcome {
+  storyTransitionPending: boolean;
+}
+
+/**
+ * 每日故事 tick（原 runStoryTick 主体，逐字搬运）：序章未统一时判定多途径统一，
+ * 达成则播种双轴 + emit STORY_UNIFIED（场景接管跳变）；已统一但过场未推进（防 softlock）直接进第一章；
+ * 第 1..7 章达成章节目标解锁下一章（advanceGoal 优先；无则降级 advanceAfterDays 占位 dwell）。
+ * sf 直写（unified/unifyPath/powerAxis/resourceAxis/ending）；瞬态 pending 经 outcome 写回。
+ */
+export function storyTickStep(input: StoryTickInput, io: StoryTickIo): StoryTickOutcome {
+  if (input.mode !== 'story' || !input.storyFlags) {
+    return { storyTransitionPending: input.storyTransitionPending };
+  }
+  const sf = input.storyFlags;
+  let storyTransitionPending = input.storyTransitionPending;
+  // 序章：靠统一推进（建朝跳变由 GameScene 接 STORY_UNIFIED 处理，过场后 advanceStoryChapter(1)）
+  if (sf.chapter === 0) {
+    if (!sf.unified) {
+      const result = checkUnification({
+        npcs: input.npcCountries.map(n => ({ militaryPower: n.militaryPower, stance: n.stance })),
+        playerRenown: input.playerRenown,
+      });
+      if (result.unified && result.path) {
+        sf.unified = true;
+        sf.unifyPath = result.path;
+        const seed = axisSeedForPath(result.path);
+        sf.powerAxis = clampAxis(sf.powerAxis + seed.power);
+        sf.resourceAxis = clampAxis(sf.resourceAxis + seed.resource);
+        storyTransitionPending = true; // 等 GameScene 播完建朝过场再 advanceStoryChapter(1)
+        io.emitUnified({ path: result.path });
+      }
+    } else if (!storyTransitionPending) {
+      // 防 softlock：已统一但过场未推进（如在过场中存档→重载，过场丢失）→ 直接进第一章恢复
+      io.advanceChapter(1);
+    }
+    return { storyTransitionPending };
+  }
+  // 第 1..7 章：达成章节目标解锁下一章（advanceGoal 优先；无则降级 advanceAfterDays 占位 dwell）
+  if (sf.ending !== null) return { storyTransitionPending }; // 已到结局
+  const def = chapterAt(sf.chapter);
+  const daysInChapter = input.currentDay - sf.chapterStartDay;
+
+  // C-2：叙事报文（章节 dwell 期间按 dayOffset 精确触发）
+  const bulletins = getBulletinsForChapter(sf.chapter);
+  for (const bul of bulletins) {
+    if (daysInChapter === bul.dayOffset) {
+      io.emitBulletin({ entry: { id: bul.id, text: bul.text, textPlain: bul.textPlain } });
+    }
+  }
+
+  const met = def.advanceGoal
+    ? chapterGoalMet(def.advanceGoal, new Set(sf.storyEventsTriggered), daysInChapter)
+    : (def.advanceAfterDays ?? 0) > 0 && daysInChapter >= (def.advanceAfterDays ?? 0);
+  if (!met) return { storyTransitionPending };
+  if (sf.chapter < 7) {
+    io.advanceChapter(sf.chapter + 1);
+  } else {
+    // 终章：双轴判定三结局
+    const ending = checkEnding(sf.powerAxis, sf.resourceAxis);
+    sf.ending = ending;
+    io.emitEnding({ ending });
+  }
+  return { storyTransitionPending };
+}
+
+export interface AdvanceChapterIo {
+  emitNarration(payload: { text: string }): void;
+  /** 原 `this.storyTransitionPending = false` 直写（调用次序保持：评语 emit 之后、章节字段写之前）。 */
+  clearTransitionPending(): void;
+  emitChapterChanged(payload: { chapter: number; def: ReturnType<typeof chapterAt> }): void;
+}
+
+/** 推进到指定章节并发 banner 事件（原 advanceStoryChapter 主体，逐字搬运；公共签名留在 GameStore）。 */
+export function advanceChapterStep(
+  sf: StoryFlags | null,
+  chapter: number,
+  currentDay: number,
+  io: AdvanceChapterIo,
+): void {
+  if (!sf) return;
+  // C-3：切章时为上一章发史官评语（基于权力轴判断倾向）
+  const prevChapter = sf.chapter;
+  if (prevChapter >= 1 && prevChapter <= 7) {
+    const comment = getHistorianComment(prevChapter, sf.powerAxis);
+    if (comment) {
+      io.emitNarration({ text: '史官评曰：' + comment });
+    }
+  }
+  io.clearTransitionPending();
+  sf.chapter = chapter;
+  sf.chapterStartDay = currentDay;
+  io.emitChapterChanged({ chapter, def: chapterAt(chapter) });
+}
+
+export interface PushAxisIo {
+  emitNarration(payload: { text: string }): void;
+}
+
+/**
+ * 隐性双轴累积（仅 story 模式，原 pushStoryAxis 主体，逐字搬运）：
+ * 抉择（国策/朝令/事件）携带的 storyAxisDelta 累加，跨档位时发一条史官氛围评语（半可视化反馈）。
+ */
+export function pushStoryAxisStep(
+  mode: 'sandbox' | 'story',
+  storyFlags: StoryFlags | null,
+  delta: { power?: number; production?: number } | undefined,
+  io: PushAxisIo,
+): void {
+  if (mode !== 'story' || !storyFlags || !delta) return;
+  const sf = storyFlags;
+  const pBefore = powerBand(sf.powerAxis);
+  const rBefore = resourceBand(sf.resourceAxis);
+  if (delta.power) sf.powerAxis = clampAxis(sf.powerAxis + delta.power);
+  if (delta.production) sf.resourceAxis = clampAxis(sf.resourceAxis + delta.production);
+  const pAfter = powerBand(sf.powerAxis);
+  const rAfter = resourceBand(sf.resourceAxis);
+  if (pAfter !== pBefore) {
+    const text = pAfter === 'devolve' ? '史官私记：朝堂之上，渐有"还政于民"之议。'
+      : pAfter === 'centralize' ? '史官私记：大权愈归于上，群臣噤声。'
+      : '史官私记：权柄之争，一时未分高下。';
+    io.emitNarration({ text });
+  }
+  if (rAfter !== rBefore) {
+    const text = rAfter === 'public' ? '民间流言：田土工技，渐为众人所共。'
+      : rAfter === 'private' ? '民间流言：田宅作坊，多入豪右之家。'
+      : '民间流言：贫富之间，一时各执一词。';
+    io.emitNarration({ text });
+  }
 }

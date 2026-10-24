@@ -42,8 +42,9 @@ import {
   expireModifiersStep, seasonTransitionStep, advanceDecrees,
   computeCountryMetrics, buildGradeInput as buildGradeInputStep,
 } from './domains/turnDomain';
-// c1025-01：story 批 1/3 —— NPC 动态日 tick 编排/结算体外迁 domains/storyDomain，GameStore 保持薄委托（io 回调）
-import { npcDynamicsTickStep } from './domains/storyDomain';
+// c1025-01/02：story 批 1-2/3 —— NPC 动态日 tick 与 story 导演件族（runStoryTick/advanceStoryChapter/pushStoryAxis）
+// 编排/结算体外迁 domains/storyDomain，GameStore 保持薄委托（io 回调）
+import { npcDynamicsTickStep, storyTickStep, advanceChapterStep, pushStoryAxisStep } from './domains/storyDomain';
 import { tryAdoptPolicy, type AdoptPolicyResult } from './policySystem';
 import { tryAdoptDecree, type AdoptDecreeResult } from './decreeSystem';
 import { sampleEventTrigger, applyEventChoice, checkEventTimeout, selectContext } from './eventEngine';
@@ -57,15 +58,13 @@ import {
   CRISIS_GRACE_DAYS, CRISIS_RECOVER_DAYS, VASSAL_REDEEM_GOLD, type CrisisKind,
 } from './crisis';
 import { BALANCE, getBalanceConfig } from '../data/balanceConfig';
-import { checkUnification, axisSeedForPath, clampAxis, powerBand, resourceBand, checkEnding, SUBJUGATE_MP_THRESHOLD, type EndingId } from './storyDriver';
+import { SUBJUGATE_MP_THRESHOLD, type EndingId } from './storyDriver';
 import {
   ULTIMATUM_WRATH_THRESHOLD, ULTIMATUM_DAYS, ULTIMATUM_RECOVER_WRATH,
   ULTIMATUM_EXPLOSION_WRATH_RESET, shouldStartUltimatum, shouldLiftUltimatum,
   shouldExplodeUltimatum, ultimatumDaysLeft,
 } from './ultimatum';
 import { computeScoreCard, type ScoreCard } from './scoreCard';
-import { chapterAt, chapterGoalMet } from '../data/storyChapters';
-import { getBulletinsForChapter, getHistorianComment } from '../data/storyGoals';
 import { assessNationState, shouldSampleEvent, filterEventsByState, DEFAULT_TEMPO_CONFIG, type NationStateInput } from './eventTempo';
 import { applySeasonTransition, isSeasonModifier } from './seasonSystem';
 import { createBreathingState, tickBreathingToast, tickBreathingBulletin, type BreathingState, type BreathingContext } from './breathingSystem';
@@ -1956,57 +1955,26 @@ export class GameStore implements IStateEventEmitter {
     }
   }
 
-  /** 每日故事 tick：序章未统一时判定多途径统一，达成则播种双轴 + emit STORY_UNIFIED（场景接管跳变）。 */
+  /** 每日故事 tick：序章未统一时判定多途径统一，达成则播种双轴 + emit STORY_UNIFIED（场景接管跳变）。
+   *  c1025-02：主体外迁 storyTickStep（domains/storyDomain）；瞬态 storyTransitionPending 经 outcome 写回。 */
   private runStoryTick(): void {
-    if (this.state.mode !== 'story' || !this.state.storyFlags) return;
-    const sf = this.state.storyFlags;
-    // 序章：靠统一推进（建朝跳变由 GameScene 接 STORY_UNIFIED 处理，过场后 advanceStoryChapter(1)）
-    if (sf.chapter === 0) {
-      if (!sf.unified) {
-        const result = checkUnification({
-          npcs: this.state.npcCountries.map(n => ({ militaryPower: n.militaryPower, stance: n.stance })),
-          playerRenown: this.getPlayerRenown(),
-        });
-        if (result.unified && result.path) {
-          sf.unified = true;
-          sf.unifyPath = result.path;
-          const seed = axisSeedForPath(result.path);
-          sf.powerAxis = clampAxis(sf.powerAxis + seed.power);
-          sf.resourceAxis = clampAxis(sf.resourceAxis + seed.resource);
-          this.storyTransitionPending = true; // 等 GameScene 播完建朝过场再 advanceStoryChapter(1)
-          this.emitter.emit(STATE_EVENTS.STORY_UNIFIED, { path: result.path });
-        }
-      } else if (!this.storyTransitionPending) {
-        // 防 softlock：已统一但过场未推进（如在过场中存档→重载，过场丢失）→ 直接进第一章恢复
-        this.advanceStoryChapter(1);
-      }
-      return;
-    }
-    // 第 1..7 章：达成章节目标解锁下一章（advanceGoal 优先；无则降级 advanceAfterDays 占位 dwell）
-    if (sf.ending !== null) return; // 已到结局
-    const def = chapterAt(sf.chapter);
-    const daysInChapter = this.state.currentDay - sf.chapterStartDay;
-
-    // C-2：叙事报文（章节 dwell 期间按 dayOffset 精确触发）
-    const bulletins = getBulletinsForChapter(sf.chapter);
-    for (const bul of bulletins) {
-      if (daysInChapter === bul.dayOffset) {
-        this.emitter.emit(STATE_EVENTS.BREATHING_BULLETIN, { entry: { id: bul.id, text: bul.text, textPlain: bul.textPlain } });
-      }
-    }
-
-    const met = def.advanceGoal
-      ? chapterGoalMet(def.advanceGoal, new Set(sf.storyEventsTriggered), daysInChapter)
-      : (def.advanceAfterDays ?? 0) > 0 && daysInChapter >= (def.advanceAfterDays ?? 0);
-    if (!met) return;
-    if (sf.chapter < 7) {
-      this.advanceStoryChapter(sf.chapter + 1);
-    } else {
-      // 终章：双轴判定三结局
-      const ending = checkEnding(sf.powerAxis, sf.resourceAxis);
-      sf.ending = ending;
-      this.emitter.emit(STATE_EVENTS.STORY_ENDING, { ending });
-    }
+    const out = storyTickStep(
+      {
+        mode: this.state.mode,
+        storyFlags: this.state.storyFlags,
+        npcCountries: this.state.npcCountries,
+        playerRenown: this.getPlayerRenown(),
+        currentDay: this.state.currentDay,
+        storyTransitionPending: this.storyTransitionPending,
+      },
+      {
+        emitUnified: (payload) => this.emitter.emit(STATE_EVENTS.STORY_UNIFIED, payload),
+        emitBulletin: (payload) => this.emitter.emit(STATE_EVENTS.BREATHING_BULLETIN, payload),
+        emitEnding: (payload) => this.emitter.emit(STATE_EVENTS.STORY_ENDING, payload),
+        advanceChapter: (chapter) => this.advanceStoryChapter(chapter),
+      },
+    );
+    this.storyTransitionPending = out.storyTransitionPending;
   }
 
   private runBreathingTick(): void {
@@ -2175,48 +2143,30 @@ export class GameStore implements IStateEventEmitter {
     }
   }
 
-  /** 推进到指定章节并发 banner 事件（GameScene 跳变过场结束 / runStoryTick 占位推进调用）。 */
+  /** 推进到指定章节并发 banner 事件（GameScene 跳变过场结束 / runStoryTick 占位推进调用）。
+   *  c1025-02：主体外迁 advanceChapterStep（domains/storyDomain）；公共签名保持。 */
   advanceStoryChapter(chapter: number): void {
-    if (!this.state.storyFlags) return;
-    // C-3：切章时为上一章发史官评语（基于权力轴判断倾向）
-    const prevChapter = this.state.storyFlags.chapter;
-    if (prevChapter >= 1 && prevChapter <= 7) {
-      const comment = getHistorianComment(prevChapter, this.state.storyFlags.powerAxis);
-      if (comment) {
-        this.emitter.emit(STATE_EVENTS.STORY_NARRATION, { text: '史官评曰：' + comment });
-      }
-    }
-    this.storyTransitionPending = false;
-    this.state.storyFlags.chapter = chapter;
-    this.state.storyFlags.chapterStartDay = this.state.currentDay;
-    this.emitter.emit(STATE_EVENTS.STORY_CHAPTER_CHANGED, { chapter, def: chapterAt(chapter) });
+    advanceChapterStep(
+      this.state.storyFlags,
+      chapter,
+      this.state.currentDay,
+      {
+        emitNarration: (payload) => this.emitter.emit(STATE_EVENTS.STORY_NARRATION, payload),
+        clearTransitionPending: () => { this.storyTransitionPending = false; },
+        emitChapterChanged: (payload) => this.emitter.emit(STATE_EVENTS.STORY_CHAPTER_CHANGED, payload),
+      },
+    );
   }
 
   /**
    * 隐性双轴累积（仅 story 模式）：抉择（国策/朝令/事件）携带的 storyAxisDelta 累加，
    * 跨档位时发一条史官氛围评语（半可视化反馈）。
+   *  c1025-02：主体外迁 pushStoryAxisStep（domains/storyDomain）。
    */
   private pushStoryAxis(delta: { power?: number; production?: number } | undefined): void {
-    if (this.state.mode !== 'story' || !this.state.storyFlags || !delta) return;
-    const sf = this.state.storyFlags;
-    const pBefore = powerBand(sf.powerAxis);
-    const rBefore = resourceBand(sf.resourceAxis);
-    if (delta.power) sf.powerAxis = clampAxis(sf.powerAxis + delta.power);
-    if (delta.production) sf.resourceAxis = clampAxis(sf.resourceAxis + delta.production);
-    const pAfter = powerBand(sf.powerAxis);
-    const rAfter = resourceBand(sf.resourceAxis);
-    if (pAfter !== pBefore) {
-      const text = pAfter === 'devolve' ? '史官私记：朝堂之上，渐有"还政于民"之议。'
-        : pAfter === 'centralize' ? '史官私记：大权愈归于上，群臣噤声。'
-        : '史官私记：权柄之争，一时未分高下。';
-      this.emitter.emit(STATE_EVENTS.STORY_NARRATION, { text });
-    }
-    if (rAfter !== rBefore) {
-      const text = rAfter === 'public' ? '民间流言：田土工技，渐为众人所共。'
-        : rAfter === 'private' ? '民间流言：田宅作坊，多入豪右之家。'
-        : '民间流言：贫富之间，一时各执一词。';
-      this.emitter.emit(STATE_EVENTS.STORY_NARRATION, { text });
-    }
+    pushStoryAxisStep(this.state.mode, this.state.storyFlags, delta, {
+      emitNarration: (payload) => this.emitter.emit(STATE_EVENTS.STORY_NARRATION, payload),
+    });
   }
 
   // ============== Phase1：NPC 动态成长 ==============
