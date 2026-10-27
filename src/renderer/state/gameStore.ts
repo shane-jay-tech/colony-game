@@ -581,10 +581,8 @@ export class GameStore implements IStateEventEmitter {
   setTutorialStepId(id: string | null): void {
     if (this.state.tutorialStepId === id) return;
     this.state.tutorialStepId = id;
-    // d914-18：该点停在非类型化通道——映射缺口：setTutorialStepId 可传 null，
-    // 而 GameStateEventMap['state:tutorialStepChanged'] = string（不含 null），
-    // 需先拍板映射放宽为 string | null 再迁（见 outbox/d914-18 结果）。
-    this.emitter.emit(STATE_EVENTS.TUTORIAL_STEP_CHANGED, id);
+    // d914-18 已闭环（l1028-06）：映射放宽为 string | null，走类型化通道。
+    this.emit(STATE_EVENTS.TUTORIAL_STEP_CHANGED, id);
   }
 
   // Phase4 新手引导：JIT 即时提示去重（已弹过的 trigger 持久化）
@@ -724,14 +722,14 @@ export class GameStore implements IStateEventEmitter {
     if (this.pauseHolders.has(holder)) return;
     const wasEffective = this.isPaused();
     this.pauseHolders.add(holder);
-    if (!wasEffective) this.emitter.emit(STATE_EVENTS.PAUSED_CHANGED, true);
+    if (!wasEffective) this.emit(STATE_EVENTS.PAUSED_CHANGED, true);
   }
 
   /** 与 requestPause 配对；同 holder 多次释放是 idempotent */
   releasePause(holder: string): void {
     if (!this.pauseHolders.has(holder)) return;
     this.pauseHolders.delete(holder);
-    if (!this.isPaused()) this.emitter.emit(STATE_EVENTS.PAUSED_CHANGED, false);
+    if (!this.isPaused()) this.emit(STATE_EVENTS.PAUSED_CHANGED, false);
   }
 
   addModifier(instance: ModifierInstance): void {
@@ -741,12 +739,12 @@ export class GameStore implements IStateEventEmitter {
       if (existing) return;
     }
     this.state.activeModifiers.push(instance);
-    this.emitter.emit(STATE_EVENTS.MODIFIER_ADDED, instance);
+    this.emit(STATE_EVENTS.MODIFIER_ADDED, instance);
   }
 
   removeModifier(id: string): void {
     this.state.activeModifiers = this.state.activeModifiers.filter(m => m.id !== id);
-    this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id });
+    this.emit(STATE_EVENTS.MODIFIER_REMOVED, { id });
   }
 
   placeBuilding(def: BuildingDef, gridX: number, gridY: number, bounds: MapBounds): PlacementResult {
@@ -781,9 +779,9 @@ export class GameStore implements IStateEventEmitter {
     };
     this.state.buildings.push(building);
     if (Object.keys(deltas).length > 0) {
-      this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_cost' });
+      this.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_cost' });
     }
-    this.emitter.emit(STATE_EVENTS.BUILDING_PLACED, building);
+    this.emit(STATE_EVENTS.BUILDING_PLACED, building);
     this.state.lastPlayerActionDay = this.state.currentDay; // c1007-30：玩家动作点，idleDays 归位点
     this.autoUnpause();
     return { ok: true };
@@ -864,7 +862,7 @@ export class GameStore implements IStateEventEmitter {
     inst.status = 'constructing';
 
     if (Object.keys(deltas).length > 0) {
-      this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_upgrade' });
+      this.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_upgrade' });
     }
     return { ok: true };
   }
@@ -884,16 +882,16 @@ export class GameStore implements IStateEventEmitter {
     // c1023-04：半价返还外迁 buildingRefundDeltas（50% 非民材料；占用制民不返还）
     const deltas = buildingRefundDeltas(def?.cost);
     if (Object.keys(deltas).length > 0) {
-      this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_refund' });
+      this.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas, reason: 'building_refund' });
     }
-    this.emitter.emit(STATE_EVENTS.BUILDING_REMOVED, { instance });
+    this.emit(STATE_EVENTS.BUILDING_REMOVED, { instance });
     return true;
   }
 
   applyDayDeltas(deltas: Partial<Record<ResourceId, number>>): void {
     // c1023-01：遍历循环外迁 applyResourceDeltas（序/跳过语义逐字保持）；RESOURCES_CHANGED 仍在此发
     applyResourceDeltas(this.state.resources, deltas, (id, v) => this.setResourceClamped(id, v));
-    this.emitter.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas });
+    this.emit(STATE_EVENTS.RESOURCES_CHANGED, { deltas });
   }
 
   // Advance exactly ONE day. TimeSystem calls this in a loop; emitting per-day ensures
@@ -939,7 +937,7 @@ export class GameStore implements IStateEventEmitter {
     if (out.expired.length > 0) {
       this.state.activeModifiers = out.kept;
       for (const m of out.expired) {
-        this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id: m.id });
+        this.emit(STATE_EVENTS.MODIFIER_REMOVED, { id: m.id });
       }
     }
   }
@@ -953,8 +951,8 @@ export class GameStore implements IStateEventEmitter {
     if (calAfter.season === calBefore.season) return;
     const out = seasonTransitionStep(this.state.activeModifiers, calAfter.season);
     this.state.activeModifiers = out.next;
-    for (const id of out.removedIds) this.emitter.emit(STATE_EVENTS.MODIFIER_REMOVED, { id });
-    this.emitter.emit(STATE_EVENTS.MODIFIER_ADDED, { id: `season_modifier_${calAfter.season}` });
+    for (const id of out.removedIds) this.emit(STATE_EVENTS.MODIFIER_REMOVED, { id });
+    this.emit(STATE_EVENTS.MODIFIER_ADDED, { id: `season_modifier_${calAfter.season}` });
   }
 
   private runConstructionPhase(): void {
@@ -962,7 +960,7 @@ export class GameStore implements IStateEventEmitter {
     // c1023-04：乘数与推进循环外迁 constructionSpeedMultiplier / advanceConstruction（完工收尾经 io 回调）。
     const constructionSpeedMul = constructionSpeedMultiplier(this.state.buildings, this.state.activeModifiers);
     advanceConstruction(this.state.buildings, constructionSpeedMul, {
-      onCompleted: (b) => this.emitter.emit(STATE_EVENTS.BUILDING_COMPLETED, b),
+      onCompleted: (b) => this.emit(STATE_EVENTS.BUILDING_COMPLETED, b),
       finishUpgrade: (b, targetDef) => {
         const oldDefId = b.defId;
         b.defId = b.upgradingTo!;
@@ -976,7 +974,7 @@ export class GameStore implements IStateEventEmitter {
         if (toPeople > 0) {
           this.autoRecruitToClass(toCls, toPeople);
         }
-        this.emitter.emit(STATE_EVENTS.BUILDING_UPGRADED, {
+        this.emit(STATE_EVENTS.BUILDING_UPGRADED, {
           instance: b, fromDefId: oldDefId, toDefId: b.defId,
         });
       },
@@ -987,16 +985,16 @@ export class GameStore implements IStateEventEmitter {
     calBefore: ReturnType<typeof dayToCalendar>,
     calAfter: ReturnType<typeof dayToCalendar>,
   ): void {
-    this.emitter.emit(STATE_EVENTS.DAY_TICK, this.state.currentDay);
+    this.emit(STATE_EVENTS.DAY_TICK, this.state.currentDay);
     if (calAfter.season !== calBefore.season) {
-      this.emitter.emit(STATE_EVENTS.SEASON_TICK, {
+      this.emit(STATE_EVENTS.SEASON_TICK, {
         season: calAfter.season,
         seasonName: SEASON_NAMES[calAfter.season] ?? 'unknown',
         year: calAfter.year,
       });
     }
     if (calAfter.year !== calBefore.year) {
-      this.emitter.emit(STATE_EVENTS.YEAR_TICK, { year: calAfter.year });
+      this.emit(STATE_EVENTS.YEAR_TICK, { year: calAfter.year });
     }
   }
 
@@ -1013,7 +1011,7 @@ export class GameStore implements IStateEventEmitter {
     if (Object.keys(result.deltas).length > 0) {
       this.applyDayDeltas(result.deltas);
     }
-    this.emitter.emit(STATE_EVENTS.PRODUCTION_TICK, result);
+    this.emit(STATE_EVENTS.PRODUCTION_TICK, result);
   }
 
   /**
@@ -1035,11 +1033,11 @@ export class GameStore implements IStateEventEmitter {
         if (!this.state.completedDecreeIds.includes(op.decreeId)) {
           this.state.completedDecreeIds.push(op.decreeId);
         }
-        this.emitter.emit(STATE_EVENTS.DECREE_COMPLETED, { decreeId: op.decreeId, fromStage: op.fromStage });
+        this.emit(STATE_EVENTS.DECREE_COMPLETED, { decreeId: op.decreeId, fromStage: op.fromStage });
       } else if (op.kind === 'stalled') {
-        this.emitter.emit(STATE_EVENTS.DECREE_STALLED, { decreeId: op.decreeId, stage: op.stage });
+        this.emit(STATE_EVENTS.DECREE_STALLED, { decreeId: op.decreeId, stage: op.stage });
       } else {
-        this.emitter.emit(STATE_EVENTS.DECREE_ADVANCED, { decreeId: op.decreeId, fromStage: op.fromStage, toStage: op.toStage });
+        this.emit(STATE_EVENTS.DECREE_ADVANCED, { decreeId: op.decreeId, fromStage: op.fromStage, toStage: op.toStage });
       }
     }
     this.state.activeDecrees = out.next;
@@ -1072,7 +1070,7 @@ export class GameStore implements IStateEventEmitter {
           this.state.pendingEventId = eventId;
           this.state.pendingEventDayStart = dayStart;
         },
-        emitTriggered: (payload) => this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, payload),
+        emitTriggered: (payload) => this.emit(STATE_EVENTS.EVENT_TRIGGERED, payload),
         tryTriggerRelic: () => this.tryTriggerRelic(),
         computeMetrics: () => this.computeMetrics(),
       },
@@ -1086,7 +1084,7 @@ export class GameStore implements IStateEventEmitter {
         this.state.pendingEventId = eventId;
         this.state.pendingEventDayStart = dayStart;
       },
-      emitTriggered: (payload) => this.emitter.emit(STATE_EVENTS.EVENT_TRIGGERED, payload),
+      emitTriggered: (payload) => this.emit(STATE_EVENTS.EVENT_TRIGGERED, payload),
     });
   }
 
@@ -1120,7 +1118,7 @@ export class GameStore implements IStateEventEmitter {
         removeModifier: (rid) => this.removeModifier(rid),
         addModifier: (mod) => this.addModifier(mod),
         pushStoryAxis: (delta) => this.pushStoryAxis(delta),
-        emitResolved: (payload) => this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, payload),
+        emitResolved: (payload) => this.emit(STATE_EVENTS.EVENT_RESOLVED, payload),
         clearPending: () => {
           this.state.pendingEventId = null;
           this.state.pendingEventDayStart = null;
@@ -1159,9 +1157,9 @@ export class GameStore implements IStateEventEmitter {
     }
     this.state.eventHistory.push(`relic_${site.id}_s${stageIdx}`);
     if (adv.completed) {
-      this.emitter.emit(STATE_EVENTS.RELIC_RESOLVED, { name: site.name, summary: e.summary });
+      this.emit(STATE_EVENTS.RELIC_RESOLVED, { name: site.name, summary: e.summary });
     }
-    this.emitter.emit(STATE_EVENTS.EVENT_RESOLVED, {
+    this.emit(STATE_EVENTS.EVENT_RESOLVED, {
       eventId: `relic_${site.id}_s${stageIdx}`, choiceIdx, applied: true,
     });
   }
@@ -1181,7 +1179,7 @@ export class GameStore implements IStateEventEmitter {
     else this.state.policies.push({ id: policyId, adopted: true });
     this.addModifier(result.modifier);
     this.pushStoryAxis(def.storyAxisDelta); // Phase2：国策推双轴
-    this.emitter.emit(STATE_EVENTS.POLICY_ADOPTED, { policyId });
+    this.emit(STATE_EVENTS.POLICY_ADOPTED, { policyId });
     this.state.lastPlayerActionDay = this.state.currentDay; // c1007-30：玩家动作点，idleDays 归位点
     this.autoUnpause();
     return result;
@@ -1204,7 +1202,7 @@ export class GameStore implements IStateEventEmitter {
     this.applyDayDeltas(result.deltas);
     this.state.activeDecrees.push({ ...result.activeRecord });
     this.pushStoryAxis(def.storyAxisDelta); // Phase2：朝令推双轴
-    this.emitter.emit(STATE_EVENTS.DECREE_ADOPTED, { decreeId });
+    this.emit(STATE_EVENTS.DECREE_ADOPTED, { decreeId });
     this.state.lastPlayerActionDay = this.state.currentDay; // c1007-30：玩家动作点，idleDays 归位点
     this.autoUnpause();
     return result;
@@ -1287,7 +1285,7 @@ export class GameStore implements IStateEventEmitter {
     const before = this.state.publicWrath;
     this.state.publicWrath = clampSentiment(this.state.publicWrath + delta);
     if (this.state.publicWrath !== before) {
-      this.emitter.emit(STATE_EVENTS.WRATH_CHANGED, { value: this.state.publicWrath, reason });
+      this.emit(STATE_EVENTS.WRATH_CHANGED, { value: this.state.publicWrath, reason });
     }
   }
   /** 调整民心（clamp 0..100），变化时发 MORALE_CHANGED 供 HUD 米刷新。 */
@@ -1296,7 +1294,7 @@ export class GameStore implements IStateEventEmitter {
     const before = this.state.playerMorale;
     this.state.playerMorale = Math.max(0, Math.min(100, this.state.playerMorale + delta));
     if (this.state.playerMorale !== before) {
-      this.emitter.emit(STATE_EVENTS.MORALE_CHANGED, { value: this.state.playerMorale, reason });
+      this.emit(STATE_EVENTS.MORALE_CHANGED, { value: this.state.playerMorale, reason });
     }
   }
   /** 调整列国警惕值（clamp 0..100），变化时发 WORLD_WARINESS_CHANGED。 */
@@ -1306,7 +1304,7 @@ export class GameStore implements IStateEventEmitter {
     this.state.worldWariness = clampWariness(this.state.worldWariness + delta);
     if (this.state.worldWariness !== before) {
       this.state.lastWarinessReason = reason;
-      this.emitter.emit(STATE_EVENTS.WORLD_WARINESS_CHANGED, { value: this.state.worldWariness, reason });
+      this.emit(STATE_EVENTS.WORLD_WARINESS_CHANGED, { value: this.state.worldWariness, reason });
     }
   }
   getPlayerMilitaryPower(): number { return this.state.playerMilitaryPower; }
@@ -1342,7 +1340,7 @@ export class GameStore implements IStateEventEmitter {
     if (result.playerDeltas.renown !== undefined && result.playerDeltas.renown !== 0) {
       this.addModifier(diplomacyRenownModifier(kind, npcId, this.state.currentDay, result.playerDeltas.renown, result.message));
     }
-    this.emitter.emit(STATE_EVENTS.DIPLOMACY_ACTION, { npcId, kind, result });
+    this.emit(STATE_EVENTS.DIPLOMACY_ACTION, { npcId, kind, result });
     // B1：宣战升警惕、通商/出使降警惕（放在结算之后，UI 读终态）——c1023-03 外迁映射
     const wariness = diplomacyWarinessAdjust(kind);
     this.adjustWariness(wariness.delta, wariness.reason);
@@ -1385,7 +1383,7 @@ export class GameStore implements IStateEventEmitter {
       this.applyDayDeltas(outcome.deltas);
     }
     if (outcome.tradeIncomeFired) {
-      this.emitter.emit(STATE_EVENTS.TRADE_TICK, { deltas: outcome.deltas });
+      this.emit(STATE_EVENTS.TRADE_TICK, { deltas: outcome.deltas });
     }
   }
 
@@ -1465,13 +1463,13 @@ export class GameStore implements IStateEventEmitter {
     if (next > this.state.gradeReached) this.state.gradeReached = next;
     this.historianGradeAscended = true;
     this.adjustWariness(WARINESS_DELTAS.gradeAscend, '国格晋阶');
-    this.emitter.emit(STATE_EVENTS.GRADE_CHANGED, {
+    this.emit(STATE_EVENTS.GRADE_CHANGED, {
       from, to: next, def: gradeDefAt(next), reason: 'ascend',
     });
     if (next >= MAX_GRADE && !this.state.tianxiaAcknowledged) {
       this.state.tianxiaAcknowledged = true;
       if (this.state.endgameAscendDay === null) this.state.endgameAscendDay = this.state.currentDay;
-      this.emitter.emit(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, { def: gradeDefAt(next) });
+      this.emit(STATE_EVENTS.TIANXIA_ACKNOWLEDGED, { def: gradeDefAt(next) });
     }
   }
 
@@ -1515,7 +1513,7 @@ export class GameStore implements IStateEventEmitter {
       description: '扛过终局波次，盛名有加。',
       descPlain: '扛过终局波次，盛名有加。',
     });
-    this.emitter.emit(STATE_EVENTS.ENDGAME_WAVE, wave);
+    this.emit(STATE_EVENTS.ENDGAME_WAVE, wave);
   }
 
   // ============== B-4.1：阶层博弈 ==============
@@ -1538,7 +1536,7 @@ export class GameStore implements IStateEventEmitter {
     this.state.factionState = next;
     // B-4.1：新诉求出现（null→有）时通知 UI 弹窗（之前从不 emit → 静默死锁，玩家永远看不到）
     if (!hadDemand && next.activeDemand) {
-      this.emitter.emit(STATE_EVENTS.FACTION_DEMAND_TRIGGERED, {
+      this.emit(STATE_EVENTS.FACTION_DEMAND_TRIGGERED, {
         demand: next.activeDemand,
         factionName: FACTION_NAMES[next.activeDemand.factionId],
       });
@@ -1580,7 +1578,7 @@ export class GameStore implements IStateEventEmitter {
     if (effect.researchMul) {
       this.addModifier(this.makeFactionModifier(demandId, 'country_research_speed', 1 + effect.researchMul, '阶层博弈·学问'));
     }
-    this.emitter.emit(STATE_EVENTS.FACTION_DEMAND_RESOLVED, { demandId, accepted });
+    this.emit(STATE_EVENTS.FACTION_DEMAND_RESOLVED, { demandId, accepted });
   }
 
   /** B-4.1：把阶层诉求的乘法后果包成永久 modifier。 */
@@ -1665,7 +1663,7 @@ export class GameStore implements IStateEventEmitter {
             this.state.activeModifiers.push(tradeMod);
           }
         }
-        this.emitter.emit(STATE_EVENTS.MEGA_PROJECT_COMPLETED, { projectId: prog.projectId, def, reward });
+        this.emit(STATE_EVENTS.MEGA_PROJECT_COMPLETED, { projectId: prog.projectId, def, reward });
       }
       updated.push(next);
     }
@@ -1685,7 +1683,7 @@ export class GameStore implements IStateEventEmitter {
       daysRemaining: def.phases[0]!.durationDays,
       completed: false,
     });
-    this.emitter.emit(STATE_EVENTS.MEGA_PROJECT_STARTED, { projectId, def });
+    this.emit(STATE_EVENTS.MEGA_PROJECT_STARTED, { projectId, def });
     return true;
   }
 
@@ -1741,7 +1739,7 @@ export class GameStore implements IStateEventEmitter {
     if ((this.state.resources['gold'] ?? 0) < COST) return false;
     this.addResource('gold', -COST, 'recruit_general');
     this.state.generals = recruitGeneralFn(id, this.state.generals);
-    this.emitter.emit(STATE_EVENTS.GENERALS_CHANGED, { id });
+    this.emit(STATE_EVENTS.GENERALS_CHANGED, { id });
     return true;
   }
 
@@ -1750,7 +1748,7 @@ export class GameStore implements IStateEventEmitter {
     if (!g) return false;
     if (g.deployed) return false; // 出征中不可遣散（防 activeExpeditions 悬空 generalId）
     this.state.generals = dismissGeneralFn(id, this.state.generals);
-    this.emitter.emit(STATE_EVENTS.GENERALS_CHANGED, { id });
+    this.emit(STATE_EVENTS.GENERALS_CHANGED, { id });
     return true;
   }
 
@@ -1764,7 +1762,7 @@ export class GameStore implements IStateEventEmitter {
     if (config.generalId) this.state.generals = deployGeneralFn(config.generalId, this.state.generals);
     const rng = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0x6217) >>> 0);
     this.state.activeExpeditions.push(createExpedition(config, rng));
-    this.emitter.emit(STATE_EVENTS.MILITARY_CHANGED, {});
+    this.emit(STATE_EVENTS.MILITARY_CHANGED, {});
     return { ok: true };
   }
 
@@ -1797,7 +1795,7 @@ export class GameStore implements IStateEventEmitter {
       const rng = createRng((this.state.rngSeed ^ this.state.currentDay ^ 0x10a1) >>> 0);
       const { generals, defected } = tickLoyalty(this.state.generals, rng);
       this.state.generals = generals;
-      if (defected.length > 0) this.emitter.emit(STATE_EVENTS.GENERALS_CHANGED, { defected });
+      if (defected.length > 0) this.emit(STATE_EVENTS.GENERALS_CHANGED, { defected });
     }
     // 5. 偶发来犯预警：敌对(stance<-40)且更强的邻国可能来犯，给 3 日反应窗口。低频，避免压垮玩家。
     //    玩家的"应对"=平时养兵——有兵则守土结算，无兵则被劫掠（见 resolveIncomingAttack）。
@@ -1809,7 +1807,7 @@ export class GameStore implements IStateEventEmitter {
           const pick = hostile[rng.nextInt(0, hostile.length - 1)]!;
           const alert: DefenseAlert = { npcId: pick.id, daysUntilAttack: 3, npcStrength: pick.militaryPower };
           this.state.defenseAlerts.push(alert);
-          this.emitter.emit(STATE_EVENTS.DEFENSE_ALERT, { alert });
+          this.emit(STATE_EVENTS.DEFENSE_ALERT, { alert });
         }
       }
     }
@@ -1838,7 +1836,7 @@ export class GameStore implements IStateEventEmitter {
       this.state.generals = applyBattleResult(this.state.generals, exp.config.generalId, r.outcome !== 'defeat');
       this.state.generals = returnGeneralFn(exp.config.generalId, this.state.generals);
     }
-    this.emitter.emit(STATE_EVENTS.EXPEDITION_RESOLVED, { result: r, npcId: exp.config.npcId, target: exp.config.target });
+    this.emit(STATE_EVENTS.EXPEDITION_RESOLVED, { result: r, npcId: exp.config.npcId, target: exp.config.target });
   }
 
   private resolveIncomingAttack(alert: DefenseAlert): void {
@@ -1855,7 +1853,7 @@ export class GameStore implements IStateEventEmitter {
         this.shrinkPopulationClasses(loss.peopleLost);
         this.setResourceClamped('people', totalPopulation(this.state.populationClasses));
       }
-      this.emitter.emit(STATE_EVENTS.EXPEDITION_RESOLVED, { defense: true, intercepted: false, npcId: alert.npcId });
+      this.emit(STATE_EVENTS.EXPEDITION_RESOLVED, { defense: true, intercepted: false, npcId: alert.npcId });
       return;
     }
     // 守军以"现有最强可用兵种"列阵（而非恒按民兵），让练兵场/马厩等防御也增益。
@@ -1864,7 +1862,7 @@ export class GameStore implements IStateEventEmitter {
     const myDef = computeDefenseStrength({ [bestDef]: soldiers }, 80);
     const r = resolveBattle(myDef, alert.npcStrength, soldiers, rng, true);
     if (r.unitsLost > 0) this.killSoldiers(r.unitsLost);
-    this.emitter.emit(STATE_EVENTS.EXPEDITION_RESOLVED, { defense: true, intercepted: true, result: r, npcId: alert.npcId });
+    this.emit(STATE_EVENTS.EXPEDITION_RESOLVED, { defense: true, intercepted: true, result: r, npcId: alert.npcId });
   }
 
   /** 战损：从兵阶层扣，并同步 people。 */
@@ -1933,9 +1931,9 @@ export class GameStore implements IStateEventEmitter {
         storyTransitionPending: this.storyTransitionPending,
       },
       {
-        emitUnified: (payload) => this.emitter.emit(STATE_EVENTS.STORY_UNIFIED, payload),
-        emitBulletin: (payload) => this.emitter.emit(STATE_EVENTS.BREATHING_BULLETIN, payload),
-        emitEnding: (payload) => this.emitter.emit(STATE_EVENTS.STORY_ENDING, payload),
+        emitUnified: (payload) => this.emit(STATE_EVENTS.STORY_UNIFIED, payload),
+        emitBulletin: (payload) => this.emit(STATE_EVENTS.BREATHING_BULLETIN, payload),
+        emitEnding: (payload) => this.emit(STATE_EVENTS.STORY_ENDING, payload),
         advanceChapter: (chapter) => this.advanceStoryChapter(chapter),
       },
     );
@@ -1964,11 +1962,11 @@ export class GameStore implements IStateEventEmitter {
     const rngFn = () => rng.next();
     const toast = tickBreathingToast(this.breathingState, ctx, rngFn);
     if (toast.entry) {
-      this.emitter.emit(STATE_EVENTS.BREATHING_TOAST, { entry: toast.entry });
+      this.emit(STATE_EVENTS.BREATHING_TOAST, { entry: toast.entry });
     }
     const bulletin = tickBreathingBulletin(this.breathingState, ctx, rngFn);
     if (bulletin.entry) {
-      this.emitter.emit(STATE_EVENTS.BREATHING_BULLETIN, { entry: bulletin.entry });
+      this.emit(STATE_EVENTS.BREATHING_BULLETIN, { entry: bulletin.entry });
     }
   }
 
@@ -2000,7 +1998,7 @@ export class GameStore implements IStateEventEmitter {
     const result = checkHistorian(ctx);
     if (result.advice) {
       this.state.seenJitHints.push(result.advice.id);
-      this.emitter.emit(STATE_EVENTS.HISTORIAN_ADVICE, { advice: result.advice });
+      this.emit(STATE_EVENTS.HISTORIAN_ADVICE, { advice: result.advice });
     }
     if (result.advice?.id === 'hist_07_grade_ascend') {
       this.historianGradeAscended = false;
@@ -2019,7 +2017,7 @@ export class GameStore implements IStateEventEmitter {
 
     if (shouldStartUltimatum(wrath, endDay)) {
       this.state.wrathUltimatumEndDay = this.state.currentDay + ULTIMATUM_DAYS;
-      this.emitter.emit(STATE_EVENTS.ULTIMATUM_STARTED, {
+      this.emit(STATE_EVENTS.ULTIMATUM_STARTED, {
         endDay: this.state.wrathUltimatumEndDay,
         days: ULTIMATUM_DAYS,
       });
@@ -2028,7 +2026,7 @@ export class GameStore implements IStateEventEmitter {
 
     if (shouldLiftUltimatum(wrath, endDay)) {
       this.state.wrathUltimatumEndDay = null;
-      this.emitter.emit(STATE_EVENTS.ULTIMATUM_LIFTED, { wrath });
+      this.emit(STATE_EVENTS.ULTIMATUM_LIFTED, { wrath });
       return;
     }
 
@@ -2044,12 +2042,12 @@ export class GameStore implements IStateEventEmitter {
       this.adjustMorale(eff.moraleDelta, 'ultimatum_revolt');
       this.state.publicWrath = ULTIMATUM_EXPLOSION_WRATH_RESET;
       this.state.wrathUltimatumEndDay = null;
-      this.emitter.emit(STATE_EVENTS.ULTIMATUM_EXPLODED, {
+      this.emit(STATE_EVENTS.ULTIMATUM_EXPLODED, {
         lostPeople: -eff.peopleDelta,
         moraleDrop: -eff.moraleDelta,
         wrath: this.state.publicWrath,
       });
-      this.emitter.emit(STATE_EVENTS.WRATH_CHANGED, {
+      this.emit(STATE_EVENTS.WRATH_CHANGED, {
         value: this.state.publicWrath,
         reason: 'ultimatum_revolt',
       });
@@ -2079,7 +2077,7 @@ export class GameStore implements IStateEventEmitter {
     if (shouldForceWrathDemand(this.getPublicWrath(), this.state.lastWrathDemandDay, this.state.currentDay)) {
       this.state.lastWrathDemandDay = this.state.currentDay;
       this.state.factionState.nextEventDay = Math.min(this.state.factionState.nextEventDay, this.state.currentDay + 1);
-      this.emitter.emit(STATE_EVENTS.WRATH_ALERT, { text: '民怨沸腾，举国侧目——不日必有诉求上达，速思抚民之策。' });
+      this.emit(STATE_EVENTS.WRATH_ALERT, { text: '民怨沸腾，举国侧目——不日必有诉求上达，速思抚民之策。' });
     }
     // P2 通牒：怨愤 ≥85 → 限期倒计时；期内压回 55 解除；到期未解 → 民变爆发。
     // 同样必须在自然回落之前判定（85 当天不能被 1 点回落吞掉）。
@@ -2116,9 +2114,9 @@ export class GameStore implements IStateEventEmitter {
       chapter,
       this.state.currentDay,
       {
-        emitNarration: (payload) => this.emitter.emit(STATE_EVENTS.STORY_NARRATION, payload),
+        emitNarration: (payload) => this.emit(STATE_EVENTS.STORY_NARRATION, payload),
         clearTransitionPending: () => { this.storyTransitionPending = false; },
-        emitChapterChanged: (payload) => this.emitter.emit(STATE_EVENTS.STORY_CHAPTER_CHANGED, payload),
+        emitChapterChanged: (payload) => this.emit(STATE_EVENTS.STORY_CHAPTER_CHANGED, payload),
       },
     );
   }
@@ -2130,7 +2128,7 @@ export class GameStore implements IStateEventEmitter {
    */
   private pushStoryAxis(delta: { power?: number; production?: number } | undefined): void {
     pushStoryAxisStep(this.state.mode, this.state.storyFlags, delta, {
-      emitNarration: (payload) => this.emitter.emit(STATE_EVENTS.STORY_NARRATION, payload),
+      emitNarration: (payload) => this.emit(STATE_EVENTS.STORY_NARRATION, payload),
     });
   }
 
@@ -2173,9 +2171,9 @@ export class GameStore implements IStateEventEmitter {
         addResource: (id, delta, reason) => this.addResource(id, delta, reason),
         adjustMorale: (delta, reason) => this.adjustMorale(delta, reason),
         adjustWrath: (delta, reason) => this.adjustWrath(delta, reason),
-        emitActChanged: (payload) => this.emitter.emit(STATE_EVENTS.ACT_CHANGED, payload),
-        emitNpcAction: (payload) => this.emitter.emit(STATE_EVENTS.NPC_ACTION, payload),
-        emitNpcDynamicsTick: () => this.emitter.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined),
+        emitActChanged: (payload) => this.emit(STATE_EVENTS.ACT_CHANGED, payload),
+        emitNpcAction: (payload) => this.emit(STATE_EVENTS.NPC_ACTION, payload),
+        emitNpcDynamicsTick: () => this.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined),
       },
     );
     this.lastActId = out.lastActId;
@@ -2370,7 +2368,7 @@ export class GameStore implements IStateEventEmitter {
       const lostName = getBuildingDef(lost.defId)?.name ?? '城邑';
       const moraleDrop = planCessionMoraleDrop(n);
       this.adjustMorale(moraleDrop, 'crisis_cession');
-      this.emitter.emit(STATE_EVENTS.BUILDING_UPGRADED, lost); // 复用刷新建筑视觉
+      this.emit(STATE_EVENTS.BUILDING_UPGRADED, lost); // 复用刷新建筑视觉
       summary = `国库空、仓廪罄，旷日逾月。无力守土，「${lostName}」就此荒废。励精图治，尚可再起。`;
     } else {
       // 民变（默认）：掉人口 + 挫士气 + 降格
@@ -2387,7 +2385,7 @@ export class GameStore implements IStateEventEmitter {
       if (this.state.grade > 0) {
         gradeTo = this.state.grade - 1;
         this.state.grade = gradeTo;
-        this.emitter.emit(STATE_EVENTS.GRADE_CHANGED, {
+        this.emit(STATE_EVENTS.GRADE_CHANGED, {
           from: gradeFrom, to: gradeTo, def: gradeDefAt(gradeTo), reason: 'crisis',
         });
       }
@@ -2396,7 +2394,7 @@ export class GameStore implements IStateEventEmitter {
     }
 
     this.state.crisisCount += 1; // 防刷递增：下次更狠
-    this.emitter.emit(STATE_EVENTS.CRISIS_TRIGGERED, { kind, summary, crisisCount: this.state.crisisCount });
+    this.emit(STATE_EVENTS.CRISIS_TRIGGERED, { kind, summary, crisisCount: this.state.crisisCount });
   }
 
   /** 赎身：附庸态下攒够 gold 可一次性恢复自主。 */
@@ -2406,7 +2404,7 @@ export class GameStore implements IStateEventEmitter {
     this.addResource('gold', -VASSAL_REDEEM_GOLD, 'redeem_vassalage');
     this.state.vassalOf = null;
     this.adjustMorale(10, 'redeem_vassalage');
-    this.emitter.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined);
+    this.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined);
     return { ok: true };
   }
 
@@ -2498,6 +2496,6 @@ export class GameStore implements IStateEventEmitter {
     this.storyTransitionPending = false;
     this.breathingState = createBreathingState();
     this.historianGradeAscended = false;
-    this.emitter.emit(STATE_EVENTS.STATE_REPLACED, undefined);
+    this.emit(STATE_EVENTS.STATE_REPLACED, undefined);
   }
 }

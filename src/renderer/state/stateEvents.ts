@@ -30,7 +30,7 @@ export interface GameStateEventMap {
   'state:decreeStalled': { decreeId: string; stage: number };
   'state:eventTriggered': { eventId: string };
   'state:eventResolved': { eventId: string; choiceIdx: number; applied: boolean };
-  'state:tutorialStepChanged': string;
+  'state:tutorialStepChanged': string | null;  // l1028-06 拍板放宽（d914-18）：setTutorialStepId 可传 null，载荷随状态如实广播
   'state:panelCollapsedChanged': { side: 'left' | 'right'; collapsed: boolean };
   'state:buildingUpgraded': { instance: BuildingInstance; fromDefId: string; toDefId: string } | BuildingInstance;
   'state:buildingRemoved': { instance: BuildingInstance };
