@@ -173,3 +173,25 @@ export function getBootLoadList(category: 'building' | 'general'): BootLoadItem[
 export function isArtAvailable(key: string, loadedKeys: ReadonlySet<string>): boolean {
   return loadedKeys.has(key);
 }
+
+// c1028-03（P1-4 收口）：音频资产清单——BootScene 音频加载的唯一权威源。
+// 磁盘 9 mp3 + 6 wav 实存（colony-missing-assets 报告在案；audioKeys.test 对磁盘对账）。
+export interface AudioAssetDef {
+  key: string;
+  url: string;
+}
+
+/** BGM：Mureka 生成 mp3。 */
+export const BGM_AUDIO: AudioAssetDef[] = [
+  'bgm_prosper_low', 'bgm_prosper_mid', 'bgm_prosper_high',
+  'bgm_crisis', 'bgm_war', 'bgm_ritual',
+  'bgm_ending_gong', 'bgm_ending_jia', 'bgm_ending_huo',
+].map((key) => ({ key, url: `audio/${key}.mp3` }));
+
+/** 音效：本地合成 wav（键集与 data/audio.ts AUDIO_CUES 触发表对齐）。 */
+export const SFX_AUDIO: AudioAssetDef[] = [
+  'sfx_bell', 'sfx_chime', 'sfx_gong', 'sfx_place', 'sfx_click', 'sfx_warn',
+].map((key) => ({ key, url: `audio/${key}.wav` }));
+
+/** BootScene 音频装配清单（BGM＋SFX 一次取全）。 */
+export const AUDIO_BOOT_LIST: AudioAssetDef[] = [...BGM_AUDIO, ...SFX_AUDIO];

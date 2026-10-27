@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { validateStaticData } from '@/data';
 import { REGISTRY_KEYS, registryGet } from '../ui/registry';
-import { ALL_BGM_KEYS, SFX_KEYS } from '../state/audioDirector';
-import { EVENT_ART, TERRAIN_ART, SCATTER_ART, getBootLoadList, eventArtUrl } from '../data/artManifest';
+
+import { EVENT_ART, TERRAIN_ART, SCATTER_ART, AUDIO_BOOT_LIST, getBootLoadList, eventArtUrl } from '../data/artManifest';
 
 /**
  * BootScene：
@@ -72,11 +72,10 @@ export class BootScene extends Phaser.Scene {
     // Phase4 音频：试加载 BGM + 音效。同 sprite——缺文件 loaderror 静默，
     // AudioManager 通过 cache.audio.exists(key) 自动静音降级。资产（Mureka 生成的 mp3）
     // 落在 public/audio/<key>.mp3；尚未生成的 key 直接跳过、无声。
-    for (const key of ALL_BGM_KEYS) {
-      this.load.audio(key, `audio/${key}.mp3`); // BGM：Mureka 生成的 mp3
-    }
-    for (const key of SFX_KEYS) {
-      this.load.audio(key, `audio/${key}.wav`); // 音效：本地合成的短 wav
+    // c1028-03（P1-4 收口）：清单改由 artManifest.AUDIO_BOOT_LIST 派生（键＋扩展名单源），
+    // 删除「audioDirector 键数组 + BootScene 扩展名模板」的双源。缺文件 loaderror 静默 → 静音降级。
+    for (const asset of AUDIO_BOOT_LIST) {
+      this.load.audio(asset.key, asset.url);
     }
   }
 

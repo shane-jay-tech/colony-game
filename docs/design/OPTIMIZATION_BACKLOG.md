@@ -38,7 +38,7 @@
 - [x] **P1-1 类型化事件面（核心）**：`GameStateEventMap` 载荷契约 + 泛型 `on/off/emit`（50 个事件全覆盖，运行时双向守护测试）；监听方逆变兼容无需迁移。内部 emit 与逐订阅点迁移留后续低风险渐进。
 - [x] **P1-2 registry key 类型化**：集中 Phaser registry key 常量 + typed get/set helper，替换散落的字符串。（证据：src/renderer/ui/registry.ts:29 REGISTRY_KEYS 单一事实源；registry.ts:86/91 泛型 get/set；src/renderer/ui/__tests__/registry.test.ts「不再有散落字符串」守护用例）
 - [x] **P1-3 tickDay 阶段管道抽取**：每日阶段顺序抽出为可测 pipeline，GameStore 保留兼容 facade，阶段顺序加显式测试。（证据：src/renderer/state/dayPipeline.ts:52 DAY_PHASE_DEFS；src/renderer/state/gameStore.ts:54/939 buildDayPipeline 被 GameStore 调用；src/renderer/state/__tests__/dayPipeline.test.ts）
-- [ ] **P1-4 资产清单权威化**：BootScene 以 `artManifest` 为唯一加载源，删除重复加载列表。（现状：building/general/event 已由 artManifest 派生（BootScene.ts:46/64/70）；terrain/scatter/audio 仍为硬编码清单（BootScene.ts:53/57/71），故未收口）
+- [x] **P1-4 资产清单权威化**：BootScene 以 `artManifest` 为唯一加载源，删除重复加载列表。（c1028-03 收口：building/general/event/terrain/scatter 原已派生；audio 段新增 AUDIO_BOOT_LIST（键＋扩展名单源），audioDirector 常量改派生、BootScene 双源删除。证据：src/renderer/data/artManifest.ts AUDIO_BOOT_LIST；BootScene.ts:75-79；audioKeys.test 9+6 对磁盘对账全绿）
 - [ ] **P1-5 启动配置清理**：接线或删除不可达的启动配置分支（PLAN 工作项 2 末条）。（现状：不可达模块已退役 3 件（git aad0592 + docs/insights/colony-unreachable-resourceSystem-20260912.md）；本轮未做全量启动配置复核）
 - [x] **P1-6 渲染职责拆分**：MapRenderer 的视口/相机计算抽出纯函数 + 测试（等距投影已有 `render/iso.ts`，先查重）。（证据：src/renderer/render/cameraMath.ts 79 行纯函数；MapRenderer.ts:11-12 导入；src/renderer/render/__tests__/cameraMath.test.ts）
 

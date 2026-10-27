@@ -25,12 +25,12 @@ export function selectBgmKey(input: AudioDirectorInput): string {
   return 'bgm_prosper_low';
 }
 
+// c1028-03（P1-4 收口）：键清单改由 artManifest 派生（原硬编码字面数组退役）——
+// 「manifest 之外的第二事实源」随 terrain/scatter 同款口径销项。
+import { BGM_AUDIO, SFX_AUDIO } from '../data/artManifest';
+
 /** 全部可能用到的 BGM key（BootScene 据此尝试加载存在的音频文件；不存在则跳过、静音降级）。 */
-export const ALL_BGM_KEYS: readonly string[] = [
-  'bgm_prosper_low', 'bgm_prosper_mid', 'bgm_prosper_high',
-  'bgm_crisis', 'bgm_war', 'bgm_ritual',
-  'bgm_ending_gong', 'bgm_ending_jia', 'bgm_ending_huo',
-];
+export const ALL_BGM_KEYS: readonly string[] = BGM_AUDIO.map((a) => a.key);
 
 /** 音效 key（事件触发用，对齐 data/audio.ts AUDIO_CUES）。 */
-export const SFX_KEYS: readonly string[] = ['sfx_bell', 'sfx_chime', 'sfx_gong', 'sfx_place', 'sfx_click', 'sfx_warn'];
+export const SFX_KEYS: readonly string[] = SFX_AUDIO.map((a) => a.key);
