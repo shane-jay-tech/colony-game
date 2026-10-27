@@ -278,7 +278,7 @@ describe('a239 ③ 恢复后时间推进可解释', () => {
 // ─────────────────────────────────────────────────────────────
 // ④ 日历上界的在册现状钉桩（**待人工裁决，本班未修**）
 // ─────────────────────────────────────────────────────────────
-describe('a239 ④ currentDay 上界：时间停走但 pipeline 照跑（在册缺陷现状）', () => {
+describe('a239 ④ currentDay 上界：时间停走且全管线短路（c1028-05 L9 收口）', () => {
   function atCeiling(store: GameStore): void {
     const s = store.getState() as GameState;
     store.replaceState({ ...s, currentDay: MAX_SAVE_CURRENT_DAY });
@@ -292,15 +292,14 @@ describe('a239 ④ currentDay 上界：时间停走但 pipeline 照跑（在册�
     expect(store.getCurrentDay()).toBe(MAX_SAVE_CURRENT_DAY);
   });
 
-  it('⚠ 但同一日历日会被重复结算：日号不动，pipeline 仍逐 tick 全跑（DAY_TICK 同值连发）', () => {
+  it('c1028-05（L9 收口）：上界后全管线短路——同一天不再被重复结算（DAY_TICK 归零）', () => {
     const store = makeLiveStore();
     atCeiling(store);
     const seen: number[] = [];
     store.on(STATE_EVENTS.DAY_TICK, (d) => { seen.push(d as number); });
     const ts = new TimeSystem(store);
     ts.update(D1 * 5);
-    expect(seen.length).toBe(5);
-    expect(new Set(seen).size).toBe(1); // 5 次结算全落在同一天
+    expect(seen.length).toBe(0); // 管线短路：无 DAY_TICK ⇒ production/starvation/波次不再重放
     expect(store.getCurrentDay()).toBe(MAX_SAVE_CURRENT_DAY);
   });
 });

@@ -1005,9 +1005,12 @@ export class GameStore implements IStateEventEmitter {
   // 日历推进是前置步；随后按 dayPipeline.DAY_PHASE_ORDER 依次执行各域阶段。
   tickDay(): void {
     const prevDay = this.state.currentDay;
-    const calBefore = dayToCalendar(prevDay);
     // c919-04 TODO①：tick clamp——到上界后时间停走（与 saveLoad MAX_SAVE_CURRENT_DAY 同值；导入会成环故就地声明）。
     const MAX_CURRENT_DAY = 3600;
+    // c1028-05（L9 收口）：上界后全管线短路。旧形态只钳日号、pipeline 照跑＝同一日历日
+    // 被无限重放结算（production/starvation/endgame 波次逐 tick 复发），护栏变漏洞。
+    if (prevDay >= MAX_CURRENT_DAY) return;
+    const calBefore = dayToCalendar(prevDay);
     this.state.currentDay = Math.min(prevDay + 1, MAX_CURRENT_DAY);
     const calAfter = dayToCalendar(this.state.currentDay);
 
