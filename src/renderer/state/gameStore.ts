@@ -618,6 +618,84 @@ export class GameStore implements IStateEventEmitter {
   emit<K extends StateEventName>(event: K, payload: GameStateEventMap[K]): void {
     this.emitter.emit(event, payload);
   }
+
+  // ============== c1028-02（B 案落地，D1025-nod #8）：域回调注册表 ==============
+  // 六域 io 闭包由「散在各薄委托内逐调新建」收敛为「构造期一次装配」——
+  // 单一装配点＝事件副作用面的单一断点面。闭包只捕获 this，构造期装配与
+  // 逐调装配行为等价；零行为变更门：全量 2031 绿＋GameState 接口块逐行比对。
+  private io = {
+    story: this.buildStoryIo(),
+  };
+
+  /** story 域七束 io（事件朝议/结算/古迹/主线/章节/双轴/NPC 动态）。逐字段与原内联实参同源。 */
+  private buildStoryIo() {
+    return {
+      eventTick: {
+        resolveEvent: (choiceIdx: number) => this.resolveEvent(choiceIdx),
+        setPending: (eventId: string, dayStart: number) => {
+          this.state.pendingEventId = eventId;
+          this.state.pendingEventDayStart = dayStart;
+        },
+        emitTriggered: (payload: GameStateEventMap['state:eventTriggered']) =>
+          this.emit(STATE_EVENTS.EVENT_TRIGGERED, payload),
+        tryTriggerRelic: () => this.tryTriggerRelic(),
+        computeMetrics: () => this.computeMetrics(),
+      },
+      resolveEvent: {
+        applyRelicChoice: (siteIdx: number, stageIdx: number, ci: number) =>
+          this.applyRelicChoice(siteIdx, stageIdx, ci),
+        removeModifier: (rid: string) => this.removeModifier(rid),
+        addModifier: (mod: Parameters<GameStore['addModifier']>[0]) => this.addModifier(mod),
+        pushStoryAxis: (delta: { power?: number; production?: number } | undefined) =>
+          this.pushStoryAxis(delta),
+        emitResolved: (payload: GameStateEventMap['state:eventResolved']) =>
+          this.emit(STATE_EVENTS.EVENT_RESOLVED, payload),
+        clearPending: () => {
+          this.state.pendingEventId = null;
+          this.state.pendingEventDayStart = null;
+        },
+      },
+      triggerRelic: {
+        setPending: (eventId: string, dayStart: number) => {
+          this.state.pendingEventId = eventId;
+          this.state.pendingEventDayStart = dayStart;
+        },
+        emitTriggered: (payload: GameStateEventMap['state:eventTriggered']) =>
+          this.emit(STATE_EVENTS.EVENT_TRIGGERED, payload),
+      },
+      storyTick: {
+        emitUnified: (payload: GameStateEventMap['state:storyUnified']) =>
+          this.emit(STATE_EVENTS.STORY_UNIFIED, payload),
+        emitBulletin: (payload: GameStateEventMap['state:breathingBulletin']) =>
+          this.emit(STATE_EVENTS.BREATHING_BULLETIN, payload),
+        emitEnding: (payload: GameStateEventMap['state:storyEnding']) =>
+          this.emit(STATE_EVENTS.STORY_ENDING, payload),
+        advanceChapter: (chapter: number) => this.advanceStoryChapter(chapter),
+      },
+      advanceChapter: {
+        emitNarration: (payload: GameStateEventMap['state:storyNarration']) =>
+          this.emit(STATE_EVENTS.STORY_NARRATION, payload),
+        clearTransitionPending: () => { this.storyTransitionPending = false; },
+        emitChapterChanged: (payload: GameStateEventMap['state:storyChapterChanged']) =>
+          this.emit(STATE_EVENTS.STORY_CHAPTER_CHANGED, payload),
+      },
+      pushStoryAxis: {
+        emitNarration: (payload: GameStateEventMap['state:storyNarration']) =>
+          this.emit(STATE_EVENTS.STORY_NARRATION, payload),
+      },
+      npcDynamics: {
+        addResource: (id: ResourceId, delta: number, reason: string) =>
+          this.addResource(id, delta, reason),
+        adjustMorale: (delta: number, reason: string) => this.adjustMorale(delta, reason),
+        adjustWrath: (delta: number, reason: string) => this.adjustWrath(delta, reason),
+        emitActChanged: (payload: GameStateEventMap['state:actChanged']) =>
+          this.emit(STATE_EVENTS.ACT_CHANGED, payload),
+        emitNpcAction: (payload: GameStateEventMap['state:npcAction']) =>
+          this.emit(STATE_EVENTS.NPC_ACTION, payload),
+        emitNpcDynamicsTick: () => this.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined),
+      },
+    };
+  }
   listenerCount(event: string): number { return this.emitter.listenerCount(event); }
 
   /** 资源存储上限基数（无仓廪时）→ c1023-01 已外迁 domains/resourceDomain（RESOURCE_CAP_BASE，值不变）。 */
@@ -1064,28 +1142,13 @@ export class GameStore implements IStateEventEmitter {
         rngSeed: this.state.rngSeed,
         eventHistory: this.state.eventHistory,
       },
-      {
-        resolveEvent: (choiceIdx) => this.resolveEvent(choiceIdx),
-        setPending: (eventId, dayStart) => {
-          this.state.pendingEventId = eventId;
-          this.state.pendingEventDayStart = dayStart;
-        },
-        emitTriggered: (payload) => this.emit(STATE_EVENTS.EVENT_TRIGGERED, payload),
-        tryTriggerRelic: () => this.tryTriggerRelic(),
-        computeMetrics: () => this.computeMetrics(),
-      },
+      this.io.story.eventTick,
     );
   }
 
   /** C1：普通朝议无戏时，唤起下一个空闲古迹阶段（与朝议共用一条叙事流，互不抢占）。c1025-03：主体外迁 triggerRelicStep。 */
   private tryTriggerRelic(): void {
-    triggerRelicStep(this.state.relicSites, this.state.currentDay, {
-      setPending: (eventId, dayStart) => {
-        this.state.pendingEventId = eventId;
-        this.state.pendingEventDayStart = dayStart;
-      },
-      emitTriggered: (payload) => this.emit(STATE_EVENTS.EVENT_TRIGGERED, payload),
-    });
+    triggerRelicStep(this.state.relicSites, this.state.currentDay, this.io.story.triggerRelic);
   }
 
   /** 用当前 state + activeModifiers 算 DSL/事件采样所需的国家级指标快照。c1023-05：主体外迁 computeCountryMetrics。 */
@@ -1113,17 +1176,7 @@ export class GameStore implements IStateEventEmitter {
         storyFlags: this.state.storyFlags,
         choiceIdx,
       },
-      {
-        applyRelicChoice: (siteIdx, stageIdx, ci) => this.applyRelicChoice(siteIdx, stageIdx, ci),
-        removeModifier: (rid) => this.removeModifier(rid),
-        addModifier: (mod) => this.addModifier(mod),
-        pushStoryAxis: (delta) => this.pushStoryAxis(delta),
-        emitResolved: (payload) => this.emit(STATE_EVENTS.EVENT_RESOLVED, payload),
-        clearPending: () => {
-          this.state.pendingEventId = null;
-          this.state.pendingEventDayStart = null;
-        },
-      },
+      this.io.story.resolveEvent,
     );
     if (Number.isFinite(out.lastEventDay)) {
       this.state.lastEventDay = out.lastEventDay;
@@ -1930,12 +1983,7 @@ export class GameStore implements IStateEventEmitter {
         currentDay: this.state.currentDay,
         storyTransitionPending: this.storyTransitionPending,
       },
-      {
-        emitUnified: (payload) => this.emit(STATE_EVENTS.STORY_UNIFIED, payload),
-        emitBulletin: (payload) => this.emit(STATE_EVENTS.BREATHING_BULLETIN, payload),
-        emitEnding: (payload) => this.emit(STATE_EVENTS.STORY_ENDING, payload),
-        advanceChapter: (chapter) => this.advanceStoryChapter(chapter),
-      },
+      this.io.story.storyTick,
     );
     this.storyTransitionPending = out.storyTransitionPending;
   }
@@ -2113,11 +2161,7 @@ export class GameStore implements IStateEventEmitter {
       this.state.storyFlags,
       chapter,
       this.state.currentDay,
-      {
-        emitNarration: (payload) => this.emit(STATE_EVENTS.STORY_NARRATION, payload),
-        clearTransitionPending: () => { this.storyTransitionPending = false; },
-        emitChapterChanged: (payload) => this.emit(STATE_EVENTS.STORY_CHAPTER_CHANGED, payload),
-      },
+      this.io.story.advanceChapter,
     );
   }
 
@@ -2127,9 +2171,7 @@ export class GameStore implements IStateEventEmitter {
    *  c1025-02：主体外迁 pushStoryAxisStep（domains/storyDomain）。
    */
   private pushStoryAxis(delta: { power?: number; production?: number } | undefined): void {
-    pushStoryAxisStep(this.state.mode, this.state.storyFlags, delta, {
-      emitNarration: (payload) => this.emit(STATE_EVENTS.STORY_NARRATION, payload),
-    });
+    pushStoryAxisStep(this.state.mode, this.state.storyFlags, delta, this.io.story.pushStoryAxis);
   }
 
   // ============== Phase1：NPC 动态成长 ==============
@@ -2167,14 +2209,7 @@ export class GameStore implements IStateEventEmitter {
         worldWariness: this.state.worldWariness,
         lastActId: this.lastActId,
       },
-      {
-        addResource: (id, delta, reason) => this.addResource(id, delta, reason),
-        adjustMorale: (delta, reason) => this.adjustMorale(delta, reason),
-        adjustWrath: (delta, reason) => this.adjustWrath(delta, reason),
-        emitActChanged: (payload) => this.emit(STATE_EVENTS.ACT_CHANGED, payload),
-        emitNpcAction: (payload) => this.emit(STATE_EVENTS.NPC_ACTION, payload),
-        emitNpcDynamicsTick: () => this.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined),
-      },
+      this.io.story.npcDynamics,
     );
     this.lastActId = out.lastActId;
     this.state.playerMilitaryPower = out.playerMilitaryPower;
