@@ -2,6 +2,10 @@
  * P1 类型化事件面：每个 STATE_EVENTS 值 → 载荷类型的编译期契约。
  * GameStore.on/off/emit 用此映射泛型化；监听方仍可用 (payload: unknown)（逆变兼容）。
  * 覆盖完整性由 stateEvents.test 运行时守护（STATE_EVENTS 值必须全部是 map 的 key）。
+ *
+ * c1028-02（B 案落地，D1025-nod #8）：域回调注册表口径——域零 emit、副作用经 io
+ * 回调归位 store；多行 io 束收敛到 GameStore 构造期注册表（this.io，buildStoryIo/
+ * buildPopulationIo），单 setter 就地 lambda 不入表。事件表与载荷契约本文件单源不变。
  */
 import type { BuildingInstance, ModifierInstance } from '../data/schema';
 import type { ResourceId } from '../data/resourceRegistry';

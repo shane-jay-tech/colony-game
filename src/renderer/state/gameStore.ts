@@ -625,6 +625,7 @@ export class GameStore implements IStateEventEmitter {
   // 逐调装配行为等价；零行为变更门：全量 2031 绿＋GameState 接口块逐行比对。
   private io = {
     story: this.buildStoryIo(),
+    population: this.buildPopulationIo(),
   };
 
   /** story 域七束 io（事件朝议/结算/古迹/主线/章节/双轴/NPC 动态）。逐字段与原内联实参同源。 */
@@ -693,6 +694,32 @@ export class GameStore implements IStateEventEmitter {
         emitNpcAction: (payload: GameStateEventMap['state:npcAction']) =>
           this.emit(STATE_EVENTS.NPC_ACTION, payload),
         emitNpcDynamicsTick: () => this.emit(STATE_EVENTS.NPC_DYNAMICS_TICK, undefined),
+      },
+    };
+  }
+
+  /** population 域两束 io（人口增长/缺粮减员）。逐字段与原内联实参同源。 */
+  private buildPopulationIo() {
+    return {
+      populationTick: {
+        addPeople: (delta: number, reason: string) => {
+          // ID-1：addResource 内部 clamp 到 [0,9999]，用"调用前后的实际差值"同步阶层
+          const before = this.state.resources['people'] ?? 0;
+          this.addResource('people', delta, reason);
+          return (this.state.resources['people'] ?? 0) - before;
+        },
+        setPeopleClamped: (v: number) => this.setResourceClamped('people', v),
+        shrinkClasses: (n: number) => this.shrinkPopulationClasses(n),
+      },
+      starvationTick: {
+        addResource: (id: ResourceId, delta: number, reason: string) =>
+          this.addResource(id, delta, reason),
+        adjustMorale: (delta: number, reason: string) => this.adjustMorale(delta, reason),
+        adjustWrath: (delta: number, reason: string) => this.adjustWrath(delta, reason),
+        moraleShortPenalty: () => {
+          // 原 runStarvationTick 直写（不发 MORALE_CHANGED）；民心与 adjustMorale 读同一 state，次序保真
+          this.state.playerMorale = Math.max(0, this.state.playerMorale - 1);
+        },
       },
     };
   }
@@ -2247,16 +2274,7 @@ export class GameStore implements IStateEventEmitter {
         populationCarry: this.state.populationCarry,
         housingCap: this.getHousingCap(),
       },
-      {
-        addPeople: (delta, reason) => {
-          // ID-1：addResource 内部 clamp 到 [0,9999]，用"调用前后的实际差值"同步阶层
-          const before = this.state.resources['people'] ?? 0;
-          this.addResource('people', delta, reason);
-          return (this.state.resources['people'] ?? 0) - before;
-        },
-        setPeopleClamped: (v) => this.setResourceClamped('people', v),
-        shrinkClasses: (n) => this.shrinkPopulationClasses(n),
-      },
+      this.io.population.populationTick,
     );
     this.state.populationCarry = outcome.carry;
     // 趋势快照（运行时）——供 HUD 顶栏箭头 + 详情面板"今日约 +X"
@@ -2314,15 +2332,7 @@ export class GameStore implements IStateEventEmitter {
         populationClasses: this.state.populationClasses,
         grainNegativeDays: this.state.grainNegativeDays,
       },
-      {
-        addResource: (id, delta, reason) => this.addResource(id, delta, reason),
-        adjustMorale: (delta, reason) => this.adjustMorale(delta, reason),
-        adjustWrath: (delta, reason) => this.adjustWrath(delta, reason),
-        moraleShortPenalty: () => {
-          // 原 runStarvationTick 直写（不发 MORALE_CHANGED）；民心与 adjustMorale 读同一 state，次序保真
-          this.state.playerMorale = Math.max(0, this.state.playerMorale - 1);
-        },
-      },
+      this.io.population.starvationTick,
     );
     this.state.grainNegativeDays = out.grainNegativeDays;
     this.state.populationClasses = out.populationClasses;
