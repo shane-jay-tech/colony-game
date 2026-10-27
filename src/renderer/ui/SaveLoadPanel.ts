@@ -202,6 +202,7 @@ export class SaveLoadPanel {
             const bakState = await loadFromSlotBak(slot);
             if (bakState !== null) {
               this.store.replaceState(bakState);
+              this.store.settleOfflineReward();  // c1028-04：读档路径离线收益结算（.bak 回退同权）
               this.toast()?.show('已从备份回退（坏档保留在原位）', 'error', 3200);
               this.hide();
               return;
@@ -216,6 +217,7 @@ export class SaveLoadPanel {
           await this.refresh();
         } else {
           this.store.replaceState(state);
+          this.store.settleOfflineReward();  // c1028-04：读档路径离线收益结算（单局一次）
           this.toast()?.show('读档成功', 'info', 2200);
           this.hide();
         }

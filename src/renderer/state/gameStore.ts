@@ -37,6 +37,7 @@ import {
   costUnaffordable, chargeBuildingCost, buildingRefundDeltas, cedableBuildings as cedableWorkingBuildings,
   constructionSpeedMultiplier, advanceConstruction, productionTick as productionTickCore,
 } from './domains/constructionDomain';
+import { settleOfflineReward } from './offlineReward';
 // c1023-05：域五（回合/系统）逻辑外迁——纯计算件收进 domains/turnDomain，GameStore 保持薄委托
 import {
   expireModifiersStep, seasonTransitionStep, advanceDecrees,
@@ -2459,6 +2460,22 @@ export class GameStore implements IStateEventEmitter {
 
   setLastSeenNow(): void {
     this.state.lastSeenTimestamp = Date.now();
+  }
+
+  /**
+   * c1028-04（OFFLINE_REWARD 甲案接线，D1025-nod #6）：读档/回归路径调用——
+   * 按离线时长一次性结算快照资源收益（纯计算在 offlineReward.ts）。
+   * 单局只结算一次：结算后即盖新时戳（重复读档时长≈0 ⇒ 天然零结算）；
+   * 增量走 applyDayDeltas 单点 emit RESOURCES_CHANGED（复用既有事件面，不新增事件）。
+   */
+  settleOfflineReward(now: number = Date.now()): void {
+    const { deltas } = settleOfflineReward(
+      now, this.state.lastSeenTimestamp, this.state.buildings, this.state.activeModifiers,
+    );
+    this.setLastSeenNow();
+    if (Object.keys(deltas).length > 0) {
+      this.applyDayDeltas(deltas);
+    }
   }
 
   replaceState(newState: GameState): void {
