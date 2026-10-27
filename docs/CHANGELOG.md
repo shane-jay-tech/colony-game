@@ -72,7 +72,7 @@
 | L6 | portraits 目录存在孤儿件（差异表＋四出口已列，零删档） | `7877bfd`（09-25，c924-35）→ `docs/insights/colony-portraits-orphan-triage-20260924.md` |
 | L7 | 离线奖励死面与 `attic` 台账未收口 | `a75a7d5`（09-25，c924-32/33）→ `docs/insights/colony-offlinereward-deadface-20260924.md`、`colony-attic-ledger-20260924.md` |
 | L8 | P1 六行仍未合入（对照表＋合入稿草稿已出，只读，处置交人工） | `32eec44`（09-25，c924-34）→ `docs/insights/colony-p1-premerge-verify-20260924.md` |
-| L9 | **日历到 `MAX_SAVE_CURRENT_DAY` 上界后日管线照跑**（现状已被测试钉住，不＝认可） | `2deb7bf` → `src/renderer/state/__tests__/pauseResumeTimeAdvance.test.ts`（④ 组，件内注释已标在册缺陷） |
+| L9 | ~~日历到 `MAX_SAVE_CURRENT_DAY` 上界后日管线照跑~~ **已收口（c1028-05）**：tickDay 上界后全管线短路 | `b254d2f` → ④ 组钉已改写为修复语义（DAY_TICK 归零） |
 | L10 | 硬编码文案与单位仍在多处（审计案卷已出，未逐条改） | `17b8498`（09-25）→ `docs/insights/colony-hardcoded-copy-units-audit-20260925.md` |
 | L11 | 麻田／锡矿**仍无自有立绘**：现走同族复用贴图，`NO_OWN_ART` 集合仍在（`data/artManifest.ts:28`），`required:false` 并登记在待补素材清单。（该点名已于 `c927-14` 落地：README 与发行说明两条待办均已订正为"同族复用贴图"） | `e4548ed`（09-17）→ 源直读；文案面属产品裁量，本志未改 |
 | L12 | SFX 硬链接方案实测**省的空间≈0**，真问题是连带改写风险 ⇒ 不再当瘦身抓手 | `455b337`（09-24，c924-23）→ `docs/insights/colony-sfx-hardlink-plan-20260924.md` |
