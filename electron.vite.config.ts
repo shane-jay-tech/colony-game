@@ -56,8 +56,12 @@ export default defineConfig(({ mode }) => {
         rollupOptions: {
           input: resolve(__dirname, 'src/renderer/index.html'),
           output: {
-            manualChunks: {
-              phaser: ['phaser'],
+            // vite 8（Rolldown）迁移（2026-11-14）：对象形态 manualChunks 已移除，
+            // 8.3 最终形态为 codeSplitting 分组（advancedChunks 已再弃用）——
+            // 等价于原 `manualChunks: { phaser: ['phaser'] }`：
+            // phaser 及其传递依赖独立成 vendor chunk，业务码改动不使 6.7MB 引擎缓存失效。
+            codeSplitting: {
+              groups: [{ name: 'phaser', test: /[\\/]node_modules[\\/]phaser[\\/]/ }],
             },
           },
         },
