@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.5",
-    "electron": "32.3.3",
+    "electron": "45.3.2",
     "electron-builder": "^24.13.3",
     "electron-vite": "^2.1.0",
     "eventemitter3": "^5.0.4",
