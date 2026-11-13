@@ -14,5 +14,11 @@
     "tsBuildInfoFile": "./.tsbuildinfo/renderer.tsbuildinfo",
     "types": []
   },
-  "include": ["src/renderer/**/*"]
+  // vitest 4 迁移（2026-11-14）：vitest 1.x 的 d.ts 会把 @types/node 全局（process/__dirname/
+  // node:fs…）传递泄漏进本工程——__tests__ 下的测试文件靠这个泄漏用 node API 而不报错。
+  // vitest 4 的类型不再引用 @types/node（官方破坏性变更），测试文件的 node 用法随之暴露。
+  // 处置：产品面保持 types:[] 的 DOM 纯净不动；__tests__ 摘到 tsconfig.test.json
+  //（types:["node"]）单独过 type-check。产品文件全部仍在本工程受 types:[] 门禁。
+  "include": ["src/renderer/**/*"],
+  "exclude": ["src/renderer/**/__tests__/**"]
 }

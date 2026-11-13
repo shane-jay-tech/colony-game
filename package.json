@@ -12,7 +12,7 @@
     "electron:build": "node scripts/gen-icon.mjs && node scripts/patch-7za-wrapper.mjs && electron-vite build && electron-builder",
     "electron:build:win": "node scripts/gen-icon.mjs && node scripts/patch-7za-wrapper.mjs && electron-vite build && electron-builder --win",
     "gen-icon": "node scripts/gen-icon.mjs",
-    "type-check": "tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.main.json --noEmit",
+    "type-check": "tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.test.json --noEmit && tsc -p tsconfig.main.json --noEmit",
     "art:exists-check": "tsx scripts/art-exists-check.mts",
     "test": "vitest run",
     "test:perf": "vitest run --config vitest.perf.config.ts",
@@ -30,6 +30,6 @@
     "tsx": "^4.23.15",
     "typescript": "^5.3.3",
     "vite": "^8.3.8",
-    "vitest": "^1.6.1"
+    "vitest": "^4.1.12"
   }
 }

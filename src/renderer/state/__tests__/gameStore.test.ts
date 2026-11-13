@@ -1090,7 +1090,7 @@ describe('Phase1 国格阶梯（集成）', () => {
     store.tickDay();
     expect(store.getGrade()).toBe(1);
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy.mock.calls[0][0]).toMatchObject({ from: 0, to: 1, reason: 'ascend' });
+    expect(spy.mock.calls[0]![0]).toMatchObject({ from: 0, to: 1, reason: 'ascend' });
   });
 
   it('门槛达标但缺标志建筑 → 不晋阶', () => {
@@ -1141,7 +1141,7 @@ describe('Phase1 低谷危机（集成）', () => {
     expect(spy).not.toHaveBeenCalled();
     store.tickDay(); // 第 40 日触发
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy.mock.calls[0][0]).toMatchObject({ kind: 'unrest' });
+    expect(spy.mock.calls[0]![0]).toMatchObject({ kind: 'unrest' });
     expect(store.getResources().people ?? 0).toBeLessThan(peopleBefore);
     // B-0：starvation morale penalty（日 15 后每日 -3）叠加 crisis penalty(-20)
     expect(store.getPlayerMorale()).toBeLessThan(30);
@@ -1359,7 +1359,7 @@ describe('Phase2 故事框架（集成）', () => {
     ee.on(STATE_EVENTS.STORY_UNIFIED, spy);
     store.tickDay();
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy.mock.calls[0][0]).toMatchObject({ path: 'martial' });
+    expect(spy.mock.calls[0]![0]).toMatchObject({ path: 'martial' });
     expect(store.getStoryFlags()?.unified).toBe(true);
     expect(store.getStoryFlags()!.powerAxis).toBeLessThan(0);
     // 再 tick 不重复触发
@@ -1391,7 +1391,7 @@ describe('Phase2 故事框架（集成）', () => {
     store.advanceStoryChapter(1);
     expect(store.getStoryFlags()?.chapter).toBe(1);
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy.mock.calls[0][0]).toMatchObject({ chapter: 1 });
+    expect(spy.mock.calls[0]![0]).toMatchObject({ chapter: 1 });
   });
 
   it('抉择推双轴：故事模式采纳带 storyAxisDelta 的国策 → 轴变；沙盒模式不变', () => {

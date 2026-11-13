@@ -11,7 +11,12 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test, expect } from 'vitest';
+import { test, expect, vi } from 'vitest';
+
+// vitest 4 迁移（2026-11-14）：G1 要把审计脚本整树跑两遍，forks 池+并行满载下实测 ≈10s，
+// 越过默认 testTimeout 5000ms（1.6 threads 池时代在 5s 内）。文件级放宽到 60s
+// （vi.setConfig 只作用于本文件），全仓其余测试仍守 5s 默认门。
+vi.setConfig({ testTimeout: 60_000 });
 
 const ROOT = join(__dirname, '..', '..');
 const SCRIPT = 'scripts/audit-dead-exports.mjs';

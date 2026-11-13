@@ -56,7 +56,7 @@ describe('ZoomControl characterization（c920-05）', () => {
     const renderer = { getMapZoom: () => 1.0, setMapZoom: vi.fn(), getMinZoom: () => 0.5, getMaxZoom: () => 4 };
     const { captured } = makeZoomControl(renderer);
     captured.btnZoomIn!();
-    const factor = renderer.setMapZoom.mock.calls[0][0] as number;
+    const factor = renderer.setMapZoom.mock.calls[0]![0] as number;
     expect(factor).toBeGreaterThan(1);   // ×STEP（1.2）
   });
 

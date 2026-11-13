@@ -23,7 +23,10 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/renderer/ui/__tests__/hudRefreshCost.test.ts'],
-    // 串行：单线程池，保证计时读数只由本件占用 CPU
-    poolOptions: { threads: { singleThread: true } },
+    // 串行：保证计时读数只由本件占用 CPU。
+    // vitest 4 迁移（2026-11-14）：1.x 的 `poolOptions.threads.singleThread` 已移除
+    // （2.0 起 threads 池废 singleThread、3.0 起默认池= forks），等价形态为
+    // `poolOptions.forks.singleFork`——单文件单进程串行，语义与旧 singleThread 一致。
+    poolOptions: { forks: { singleFork: true } },
   },
 });

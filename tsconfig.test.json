@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "tsBuildInfoFile": "./.tsbuildinfo/test.tsbuildinfo",
+    // vitest 4 迁移（2026-11-14）新增工程：__tests__ 面用 node API（fs/path/process/__dirname），
+    // 原先靠 vitest 1.x d.ts 的传递泄漏获得类型；vitest 4 不再泄漏，故给测试面显式 node 类型。
+    // 产品面（tsconfig.renderer.json）仍是 types:[] 的 DOM 纯净门禁——本工程只 include __tests__，
+    // 经 import 进来的产品文件在 renderer 工程里另行受检，node 全局不会因此漏进产品门禁。
+    "types": ["node"]
+  },
+  "include": ["src/renderer/**/__tests__/**/*.ts"]
+}

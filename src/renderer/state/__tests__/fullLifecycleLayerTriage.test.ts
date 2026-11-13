@@ -20,7 +20,12 @@
  *   🔴 本仓一手实测：`getState()` 返回 `Object.freeze(structuredClone(state))`（gameStore.ts:457-458）
  *   ⇒ 往它上面 push 任何字段都是**假注入**（静默无效或 strict-mode TypeError）；本件的 state 注入一律走 `replaceState`。
  */
-import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
+// vitest 4 迁移（2026-11-14）：forks 池下本件的整局模拟变慢（单 lifecycle≈2.4s，
+// L1 三连≈7.1s、并行满载下 L0 实测 8.4s），越过默认 testTimeout 5000ms——
+// vitest 1.6 threads 池时代恰在 5s 内擦线。文件级放宽到 60s（vi.setConfig 只作用于本文件），
+// 全仓其余测试仍守 5s 默认门。
+vi.setConfig({ testTimeout: 60_000 });
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

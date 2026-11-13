@@ -20,7 +20,11 @@
  *   主进程 handler 不可 import（import 期 `ensureDDrivePaths()` 会往 cwd 外 mkdirSync）⇒ D 组走**源码字节钉桩**；
  *   全程不改产品码：C2 测出的"缺字段不拒绝"一律登记进 result 待裁，不在本件里顺手改语义。
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+// vitest 4 迁移（2026-11-14）：B 组真写盘/真读盘续跑在 forks 池+并行满载下实测 5.1-7.5s，
+// 越过默认 testTimeout 5000ms（1.6 threads 池时代在 5s 内）。文件级放宽到 30s
+// （vi.setConfig 只作用于本文件），全仓其余测试仍守 5s 默认门。
+vi.setConfig({ testTimeout: 30_000 });
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
