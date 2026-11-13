@@ -78,6 +78,11 @@ function createWindow(): void {
     fullscreenable: false,
     webPreferences: {
       preload: resolvePreloadPath(),
+      // sandbox 复审（2026-11-14，Electron 32.3.3 试验）：改 true 后 electron-vite 2 构建可通过，
+      // 但 Electron 明文约束 ESM(.mjs) preload 必须配 sandbox:false——sandboxed preload 不走 ESM
+      // 加载器，true 形态下 preload 不执行、colonyApi 不暴露，存档/resize IPC 全断。
+      // 故维持 false（contextIsolation:true+nodeIntegration:false 仍在）；若未来要开沙箱，
+      // 需先把 preload 输出转 CJS 单文件（output.format:'cjs'+.js）并过一轮 GUI 冒烟。
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
